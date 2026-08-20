@@ -235,7 +235,7 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 |---|---|
 | 支持哪些 AI Agent、用法和验证状态 | `references/supported-agents.yml` |
 | 路由判据与推荐组合 | `references/executor-routing.md` |
-| 统一调用字段、状态与恢复规则 | `references/dispatch-contract.md` |
+| 统一调用字段、状态、派发纪律与恢复规则 | `references/dispatch-contract.md` |
 | 单个执行器命令 | `references/supported-agents.yml` 中该 agent 的 `reference` |
 | 模型与价格运行时事实源 | `references/model-catalog.yml` |
 | 价格目录的带日期来源快照 | `reports/model-pricing-2026-07-10.md` |

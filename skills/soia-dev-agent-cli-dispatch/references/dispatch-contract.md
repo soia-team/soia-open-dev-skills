@@ -6,7 +6,7 @@
 
 - 统一调用契约、输入输出字段与未知值处理
 - 预检、模型完整性、断点恢复与完成回执
-- 危险目录与反虚假修复门禁
+- 派发纪律、危险目录与反虚假修复门禁
 
 ## 统一调用契约 / Unified invocation contract
 
@@ -165,6 +165,14 @@ Token 与费用：
 ```
 
 单次调用用这份回执；批量矩阵额外参考 manifest 的 `completed_cases` / `remaining_cases` / `stop_reason` 汇总整批状态。
+
+## 派发纪律 / Dispatch disciplines
+
+以下纪律来自 2026-08-20 本地端点（dsh + mlx OpenAI 兼容端点）真实派发暴露的失败模式；对云端执行器按同样条件适用。
+
+1. **探索型任务必须预填情报**：派发前把文件清单、关键 docstring/接口签名直接放进 prompt，不让执行器自己探索。上下文获取能力弱的模型（尤其本地模型）自行探索会烧掉大量轮次甚至挂死。
+2. **pi 长 prompt+工具组合形态在本地端点上禁用**：实测两次挂死在首次工具调用前（零请求发出；烟测短 prompt 通路正常）。此形态任务改派 dsh（见 `references/dsh-cli.md`）。
+3. **自指危险（服务生命周期类任务）**：派发「管理服务启停脚本」类任务时，agent 超范围自验 `start` 命令会先杀掉旧服务——而那可能正是它自己赖以对话的模型端点，导致 TRANSPORT 断连（产物其实已完成但会话死亡）。对策：此类任务的验收命令显式禁止真实执行 start/stop（用 status/dry-run 验收），或给 agent 配独立端点。
 
 ## 危险目录 / Dangerous directories
 

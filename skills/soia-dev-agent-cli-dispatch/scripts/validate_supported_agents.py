@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by claude opus 4.6
 # @created_at 2026-08-04 11:43:03
-# @modified_by gpt-5.6-sol
-# @modified_at 2026-08-04 14:05:00
-# @version 0.2.0
+# @modified_by anthropic/claude-fable-5
+# @modified_at 2026-08-20 11:15:00
+# @version 0.2.1
 # @description Validate the public supported-agents YAML without third-party YAML dependencies.
-# @changelog Follow the references/assets layout and validate the linked config template.
+# @changelog Add dsh to the expected agent registry.
 """Validate supported-agents.yml and its referenced files."""
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ import catalog_lib  # noqa: E402
 
 
 EXPECTED_AGENTS = {
-    "codex", "claude", "pi", "agy", "gemini", "kimi", "opencode", "qwen", "qodercli", "deepcode"
+    "codex", "claude", "pi", "dsh", "agy", "gemini", "kimi", "opencode", "qwen", "qodercli", "deepcode"
 }
 EXPECTED_WORKFLOWS = {
     "easy-code-and-analysis", "medium-code-and-review",

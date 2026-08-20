@@ -2,7 +2,7 @@
 # This is not a credential file. Keep mutable support facts here; prose should link here instead of copying the matrix.
 schema_version: 1
 config_template: assets/config.example.yml
-updated_at: "2026-08-04"
+updated_at: "2026-08-20"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
@@ -91,6 +91,17 @@ agents:
     usage_evidence: measured
     auto_routing: [easy]
     reference: references/pi-cli.md
+  dsh:
+    command: dsh
+    dispatch_supported: true
+    matrix_supported: false
+    verification_status: real_task_tested_local_endpoint
+    prompt_transport: argument
+    structured_output: text
+    model_integrity: unimplemented
+    usage_evidence: unavailable
+    auto_routing: []
+    reference: references/dsh-cli.md
   agy:
     command: agy
     dispatch_supported: true

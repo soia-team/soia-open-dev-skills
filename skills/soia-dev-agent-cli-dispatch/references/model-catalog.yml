@@ -27,7 +27,7 @@
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-08-04"
+updated_at: "2026-08-20"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -35,6 +35,9 @@ sources:
   - id: pricing-2026-07-10
     path: reports/model-pricing-2026-07-10.md
     date: "2026-07-10"
+  - id: local-mlx-2026-08-20
+    path: references/dsh-cli.md
+    date: "2026-08-20"
 providers:
   openai:
     executor_cli: codex
@@ -814,6 +817,43 @@ providers:
           billing_mode_notes: "'input_per_1m' is the cache-miss (standard) price; cached_input_per_1m is the cache-hit price. Max output 384K tokens. No Batch/Priority/long-context pricing listed separately by source. Actual cost is deducted directly from prepaid/bonus balance, not a subscription."
           effective_date: "2026-07-10"
           source_id: pricing-2026-07-10
+        routing_profile: null
+        discovered_at: null
+        discovery_evidence: null
+  # -- Local models (OpenAI-compatible endpoints): TEMPLATE entry, not a billable cloud model --
+  # 本地模型条目与上方云端条目的差异：
+  #   - cost 全部为 0：本地推理没有按 token 计费；电力/硬件成本不在本 catalog 建模。
+  #   - tokens 用量：CLI 不上报时回执各分项显式标 unavailable（不留空、不编数）；
+  #     实际 tokens 可从模型服务器侧日志（如 mlx_lm.server 请求日志）采集补录。
+  #   - model_id 是本地模型路径或目录名；<local-model-path> 是占位符，复制本条目后
+  #     替换为自己机器的真实值，不要把任何一台机器的绝对路径写死为规范。
+  #   - actual_model 验证只能靠模型服务器日志；dsh web UI 的模型标签不是证据
+  #     （接入方式与证据边界见 references/dsh-cli.md）。
+  #   - 本条目是形态模板：不参与自动路由（routing_profile: null），也不计入文件头
+  #     注释所述 2026-07-10 价格源的 29 个云端计费模型。
+  mlx:
+    executor_cli: dsh
+    models:
+      - model_id: <local-model-path>
+        display_name: "Local MLX model (template)"
+        aliases: []
+        model_family: local-openai-compatible
+        availability: local_only
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: 0
+          cached_input_per_1m: 0
+          cache_write_per_1m: 0
+          output_per_1m: 0
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "Local inference has no per-token billing; all costs are 0 by convention and estimate_cost.py output for this entry is always 0, not a real charge. The CLI does not report token usage; receipts must record token fields as unavailable (never blank, never invented) unless collected from the model server's own request logs (e.g. mlx_lm.server). Entry shape validated by real dsh dispatches against a local OpenAI-compatible endpoint on 2026-08-20; see references/dsh-cli.md."
+          effective_date: "2026-08-20"
+          source_id: local-mlx-2026-08-20
         routing_profile: null
         discovered_at: null
         discovery_evidence: null

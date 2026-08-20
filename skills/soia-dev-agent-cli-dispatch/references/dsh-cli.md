@@ -81,3 +81,22 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 - patch 注入后先 `--dump-config` 核对 provider 与默认模型已生效，再发真实任务。
 - `dsh` 是 coding harness：派发前必须进入目标工作目录，不要把 `$DSH_HOME`、`~/.claude/` 等 AI 工具配置目录作为工作目录。
 - 本地模型条目形态（cost=0、tokens unavailable 约定）见 `references/model-catalog.yml` 的 `mlx` provider 模板。
+
+## settings.yaml 持久化与 NO_ADAPTER 诊断（2026-08-20 实测）
+
+- dsh web 里选择模型会把默认模型**持久化写进 `~/.dsh/settings.yaml`**（`agent-default-model` 键）——但 **provider 定义不会**随之写入。此后不带 `--patch` 的 headless 调用报 `NO_ADAPTER: no adapter registered for provider "<名>"`。
+- 修复二选一：把 provider 定义也写进 settings.yaml（键结构 = plugin id 为顶层键，`llm-pi-ai:` 下放 `providers:`，与 patch 的 `- id/config` 一一对应），或把 `agent-default-model` 改回云端 provider。
+- settings.yaml 与 `--patch` 双轨并存：settings 是本机持久层，patch 是本次叠加层（后者覆盖前者）。凭据仍必须显式传环境变量（如 `OPENAI_API_KEY=mlx`），settings 不能免除。
+
+## 会话触发陷阱
+
+在 dsh web 的**历史任务会话**里发送任何消息——包括闲聊（"你是什么模型"）——都会被当作继续执行任务的指令：agent 会带着旧任务上下文直接开工改文件（实测把知识库里的实验描述误当规格写进了脚本）。纪律：已完成的会话不要再发消息；要新对话就开新会话。
+
+## 模型身份验证阶梯（从模型嘴里问永远不可靠）
+
+system prompt 会让任何模型自称 harness 预设的身份（实测本地 Qwen 一口咬定自己是 deepseek-v4-flash）。按可靠性从高到低：
+1. **拔线测试**：停掉本地模型服务再发消息——报错=走本地，正常回答=走云端；
+2. **服务器日志时间戳对照**：发消息的时刻本地端点有无对应请求记录；
+3. **物理特征**：本地大上下文冷 prefill 首字十几秒起，云端不会；
+4. `--dump-config` 核对生效 provider；
+5. 对话侧能力指纹（最弱，仅无服务器权限时）。

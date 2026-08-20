@@ -3,9 +3,10 @@
 # @created_at 2026-07-11
 # @modified_by openai/gpt-5
 # @modified_at 2026-07-11
-# @version 0.1.0
+# @version 0.2.0
 # @description Run a Claude Code prompt file through stdin without shell quoting or option confusion.
-# @changelog Initial version with dry-run, timeout handling, and an offline stdin regression test.
+# @changelog Default --permission-mode switched from dontAsk to auto (automatic
+#            mode: routine operations proceed, dangerous ones fall back to prompts).
 """Run a persisted prompt through Claude Code without putting it in argv.
 
 Prompts may begin with YAML frontmatter (``---``), contain shell metacharacters,
@@ -99,7 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["low", "medium", "high", "xhigh", "max"],
         help="Claude reasoning effort supported by the installed CLI.",
     )
-    parser.add_argument("--permission-mode", default="dontAsk")
+    parser.add_argument("--permission-mode", default="auto")
     parser.add_argument("--tools", help="Comma-separated Claude tool allowlist, e.g. Read,Grep,Glob.")
     parser.add_argument(
         "--output-format",

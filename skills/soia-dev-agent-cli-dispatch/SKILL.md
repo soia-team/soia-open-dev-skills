@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.3.2
+version: 1.3.3
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-08-05 13:30:00
+updated_at: 2026-08-20 16:40:00
 created_by: claude opus 4.6
 updated_by: claude-opus-5
 ---

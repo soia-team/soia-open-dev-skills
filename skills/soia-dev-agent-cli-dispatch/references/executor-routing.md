@@ -65,7 +65,7 @@
 │   ├── 消费者 Google 账号：agy --model "<agy models 显示名>" -p "..."
 │   ├── Gemini 非消费者通道：gemini -p "..." --output-format json
 │   ├── Gemini 非消费者通道：gemini -p "..." --output-format stream-json
-│   └── claude --permission-mode bypassPermissions --print --output-format json
+│   └── claude --permission-mode auto --print --output-format json
 │       详见 references/antigravity-cli.md / references/gemini-cli.md / references/claude-code-cli.md
 │
 ├── 高隔离分析（沙箱）

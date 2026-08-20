@@ -4,7 +4,7 @@
 
 - **批处理 / 自动化**：优先 `claude --print`
 - **结构化结果**：优先 `--output-format json` 或 `stream-json`
-- **最小权限控制**：显式设置 `--permission-mode`
+- **权限模式**：默认 `--permission-mode auto`（自动模式：常规操作免确认，危险操作自动回退询问）；`bypassPermissions` 仅在明确接受工作目录改动风险时使用
 - **交互式会话**：仅在确需人工连续交互时才直接进入 TUI
 
 ## 模型分级
@@ -22,7 +22,7 @@
 ### 1. 一次性批处理
 
 ```bash
-claude --permission-mode bypassPermissions --print "Summarize the refactor plan for this module"
+claude --permission-mode auto --print "Summarize the refactor plan for this module"
 ```
 
 适用：
@@ -33,7 +33,7 @@ claude --permission-mode bypassPermissions --print "Summarize the refactor plan 
 ### 2. 结构化 JSON 输出
 
 ```bash
-claude --permission-mode bypassPermissions --print --output-format json "Review this diff and return findings"
+claude --permission-mode auto --print --output-format json "Review this diff and return findings"
 ```
 
 ### 2.1 从文件安全传入长 prompt（推荐）
@@ -41,17 +41,16 @@ claude --permission-mode bypassPermissions --print --output-format json "Review 
 ```bash
 python3 scripts/run_claude_prompt.py \
   --prompt-file <prompt-file> \
-  --permission-mode dontAsk \
   --tools Read,Grep,Glob \
   --model <model-id> \
   --effort high \
   --output-format json
 ```
 
-脚本通过 stdin 传 prompt，正文不会进入 shell 插值、命令行参数或进程列表。若不用脚本而把文件内容作为位置参数传给 Claude，必须加参数终止符：
+脚本通过 stdin 传 prompt，正文不会进入 shell 插值、命令行参数或进程列表；`--permission-mode` 默认 `auto`，可显式覆盖。若不用脚本而把文件内容作为位置参数传给 Claude，必须加参数终止符：
 
 ```bash
-claude --permission-mode dontAsk --print --output-format json -- \
+claude --permission-mode auto --print --output-format json -- \
   "$(< "<prompt-file>")"
 ```
 
@@ -60,7 +59,7 @@ prompt 可能以 YAML `---` 或单个 `-` 开头；省略 `--` 会被 Claude CLI
 ### 3. 流式 JSON 输出
 
 ```bash
-claude --permission-mode bypassPermissions --print --output-format stream-json "Run the tests and explain failures"
+claude --permission-mode auto --print --output-format stream-json "Run the tests and explain failures"
 ```
 
 ### 4. 继续当前目录最近会话
@@ -84,7 +83,7 @@ claude --continue
 ## 关键约束
 
 - 默认推荐 `--print`，因为它更适合自动化编排、减少 PTY/TUI 交互开销。
-- `--permission-mode bypassPermissions` 只在你已经明确接受该工作目录的改动风险时使用。
+- `--permission-mode auto` 是默认：常规操作免确认，危险操作自动回退询问；`--permission-mode bypassPermissions` 只在你已经明确接受该工作目录的改动风险时使用。
 - 若任务只需要分析，不应默认放大到可编辑会话。
 - 若要结构化消费输出，必须显式带 `--output-format`。
 - 从文件传入 prompt 时优先用 `scripts/run_claude_prompt.py`；不得用缺少 `--` 的 `"$(cat prompt.txt)"` 位置参数写法。

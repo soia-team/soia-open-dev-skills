@@ -1,6 +1,6 @@
 {
   "name": "soia-dev",
-  "version": "1.3.1",
+  "version": "1.3.2-SNAPSHOT",
   "description": "Engineering workflow partner: scoped changes with verification gates, adversarial review, fix loops, test design, release checklists and GitHub operations.",
   "author": {
     "name": "soia-team"

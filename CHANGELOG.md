@@ -3,6 +3,14 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.9.1 — 2026-08-20
+
+agent-cli-dispatch：dsh 补 settings.yaml 持久化与 NO_ADAPTER 诊断、历史会话触发陷阱、模型身份验证阶梯
+
+## 维护
+- docs(agent-cli-dispatch): dsh 补 settings.yaml 持久化/NO_ADAPTER 诊断、会话触发陷阱、身份验证阶梯（1.3.4）
+- chore(release): open next train after v1.9.0 (#57)
+
 ## v1.9.0 — 2026-08-20
 
 dispatch claude code 调用默认 auto + dsh 执行器支持

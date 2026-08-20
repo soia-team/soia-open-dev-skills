@@ -3,6 +3,18 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.9.0 — 2026-08-20
+
+dispatch claude code 调用默认 auto + dsh 执行器支持
+
+## 新增
+- feat(agent-cli-dispatch): claude code 调用默认 --permission-mode auto (1.3.3) (#55)
+- feat(agent-cli-dispatch): 支持 dsh 执行器并沉淀本地端点派发纪律
+
+## 维护
+- chore(train): dev 含 feat（dsh 执行器 + claude permission auto），列车提为 minor
+- chore(release): open next train after release
+
 ## v1.8.0 — 2026-08-06
 
 agent-cli-dispatch pi 运行时与执行器能力矩阵、渐进式披露重构、私密数据章节收口

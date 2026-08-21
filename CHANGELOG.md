@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.9.2 — 2026-08-21
+
+dispatch 技能 1.3.5：修正 dsh patch/settings 优先级错误断言、pi 中文×工具死循环入册、派发端点验证纪律
+
+## 修复
+- fix(agent-cli-dispatch): 修正 dsh patch/settings 优先级错误断言+pi 中文×工具死循环入册（1.3.5）
+
+## 维护
+- chore(release): open next train after v1.9.1 (#59)
+
 ## v1.9.1 — 2026-08-20
 
 agent-cli-dispatch：dsh 补 settings.yaml 持久化与 NO_ADAPTER 诊断、历史会话触发陷阱、模型身份验证阶梯

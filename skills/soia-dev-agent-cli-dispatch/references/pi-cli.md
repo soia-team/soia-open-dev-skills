@@ -68,6 +68,10 @@ pi -p --mode json --no-session --no-tools \
 - `--mode json` 的 assistant `message_end` 回显 `provider=deepseek`、`model=deepseek-v4-flash` 与结构化 usage；
 - 该证据只支持 easy 自动路由。medium/hard、其他 thinking 档和 `deepseek-v4-pro` 未测试，不得自动扩张为已验证支持。
 
+## 已知限制：中文×工具任务死循环（2026-08-21，本地 mlx 端点实测）
+
+pi 挂本地 mlx 端点（Ornith-1.5-35B-A3B，OpenAI 兼容 21001）派**中文且需要工具调用**的任务时进入死循环：服务日志高频短请求打转（1-2 秒一个 POST 秒回 200），60/300 秒超时零产物。二分锁定条件：英文同任务 7s 完成 ✓、中文纯问答 2s ✓、中文×工具（含去掉特殊字符版）稳定复现 ✗。规避：给 pi 派英文任务，或中文任务改派 dsh；触发器：pi 或模型 chat template 更新后复测。机理未溯源（疑 tool call 格式在中文语境下不被 pi 接受触发重试循环，未验证）。
+
 ## 关键约束
 
 - `pi` 是 coding harness，不是纯聊天 CLI。派发前必须进入目标工作目录，并设置与任务风险匹配的工具白名单。

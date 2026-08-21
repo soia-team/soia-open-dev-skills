@@ -86,7 +86,9 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 
 - dsh web 里选择模型会把默认模型**持久化写进 `~/.dsh/settings.yaml`**（`agent-default-model` 键）——但 **provider 定义不会**随之写入。此后不带 `--patch` 的 headless 调用报 `NO_ADAPTER: no adapter registered for provider "<名>"`。
 - 修复二选一：把 provider 定义也写进 settings.yaml（键结构 = plugin id 为顶层键，`llm-pi-ai:` 下放 `providers:`，与 patch 的 `- id/config` 一一对应），或把 `agent-default-model` 改回云端 provider。
-- settings.yaml 与 `--patch` 双轨并存：settings 是本机持久层，patch 是本次叠加层（后者覆盖前者）。凭据仍必须显式传环境变量（如 `OPENAI_API_KEY=mlx`），settings 不能免除。
+- settings.yaml 与 `--patch` 双轨并存：settings 是本机持久层，patch 是本次叠加层。凭据仍必须显式传环境变量（如 `OPENAI_API_KEY=mlx`），settings 不能免除。
+- **优先级修正（2026-08-21 单变量实验推翻旧断言）**：本文档曾写"patch 覆盖 settings"——**实测相反**：settings.yaml 存在 `agent-default-model` 时，`--patch` 里的同名条目**不生效**，请求仍打到 settings 指定的 provider。旧断言成立的环境是 settings 尚无该键（patch 独占生效）。切换模型的可靠做法：把目标 provider 写进 settings.yaml 的 `providers:` 并临时改 `agent-default-model`，用完改回。
+- **派发后必须验证请求真到目标端点**（与评测的"对照条件生效验证"同源）：对照目标与非目标端点的服务日志请求计数（如 `grep -c POST <各端点日志>`）确认新增请求落在目标端点。真实事故：patch 指 21001 的"实测成绩"实为 settings 默认的 21000 模型跑出（假对照），靠请求计数识破。
 
 ## 会话触发陷阱
 

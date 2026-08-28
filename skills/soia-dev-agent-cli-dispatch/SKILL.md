@@ -3,11 +3,11 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.3.5
+version: 1.3.6
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-08-21 15:00:00
+updated_at: 2026-08-28 11:23:29
 created_by: claude opus 4.6
-updated_by: claude-opus-5
+updated_by: openai/gpt-5.6-sol
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -157,6 +157,7 @@ permissions:
 ```
 
 未明确授权的权限保持 `false`。显式指定的执行器、模型和推理档优先；但未验证组合必须标记 `explicit_unverified`，不能包装为自动推荐。
+Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属于调用方项目/用户策略，不由本通用技能写死；派发者必须把该策略作为本次输入，未提供时才按任务复杂度和现有验证证据给出候选。
 
 ## 核心流程
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by unknown
 # @created_at unknown
-# @modified_by openai/gpt-5
-# @modified_at 2026-07-10 17:58:15
-# @version 0.2.0
+# @modified_by openai/gpt-5.6-sol
+# @modified_at 2026-08-28 11:23:29
+# @version 0.2.1
 # @description Parse, validate, and resolve the dispatch model catalog.
-# @changelog Enforce routing, discovery, pricing-source, and actual-model alias contracts.
+# @changelog Pin the observed DeepSeek Vision levels and protect unrelated model entries from catalog misassignment.
 """Restricted YAML-subset parser and schema validator for model-catalog.yml.
 
 This is NOT a general YAML parser. It only understands the subset that
@@ -615,6 +615,21 @@ sources:
         check("find_model: exact model_id in real catalog", exact["match"] == "exact")
         unknown = find_model(real_data, "totally-unknown-model-xyz")
         check("find_model: unknown model returns no match", unknown["match"] is None)
+        vision = find_model(real_data, "deepseek-v4-flash-vision-exp")
+        check(
+            "find_model: DSH-UI-observed vision model resolves but stays unverified",
+            vision["match"] == "exact"
+            and vision["provider"] == "deepseek"
+            and vision["model"].get("supported_reasoning_levels") == ["off", "low", "high", "max"]
+            and vision["model"].get("reasoning_levels_confidence") == "unverified"
+            and vision["model"].get("routing_profile") is None,
+        )
+        pro = find_model(real_data, "gpt-5.5-pro")
+        check(
+            "find_model: unrelated gpt-5.5-pro reasoning levels remain unknown",
+            pro["match"] == "exact"
+            and pro["model"].get("supported_reasoning_levels") == [],
+        )
     else:
         check("real catalog file present", False, f"not found at {catalog_path}")
 

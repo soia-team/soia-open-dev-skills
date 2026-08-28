@@ -2,10 +2,10 @@
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
 # @modified_by openai/gpt-5.6-sol
-# @modified_at 2026-08-04 11:13:15
-# @version 0.1.3
+# @modified_at 2026-08-28 11:23:29
+# @version 0.1.4
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog Route verified Pi easy tasks to DeepSeek V4 Flash at low thinking.
+# @changelog Keep explicit reasoning requests unverified when the catalog level evidence is unverified; add DeepSeek Vision coverage.
 """Mechanically route an executor family to a verified model/effort pair."""
 
 from __future__ import annotations
@@ -45,10 +45,13 @@ def _choose_effort(model: dict[str, Any], complexity: str, requested: str | None
     confidence = model.get("reasoning_levels_confidence")
     if requested:
         if requested in levels:
-            return requested, "explicit"
+            return requested, ("explicit_unverified"
+                               if confidence == "unverified" else "explicit")
         if confidence == "unverified":
             return requested, "explicit_unverified"
         raise RouteError(f"reasoning effort {requested!r} is not verified for {model.get('model_id')!r}")
+    if confidence not in {"smoke_tested", "verified"}:
+        return None, "explicit_unverified"
     default = model.get("default_reasoning_level")
     for candidate in PREFERRED_EFFORTS[complexity]:
         if candidate in levels:
@@ -121,6 +124,33 @@ def run_selftest() -> int:
     checks.append(("pi easy -> deepseek-v4-flash low", pi_easy["selected_model"] == "deepseek-v4-flash" and pi_easy["selected_reasoning_effort"] == "low" and pi_easy["selection_status"] == "verified_auto"))
     pi_explicit = route_model(data, "pi", "easy", "deepseek/deepseek-v4-flash", "low")
     checks.append(("pi provider-qualified explicit model resolves", pi_explicit["selected_model"] == "deepseek-v4-flash" and pi_explicit["selection_status"] == "explicit"))
+    for observed_level in ("off", "low", "high", "max"):
+        pi_vision_explicit = route_model(
+            data, "pi", "easy", "deepseek-v4-flash-vision-exp", observed_level)
+        checks.append((
+            f"pi vision-exp {observed_level} stays explicit_unverified (DSH UI only, no Pi smoke)",
+            pi_vision_explicit["selected_model"] == "deepseek-v4-flash-vision-exp"
+            and pi_vision_explicit["selected_reasoning_effort"] == observed_level
+            and pi_vision_explicit["selection_status"] == "explicit_unverified",
+        ))
+    pi_vision_no_reasoning = route_model(data, "pi", "easy", "deepseek-v4-flash-vision-exp")
+    checks.append((
+        "pi vision-exp explicit model without reasoning also stays explicit_unverified",
+        pi_vision_no_reasoning["selected_model"] == "deepseek-v4-flash-vision-exp"
+        and pi_vision_no_reasoning["selected_reasoning_effort"] is None
+        and pi_vision_no_reasoning["selection_status"] == "explicit_unverified",
+    ))
+    pi_auto = route_model(data, "pi", "easy")
+    checks.append((
+        "pi easy auto-route never selects the UI-only-observed vision model",
+        pi_auto["selected_model"] != "deepseek-v4-flash-vision-exp",
+    ))
+    codex_unverified = route_model(data, "codex", "easy", "gpt-5.5", "high")
+    checks.append((
+        "explicit reasoning listed with unverified confidence stays explicit_unverified",
+        codex_unverified["selection_status"] == "explicit_unverified"
+        and codex_unverified["selected_reasoning_effort"] == "high",
+    ))
     try:
         route_model(data, "pi", "medium")
     except RouteError:

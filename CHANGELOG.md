@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.9.3 — 2026-08-28
+
+Add truthful DeepSeek V4 Flash Vision dispatch metadata and unverified routing gates.
+
+## 新增
+- feat(dispatch): register DeepSeek vision model (#62)
+
+## 维护
+- chore(release): open next train after v1.9.2 (#61)
+
 ## v1.9.2 — 2026-08-21
 
 dispatch 技能 1.3.5：修正 dsh patch/settings 优先级错误断言、pi 中文×工具死循环入册、派发端点验证纪律

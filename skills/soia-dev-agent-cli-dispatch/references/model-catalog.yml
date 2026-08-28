@@ -27,7 +27,7 @@
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-08-20"
+updated_at: "2026-08-28"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -38,6 +38,9 @@ sources:
   - id: local-mlx-2026-08-20
     path: references/dsh-cli.md
     date: "2026-08-20"
+  - id: deepseek-vision-dsh-ui-2026-08-28
+    path: reports/deepseek-v4-flash-vision-exp-2026-08-28.md
+    date: "2026-08-28"
 providers:
   openai:
     executor_cli: codex
@@ -820,6 +823,29 @@ providers:
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
+      - model_id: deepseek-v4-flash-vision-exp
+        display_name: "DeepSeek V4 Flash Vision (Experimental)"
+        aliases: [deepseek/deepseek-v4-flash-vision-exp]
+        model_family: deepseek-v4
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [off, low, high, max]
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "No confirmed pricing for this experimental model as of 2026-08-28; every price field is kept null rather than assumed from deepseek-v4-flash/deepseek-v4-pro. The observed reasoning-level list (off/low/high/max) and the shown 'high' session come from an owner-provided DSH (DeepSeek Harness) web UI observation, not a Pi --mode json message_end -- see references/pi-cli.md and reports/deepseek-v4-flash-vision-exp-2026-08-28.md. The levels are recorded structurally with reasoning_levels_confidence=unverified; scripts/route_model.py therefore returns explicit_unverified for Pi and never auto-routes this model. Not verified: provider/model echo, usage, cost, image-input behavior, context window, or task quality. routing_profile is null and must stay null until a real Pi JSONL smoke confirms message_end model/usage plus at least one image-input case."
+          effective_date: "2026-08-28"
+          source_id: deepseek-vision-dsh-ui-2026-08-28
+        routing_profile: null
+        discovered_at: "2026-08-28"
+        discovery_evidence: "Owner-provided DSH (DeepSeek Harness) web UI observation, 2026-08-28: model listed as selectable with reasoning levels off/low/high/max; shown session used high. Not a Pi structured message_end -- no provider/model echo, usage, or cost evidence from this observation. See reports/deepseek-v4-flash-vision-exp-2026-08-28.md."
   # -- Local models (OpenAI-compatible endpoints): TEMPLATE entry, not a billable cloud model --
   # 本地模型条目与上方云端条目的差异：
   #   - cost 全部为 0：本地推理没有按 token 计费；电力/硬件成本不在本 catalog 建模。

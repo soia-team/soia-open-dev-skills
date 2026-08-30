@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by unknown
 # @created_at unknown
-# @modified_by openai/gpt-5.6-sol
-# @modified_at 2026-08-28 11:23:29
-# @version 0.2.1
+# @modified_by openai/gpt-5
+# @modified_at 2026-08-30 09:03:06
+# @version 0.2.2
 # @description Parse, validate, and resolve the dispatch model catalog.
-# @changelog Pin the observed DeepSeek Vision levels and protect unrelated model entries from catalog misassignment.
+# @changelog Assert that the DeepSeek Vision catalog exposes only its smoke-tested Pi low level.
 """Restricted YAML-subset parser and schema validator for model-catalog.yml.
 
 This is NOT a general YAML parser. It only understands the subset that
@@ -617,11 +617,11 @@ sources:
         check("find_model: unknown model returns no match", unknown["match"] is None)
         vision = find_model(real_data, "deepseek-v4-flash-vision-exp")
         check(
-            "find_model: DSH-UI-observed vision model resolves but stays unverified",
+            "find_model: Pi-smoked vision model exposes only verified low",
             vision["match"] == "exact"
             and vision["provider"] == "deepseek"
-            and vision["model"].get("supported_reasoning_levels") == ["off", "low", "high", "max"]
-            and vision["model"].get("reasoning_levels_confidence") == "unverified"
+            and vision["model"].get("supported_reasoning_levels") == ["low"]
+            and vision["model"].get("reasoning_levels_confidence") == "smoke_tested"
             and vision["model"].get("routing_profile") is None,
         )
         pro = find_model(real_data, "gpt-5.5-pro")

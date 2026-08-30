@@ -114,6 +114,17 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 - 确实需要多 Agent 时先探针：必须拿到至少一个成功的 spawn receipt 与非空 agent id；spawn 失败或 agent 集合为空时立即返回 `blocked_subagent_unverified`，禁止调用 wait。
 - 只读沙箱可能禁止 `mktemp`/临时测试写入；这种环境失败只能标为 `environment_blocked`，不能推断代码测试失败。由宿主在正常可写环境重新跑并单独出回执。
 
+## 沙箱能力边界：workspace-write 禁止本地 TCP 监听（2026-08-30）
+
+在 Codex `0.150.x` 的 `codex exec -s workspace-write` 实测中，沙箱内对
+`127.0.0.1` 的任意端口执行 `bind()` 都报 `PermissionError: [Errno 1] EPERM`。因此，真实本机
+HTTP 回环、端口监听或依赖起本地服务的验证任务在该沙箱中不可执行；Codex 如实回报 `blocked`
+是正确结果，不得归因为被测应用失败。
+
+派发前先判断验收是否需要 `bind`/`listen`。需要时改派给已获授权的无沙箱执行者，或交给宿主
+内置 agent；不要在 `workspace-write` 沙箱内反复重试。无沙箱执行仍须遵守本次任务的权限、工作
+目录与高影响操作授权，不能因为此限制自动启用绕过模式。
+
 ## Prompt 注入防护
 
 含单引号、特殊字符的 prompt **不能**直接嵌入 `bash -c "..."` 或 `"..."` 参数，否则 shell 解析会崩溃。

@@ -68,26 +68,39 @@ pi -p --mode json --no-session --no-tools \
 - `--mode json` 的 assistant `message_end` 回显 `provider=deepseek`、`model=deepseek-v4-flash` 与结构化 usage；
 - 该证据只支持 easy 自动路由。medium/hard、其他 thinking 档和 `deepseek-v4-pro` 未测试，不得自动扩张为已验证支持。
 
-### `deepseek-v4-flash-vision-exp`：仅 DSH UI 观察，非 Pi 证据（2026-08-28）
+### `deepseek-v4-flash-vision-exp`：DSH UI 观察与 Pi 低档文本证据
 
-owner 于 2026-08-28 提供的证据来自 DeepSeek Harness（DSH）web UI，不是 Pi `--mode json` 的
+owner 于 2026-08-28 提供的初始证据来自 DeepSeek Harness（DSH）web UI，不是 Pi `--mode json` 的
 结构化 `message_end`：DSH UI 显示该模型可选，推理档位选项为 `off`/`low`/`high`/`max`，截图
 所示会话使用了 `high`。这只证明"DSH UI 里存在这个选项"，不构成 Pi 侧的 Model Integrity
 证据——按 `references/dsh-cli.md`「web 界面两个误导点」，UI 模型/档位显示本身不是运行时实际
 调用模型的独立证据。完整观察范围与排除项见
 `reports/deepseek-v4-flash-vision-exp-2026-08-28.md`。
 
-对 Pi 派发而言：
+2026-08-30 又完成了一次 Pi 侧的受控文本任务：
 
-- 该模型在 `references/model-catalog.yml` 中原样记录 DSH UI 观察到的
-  `supported_reasoning_levels: [off, low, high, max]`，但 `reasoning_levels_confidence: unverified`、
-  `routing_profile: null`，因此不参与 easy/medium/hard 任一档的自动路由。
-- 显式派发（用户明确指定该模型）必须标记 `explicit_unverified`，不能包装成已验证的
-  `explicit` 选择；`scripts/route_model.py` 已按此实现并有 selftest 覆盖。
-- provider/model 回显、usage、cost、image-input（图片输入）行为、任务质量均未验证，`pending_smoke`。
-- 升级为已验证需要一次真实 `pi -p --mode json --no-session --provider deepseek --model deepseek-v4-flash-vision-exp --thinking <level> "@<prompt-file>"` 调用，核对 `message_end` 的
-  provider/model 回显与结构化 usage，并补一个 image-input case——纯文本 case 不能证明图片
-  输入行为。
+```bash
+pi -p --mode json --no-session --provider deepseek \
+  --model deepseek-v4-flash-vision-exp --thinking low "@<prompt-file>"
+```
+
+- 真实对抗式设计复核任务正常完成；最终 assistant `message_end` 结构化回显
+  `provider=deepseek`、`model=deepseek-v4-flash-vision-exp`。
+- JSONL `usage` 可解析，`totalTokens` 约为 `80258`、`cost.total=0`；这只是 provider
+  报告的本次结构化用量/费用字段，不推断账户实际扣费。
+- 协调者独立逐项核验了该任务的两条 `REFUTED` 结论，均可由对应 `file:line` 证据证实。
+  这构成该单次文本复核的产物质量证据，不是全任务类型质量基准。
+
+对 Pi 派发而言，当前机器真源刻意只收录已实测的 `low`：
+
+- `references/model-catalog.yml` 以 `supported_reasoning_levels: [low]` 与
+  `reasoning_levels_confidence: smoke_tested` 记录上述 Pi 证据；目录字段不能按档位保存不同
+  置信度，所以不把 DSH UI 观察到但未实测的 `off`/`high`/`max` 混入可验证档位列表。
+- `routing_profile: null` 保持不变，因此此证据不会把模型纳入 easy/medium/hard 自动路由；显式
+  `--thinking low` 可作为有证据的显式选择，其他档位仍应拒绝为未验证。
+- 本次范围**仅**是 `--thinking low`、`--mode json` 的文本任务。`off`/`high`/`max`、image-input、
+  其他任务类型与可泛化的任务质量仍未验证；补 image-input 及对应档位的真实 JSONL
+  `message_end`/usage 证据后才能分别扩张。
 
 ## 已知限制：中文×工具任务死循环（2026-08-21，本地 mlx 端点实测）
 

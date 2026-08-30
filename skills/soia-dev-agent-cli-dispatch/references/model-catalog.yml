@@ -44,6 +44,9 @@ sources:
   - id: deepseek-vision-pi-low-2026-08-30
     path: references/pi-cli.md
     date: "2026-08-30"
+  - id: deepseek-vision-dsh-diagnostic-patch-draft-2026-08-30
+    path: references/dsh-cli.md
+    date: "2026-08-30"
 providers:
   openai:
     executor_cli: codex
@@ -843,12 +846,12 @@ providers:
           long_context: null
           batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "No confirmed pricing for this experimental model as of 2026-08-28; every price field is kept null rather than assumed from deepseek-v4-flash/deepseek-v4-pro. DSH UI observed off/low/high/max (including a shown high session) on 2026-08-28, but only Pi --mode json low has structured evidence: 2026-08-30 message_end echoed provider/model and usage (about 80258 totalTokens, cost.total=0) for one text review; see references/pi-cli.md and reports/deepseek-v4-flash-vision-exp-2026-08-28.md. The scalar catalog confidence cannot encode per-level status, so supported_reasoning_levels lists only smoke-tested low; off/high/max and image-input remain unverified. routing_profile remains null: this single low text case does not enable automatic routing."
+          billing_mode_notes: "No confirmed pricing for this experimental model as of 2026-08-28; every price field is kept null rather than assumed from deepseek-v4-flash/deepseek-v4-pro. DSH UI observed off/low/high/max (including a shown high session) on 2026-08-28; Pi --mode json low has structured text-review evidence; and DSH + this model passed a 2026-08-30 SoiaDeck diagnostic plus semantic-no-change unified-diff draft trial. The scalar catalog confidence cannot encode per-level or executor task coverage, so supported_reasoning_levels remains only smoke-tested low; off/high/max and image-input remain unverified. Direct repository-file implementation tasks and large slices also remain unverified. routing_profile remains null: this evidence does not enable automatic routing. See references/dsh-cli.md, references/pi-cli.md, and reports/deepseek-v4-flash-vision-exp-2026-08-28.md."
           effective_date: "2026-08-28"
           source_id: deepseek-vision-dsh-ui-2026-08-28
         routing_profile: null
         discovered_at: "2026-08-28"
-        discovery_evidence: "DSH UI observation, 2026-08-28: selectable with off/low/high/max, shown high session; and Pi JSONL smoke, 2026-08-30: --thinking low text review message_end echoed provider=deepseek and model=deepseek-v4-flash-vision-exp with structured usage (about 80258 totalTokens, cost.total=0). Only low is smoke-tested; off/high/max and image-input remain unverified. See references/pi-cli.md and reports/deepseek-v4-flash-vision-exp-2026-08-28.md."
+        discovery_evidence: "DSH UI observation, 2026-08-28: selectable with off/low/high/max, shown high session; Pi JSONL smoke, 2026-08-30: --thinking low text review message_end echoed provider=deepseek and model=deepseek-v4-flash-vision-exp with structured usage (about 80258 totalTokens, cost.total=0); and coordinator-verified DSH SoiaDeck trial, 2026-08-30: read-only repository plus temporary-directory diagnosis of macOS Python 3.14 pty fd contention (26-33/40 pre-fix reproductions), semantic-no-change unified-diff draft, then coordinator-applied 40-run zero-reproduction and full-regression pass. Only low is smoke-tested; off/high/max, image-input, direct repository-file implementation, and large slices remain unverified. routing_profile stays null. See references/dsh-cli.md, references/pi-cli.md, and reports/deepseek-v4-flash-vision-exp-2026-08-28.md."
   # -- Local models (OpenAI-compatible endpoints): TEMPLATE entry, not a billable cloud model --
   # 本地模型条目与上方云端条目的差异：
   #   - cost 全部为 0：本地推理没有按 token 计费；电力/硬件成本不在本 catalog 建模。

@@ -75,6 +75,12 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 
 2026-08-20 在 dsh `0.1.0-rc.7` + 本地 mlx OpenAI 兼容端点上以 7 个真实任务实测：headless 派发、`--patch` 接入、web 观察台可用。云端 provider、矩阵化验收和自动路由未验证，不得自动扩张为已验证支持。
 
+### DeepSeek V4 Flash Vision Experimental 诊断与补丁草案试点（2026-08-30）
+
+SoiaDeck 项目中，协调者亲验 DSH + `deepseek-v4-flash-vision-exp` 完成首个**诊断 + 补丁草案**类试点，结果合格。任务范围限于只读仓库分析与临时目录实验：定位 macOS Python 3.14 pty 文件描述符竞争根因；修复前 40 次试验中稳定复现 26–33 次；随后给出语义零变化的 unified diff 补丁草案。协调者落库后独立复核，40 次连续运行零复现且全量回归通过。
+
+这项证据仅覆盖诊断和补丁草案产出；它不等同于 DSH 直接修改仓库文件的完整实现任务验证，也不覆盖大切片任务或图片输入。`routing_profile` 继续保持 `null`，不得据此开启自动路由；模型身份和用量证据仍按本文件前述 Model Integrity 门禁处理。
+
 ## 关键约束
 
 - 每次派发前执行 `command -v dsh` 与 `dsh --version`；缺失立即显性失败。

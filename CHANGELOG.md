@@ -3,6 +3,18 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.10.0 — 2026-08-31
+
+dispatch 技能:vision-exp low 档 Pi 实测证据入档、DSH 诊断试点合格记录、codex 沙箱禁监听边界登记;技能 1.4.0
+
+## 新增
+- feat(dispatch): record pi vision-exp low smoke and codex sandbox listen limits
+
+## 维护
+- chore(dispatch): bump skill to 1.4.0 and open 1.10.0 train
+- docs(dispatch): record dsh vision-exp diagnosis trial evidence
+- chore(release): open next train after v1.9.3 (#64)
+
 ## v1.9.3 — 2026-08-28
 
 Add truthful DeepSeek V4 Flash Vision dispatch metadata and unverified routing gates.

@@ -1,6 +1,6 @@
 {
   "name": "soia-dev",
-  "version": "1.10.0-SNAPSHOT",
+  "version": "1.10.0",
   "description": "开发编码技能：工程协议、代码审查、缺陷修复、任务执行与 AI 派发",
   "author": {
     "name": "soia-team"

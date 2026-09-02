@@ -27,7 +27,7 @@
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-08-30"
+updated_at: "2026-09-02"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -438,6 +438,7 @@ providers:
           source_id: claude-model-probe-2026-09-02
         routing_profile: []
         discovered_at: "2026-09-02"
+        notes: "project policies may restrict this model from reviewer roles; the skill only enforces family independence"
         discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-opus-5 --output-format json`): rc=0, modelUsage business key claude-opus-5, no fallback. Also observed as the modelUsage business key of the claude-fable-5 fallback run. Existence and exact model echo only; no pricing, context-window, reasoning-level or task-quality evidence. model_family is kept distinct from claude-opus-4 because a shared family would collapse the reviewer Independence Gate across two different generations. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-opus-4-8
         display_name: "Claude Opus 4.8"

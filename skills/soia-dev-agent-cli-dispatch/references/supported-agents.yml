@@ -80,6 +80,9 @@ agents:
     usage_evidence: measured
     auto_routing: [easy, medium]
     reference: references/claude-code-cli.md
+    last_probe: "2026-09-02"
+    probe_reference: reports/claude-model-probe-2026-09-02.md
+    probe_command: "python3 scripts/probe_claude_models.py --models <comma-separated-ids>"
   pi:
     command: pi
     dispatch_supported: true

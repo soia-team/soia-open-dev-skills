@@ -47,6 +47,9 @@ sources:
   - id: deepseek-vision-dsh-diagnostic-patch-draft-2026-08-30
     path: references/dsh-cli.md
     date: "2026-08-30"
+  - id: claude-model-probe-2026-09-02
+    path: reports/claude-model-probe-2026-09-02.md
+    date: "2026-09-02"
 providers:
   openai:
     executor_cli: codex
@@ -322,7 +325,42 @@ providers:
         discovery_evidence: null
   anthropic:
     executor_cli: claude
+    # auxiliary_models: model ids the Claude Code CLI bills for its own internal
+    # helper turns, which therefore appear in EVERY `--output-format json`
+    # `modelUsage` map alongside the model actually serving the request
+    # (10/10 calls on 2026-09-02, CLI 2.1.257). They must be excluded before
+    # deriving actual_model. The CLI emits the dated variant
+    # ("claude-haiku-4-5-20251001", canonicalModel "claude-haiku-4-5"); consumers
+    # match by prefix so a future date suffix on the same family still excludes.
+    # This list is about CLI overhead attribution only -- it does not mark the
+    # model unusable as a dispatch target.
+    auxiliary_models: [claude-haiku-4-5-20251001]
     models:
+      - model_id: claude-fable-5-1
+        display_name: "Claude Fable 5.1"
+        aliases: [fable-5-1, fable-5.1]
+        model_family: claude-fable
+        availability: available
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_5m_per_1m: null
+          cache_write_1h_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          pricing_source: unknown
+          billing_mode_notes: "No pricing source exists for this model as of 2026-09-02. The 2026-09-02 probe ran under a subscription login and produced zero per-token price evidence, so every price field is null rather than inherited from claude-fable-5 or the opus rows. effective_date/source_id below point at the EXISTENCE evidence (the probe), not at a price quote."
+          effective_date: "2026-09-02"
+          source_id: claude-model-probe-2026-09-02
+        routing_profile: []
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-fable-5-1 --output-format json`): rc=0, modelUsage business key claude-fable-5-1, stream-json assistant.message.model=claude-fable-5-1, no fallback event. Existence and exact model echo only; no pricing, context-window, reasoning-level or task-quality evidence. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-fable-5
         display_name: "Claude Fable 5"
         aliases: [fable-5]
@@ -349,6 +387,7 @@ providers:
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
+        routing_notes: "2026-09-02 Claude Code 2.1.257 `-p` probe: requesting claude-fable-5 returned rc=0 but the stream-json event log carried a type=system subtype=model_refusal_fallback event with original_model=claude-fable-5 and fallback_model=claude-opus-4-8, and assistant.message.model=claude-opus-4-8, while result.modelUsage keyed the business turn as claude-opus-5; reproduced twice. This is a single-day, single-account, single-prompt observation and is NOT evidence that the model is retired or unavailable -- availability stays available. Dispatch discipline: every claude-fable-5 call must read the stream fallback_model per call and report actual_model from it, never assume the requested id was served. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-mythos-5
         display_name: "Claude Mythos 5"
         aliases: [mythos-5]
@@ -375,6 +414,31 @@ providers:
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
+      - model_id: claude-opus-5
+        display_name: "Claude Opus 5"
+        aliases: [opus-5]
+        model_family: claude-opus-5
+        availability: available
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_5m_per_1m: null
+          cache_write_1h_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          pricing_source: unknown
+          billing_mode_notes: "No pricing source exists for this model as of 2026-09-02. The 2026-09-02 probe ran under a subscription login and produced zero per-token price evidence, so every price field is null rather than inherited from the claude-opus-4 rows. effective_date/source_id below point at the EXISTENCE evidence (the probe), not at a price quote."
+          effective_date: "2026-09-02"
+          source_id: claude-model-probe-2026-09-02
+        routing_profile: []
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-opus-5 --output-format json`): rc=0, modelUsage business key claude-opus-5, no fallback. Also observed as the modelUsage business key of the claude-fable-5 fallback run. Existence and exact model echo only; no pricing, context-window, reasoning-level or task-quality evidence. model_family is kept distinct from claude-opus-4 because a shared family would collapse the reviewer Independence Gate across two different generations. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-opus-4-8
         display_name: "Claude Opus 4.8"
         aliases: [opus-4-8, opus-4.8]
@@ -399,8 +463,8 @@ providers:
           effective_date: "2026-07-10"
           source_id: pricing-2026-07-10
         routing_profile: []
-        discovered_at: "2026-07-10"
-        discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710"
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710. Re-confirmed 2026-09-02 on Claude Code 2.1.257 (`claude -p --model claude-opus-4-8 --output-format json`): rc=0, modelUsage business key claude-opus-4-8, exact match, no fallback; also the assistant.message.model served for the claude-fable-5 fallback run. The 2026-09-02 probe adds existence/echo evidence only -- no new pricing, context-window, reasoning-level or task-quality evidence. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-opus-4-7
         display_name: "Claude Opus 4.7"
         aliases: [opus-4-7, opus-4.7]
@@ -425,8 +489,8 @@ providers:
           effective_date: "2026-07-10"
           source_id: pricing-2026-07-10
         routing_profile: null
-        discovered_at: null
-        discovery_evidence: null
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-opus-4-7 --output-format json`): rc=0, modelUsage business key claude-opus-4-7, exact match, no fallback. Existence and exact model echo only -- no pricing, context-window, reasoning-level or task-quality evidence, so routing_profile stays null. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-opus-4-6
         display_name: "Claude Opus 4.6"
         aliases: [opus-4-6, opus-4.6]
@@ -451,8 +515,8 @@ providers:
           effective_date: "2026-07-10"
           source_id: pricing-2026-07-10
         routing_profile: null
-        discovered_at: null
-        discovery_evidence: null
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-opus-4-6 --output-format json`): rc=0, modelUsage business key claude-opus-4-6, exact match, no fallback. Existence and exact model echo only -- no pricing, context-window, reasoning-level or task-quality evidence, so routing_profile stays null. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-opus-4-5
         display_name: "Claude Opus 4.5"
         aliases: [opus-4-5, opus-4.5]
@@ -515,8 +579,58 @@ providers:
             effective_date: "2026-09-01 onward"
             source_id: pricing-2026-07-10
         routing_profile: [medium]
-        discovered_at: "2026-07-10"
-        discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710"
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710. Re-confirmed 2026-09-02 on Claude Code 2.1.257 (`claude -p --model claude-sonnet-5 --output-format json`): rc=0, modelUsage business key claude-sonnet-5, exact match, no fallback. The 2026-09-02 probe adds existence/echo evidence only; the medium routing_profile still rests on the 2026-07-10 effort matrix. See reports/claude-model-probe-2026-09-02.md."
+      - model_id: claude-sonnet-4-8
+        display_name: "Claude Sonnet 4.8"
+        aliases: [sonnet-4-8, sonnet-4.8]
+        model_family: claude-sonnet-4
+        availability: unrecognized_by_cli
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_5m_per_1m: null
+          cache_write_1h_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          pricing_source: unknown
+          billing_mode_notes: "No pricing source and no served call as of 2026-09-02: the CLI rejected this id before any model was reached, so every price field is null. effective_date/source_id below point at the REJECTION evidence (the probe), not at a price quote."
+          effective_date: "2026-09-02"
+          source_id: claude-model-probe-2026-09-02
+        routing_profile: []
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-sonnet-4-8 --output-format json`): rc=1, stderr line `[claude-code:unrecognized_model]` followed by a JSON object whose model field is claude-sonnet-4-8 and query_source is sdk, no modelUsage. The id is listed here so a dispatcher that sees it gets a recorded rejection instead of an unknown-model guess; it MUST NOT enter any routing_profile. Whether the model exists behind another id or channel is unverified. See reports/claude-model-probe-2026-09-02.md."
+      - model_id: claude-sonnet-4-7
+        display_name: "Claude Sonnet 4.7"
+        aliases: [sonnet-4-7, sonnet-4.7]
+        model_family: claude-sonnet-4
+        availability: unrecognized_by_cli
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_5m_per_1m: null
+          cache_write_1h_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          pricing_source: unknown
+          billing_mode_notes: "No pricing source and no served call as of 2026-09-02: the CLI rejected this id before any model was reached, so every price field is null. effective_date/source_id below point at the REJECTION evidence (the probe), not at a price quote."
+          effective_date: "2026-09-02"
+          source_id: claude-model-probe-2026-09-02
+        routing_profile: []
+        discovered_at: "2026-09-02"
+        discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-sonnet-4-7 --output-format json`): rc=1, stderr line `[claude-code:unrecognized_model]` followed by a JSON object whose model field is claude-sonnet-4-7 and query_source is sdk, no modelUsage. The id is listed here so a dispatcher that sees it gets a recorded rejection instead of an unknown-model guess; it MUST NOT enter any routing_profile. Whether the model exists behind another id or channel is unverified. See reports/claude-model-probe-2026-09-02.md."
       - model_id: claude-sonnet-4-6
         display_name: "Claude Sonnet 4.6"
         aliases: [sonnet-4-6, sonnet-4.6]

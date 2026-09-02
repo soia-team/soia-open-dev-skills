@@ -31,6 +31,8 @@
 | `executor` | 是 | 见上文 `executor_cli` |
 | `model` | 是 | `requested_model`；未显式指定时按「自动路由」选型后再填入 |
 | `reasoning` | 否 | `requested_reasoning_effort`；未指定时参考 catalog 的 `default_reasoning_level` |
+| `dispatch_role` | 否 | 本次调用在协作结构中的角色：`coordinator` \| `executor` \| `verifier` \| `reviewer` \| `adversary` \| `mechanical`。缺省表示未声明角色，不触发任何角色门禁；`reviewer` 触发下方 Independence Gate |
+| `executor_model` | 条件 | 被审实现者所用模型。`dispatch_role=reviewer` 时**必填**（见 Independence Gate）；其他角色不需要 |
 | `cmd_template` | 是 | 实际执行的 shell 命令（已按「Prompt 注入防护」写好 temp 文件引用） |
 | `timeout_seconds` | 否 | 默认 600 秒（见 `scripts/run_matrix.py --timeout-seconds`） |
 
@@ -53,12 +55,13 @@
 
 **状态枚举全集**（与 `scripts/run_matrix.py` 的 `ALL_STATUSES` 一致）：
 
-`pending` / `running` / `passed` / `failed` / `unsupported` / `blocked_auth` / `blocked_quota` / `blocked_paid_api` / `pending_quota` / `timeout` / `fallback_or_downgrade` / `actual_model_unverified` / `interrupted` / `not_tested`
+`pending` / `running` / `passed` / `failed` / `unsupported` / `blocked_auth` / `blocked_quota` / `blocked_paid_api` / `blocked_independence` / `pending_quota` / `timeout` / `fallback_or_downgrade` / `actual_model_unverified` / `interrupted` / `not_tested`
 
 **unknown / unsupported 约定：**
 
 - 解析不到的字段一律写 `null`（JSON）或字符串 `"unknown"`，**禁止用 0、空字符串或猜测值填充**——那会被下游误读成"确实是 0"或"确实是这个值"。
-- `unsupported` 专指执行器明确表示"不支持该模型/参数"（stdout/stderr 命中 `not supported` / `invalid model` / `unknown model`），不要和"我们没测过"的 `not_tested` 混用。
+- `unsupported` 专指执行器明确表示"不支持该模型/参数"，不要和"我们没测过"的 `not_tested` 混用。触发条件有两类：stdout/stderr 命中 `not supported` / `invalid model` / `unknown model`；或 claude 专有的 `[claude-code:unrecognized_model]` stderr 标记（2026-09-02 CLI 2.1.257 实测，退出码 1，模型侧未产生任何调用）。后者必须把 stderr 原文写进 `notes`，不要只写"不支持"。
+- `blocked_independence` 专指 Independence Gate 拒绝了本次 reviewer 派发，**调用没有发生**；不要和"审完没发现问题"混用，也不要降级成 `not_tested`。
 - 任何标记为 `unknown` / `unsupported` / `unavailable` 的字段，禁止在客户可见的总结文字里被复述成确定结论（不能说"token 用量为 0"，只能说"token 用量未知，原因是 xxx"）。
 
 ## 额度预检 / Quota precheck
@@ -78,6 +81,39 @@
 
 `scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查**——`auth_status` 仍需派发者在预检报告里人工核实或另行探测，脚本本身不会为了验证登录态而发起真实模型调用。
 
+## Independence Gate
+
+保证"审的人"和"做的人"不是同一个模型血统。Model Integrity Gate 管的是"用的模型
+对不对"，本门禁管的是"这个模型有没有资格审这份产物"。
+
+触发条件：`dispatch_role=reviewer`。其余角色（`coordinator` / `executor` /
+`verifier` / `adversary` / `mechanical`）只记录、不设限。
+
+规则：
+
+1. `dispatch_role=reviewer` 时必须提供 `executor_model`（被审实现者所用模型）。
+   缺失即 `blocked_independence`——没有对照对象就无法证明独立性，不得默认放行。
+2. 比较 catalog 中两个模型的 `provider` 与 `model_family`（`references/model-catalog.yml`
+   的字段，不另建映射）。**同 provider 且同 model_family** 即判 `blocked_independence`，
+   不得执行。
+3. `executor_model` 不在 catalog 中时同样 `blocked_independence`：无法比对家族就
+   不能宣称独立，应先登记该模型。
+4. reviewer 模型不在 catalog 中时不阻断，但独立性标记为 `unverified`，回执必须写明
+   这一点，不能写成"已独立复核"。
+5. 跨代同厂（如 `claude-opus-5` 审 `claude-opus-4-8`）在 catalog 中是不同
+   `model_family`，因此**放行**。这是刻意的取舍：门禁只机械拦截同族自审，
+   跨代是否足够独立由派发者按任务风险自行判断，脚本不替你下这个结论。
+
+机械判定：
+
+```bash
+python3 scripts/route_model.py --executor <executor> --complexity <level> \
+  --role reviewer --executor-model <被审模型> [--model <reviewer 模型>]
+```
+
+冲突时脚本向 stderr 输出 `{"selection_status": "blocked", "error": "independence_gate: ..."}`
+并以非 0 退出；放行时回执带 `independence_gate` 字段。
+
 ## Model Integrity Gate
 
 保证"客户以为用的模型"和"实际用的模型"一致；出现偏差必须如实报告，不能包装成"任务成功"。
@@ -85,7 +121,7 @@
 1. **requested vs actual**：每次调用后比对 `requested_model` 与 `actual_model`。
 2. **降级判定**：
    - `codex`：stdout 头部若有 `model: xxx` 行，与 `requested_model` 不一致时，状态标记为 `fallback_or_downgrade`（`scripts/run_matrix.py::detect_actual_model` 已实现，只扫描 stdout 前 2000 字符内的 `model:` 行）。
-   - `claude`：**P4（2026-07-10）更新**——纯文本模式（`cmd_template` 不含 `--output-format json`）下 headless 输出仍然**没有**可靠的模型回显机制，任何成功调用一律标记 `actual_model_unverified`，**不允许**因为"看起来跑成功了"就报告为 `passed`。但当 `cmd_template` 显式带 `--output-format json`（或 `--output-format=json`）时，`scripts/run_matrix.py::detect_actual_model` 会解析 stdout JSON 的 `modelUsage`（键名即模型 id）或顶层 `model` 字段作为 `actual_model`，与 `requested_model` 比对后可以正常判定 `passed` / `fallback_or_downgrade`，不再一律 `actual_model_unverified`。比对前会先剥离两种已在真实 CLI（2.1.206，2026-07-10 实测验证，非猜测）上观察到的修饰后缀：不带 `--model` 时回显可能带方括号执行模式后缀（如 `claude-opus-4-8[1m]`）；用短别名（如 `haiku`）请求时回显可能带日期后缀（如 `claude-haiku-4-5-20251001`）；显式传完整 catalog `model_id`（如 `claude-haiku-4-5`）时回显通常精确匹配、无后缀。stdout 不是合法 JSON 时仍然回退到 `actual_model_unverified`，不假装已验证。细节与原始验证 payload 见 `reports/benchmark-2026-07-10.md`。
+   - `claude`：**P4（2026-07-10）更新**——纯文本模式（`cmd_template` 不含 `--output-format json`）下 headless 输出仍然**没有**可靠的模型回显机制，任何成功调用一律标记 `actual_model_unverified`，**不允许**因为"看起来跑成功了"就报告为 `passed`。但当 `cmd_template` 显式带 `--output-format json`（或 `--output-format=json`）时，`scripts/run_matrix.py::detect_actual_model` 会解析 stdout JSON 的 `modelUsage`（键名即模型 id）或顶层 `model` 字段作为 `actual_model`，与 `requested_model` 比对后可以正常判定 `passed` / `fallback_or_downgrade`，不再一律 `actual_model_unverified`。比对前会先剥离两种已在真实 CLI（2.1.206，2026-07-10 实测验证，非猜测）上观察到的修饰后缀：不带 `--model` 时回显可能带方括号执行模式后缀（如 `claude-opus-4-8[1m]`）；用短别名（如 `haiku`）请求时回显可能带日期后缀（如 `claude-haiku-4-5-20251001`）；显式传完整 catalog `model_id`（如 `claude-haiku-4-5`）时回显通常精确匹配、无后缀。stdout 不是合法 JSON 时仍然回退到 `actual_model_unverified`，不假装已验证。细节与原始验证 payload 见 `reports/benchmark-2026-07-10.md`。**2026-09-02（CLI 2.1.257）补充三条**：(a) `--output-format stream-json` 的 `type=system` 事件可能带 `original_model`/`fallback_model`，出现即判 `fallback_or_downgrade`，`actual_model` 取 `fallback_model`——json 模式看不到该事件；(b) `modelUsage` 恒含 CLI 自身的辅助模型（`claude-haiku-4-5-20251001`，登记在 catalog `providers.anthropic.auxiliary_models`），多键时必须先排除辅助模型再取剩余唯一键，剩余 0 个或多于 1 个一律 `actual_model_unverified`；单键 map 不做排除，因为直接派发 haiku 本身是合法场景；(c) stderr 命中 `[claude-code:unrecognized_model]` 判 `unsupported` 并保留原文。证据见 `reports/claude-model-probe-2026-09-02.md`。
    - `pi`：调用必须使用 `--mode json`。`scripts/run_matrix.py` 从最终 assistant `message_end` 读取 `message.model` 和结构化 `usage`；模型叶子名与请求不一致时标记 `fallback_or_downgrade`，缺少 JSONL 模型证据时标记 `actual_model_unverified`。2026-08-04 已用 Pi 0.83.0 + `deepseek-v4-flash@low` 实测，边界见 `references/pi-cli.md`。
    - 其他执行器（agy/gemini/kimi/opencode/qwen）：Phase 1 未实现模型回显检测，`notes` 会如实写明"model-echo verification is not implemented for this executor"，不假装已覆盖。
 3. **宿主模型变化**：`host_ai` 自身运行在哪个底层模型上，属于**仅可观测、不可控**的信息——本技能不能对宿主自己的模型完整性做强制门禁。如果宿主环境暴露了自身模型标识，记录下来即可；拿不到就写 `unknown`，不要推断。

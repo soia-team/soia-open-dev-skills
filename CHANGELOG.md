@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.11.0 — 2026-09-02
+
+dispatch 技能适配 2026-09-02 Claude 模型体系：Fable 5.1/Opus 5 目录、fallback/辅助模型/unrecognized 解析、Independence Gate、模型探测脚本
+
+## 新增
+- feat(dispatch): adapt claude model handling to the 2026-09-02 CLI reality (#67)
+
+## 维护
+- chore(release): promote train to 1.11.0-SNAPSHOT (feat in dev) (#68)
+- chore(release): open next train after v1.10.0 (#66)
+
 ## v1.10.0 — 2026-08-31
 
 dispatch 技能:vision-exp low 档 Pi 实测证据入档、DSH 诊断试点合格记录、codex 沙箱禁监听边界登记;技能 1.4.0

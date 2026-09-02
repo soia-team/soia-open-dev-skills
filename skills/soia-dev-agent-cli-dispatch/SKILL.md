@@ -3,11 +3,11 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.4.0
+version: 1.5.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-08-31 07:40:00
+updated_at: 2026-09-02 00:00:00
 created_by: claude opus 4.6
-updated_by: openai/gpt-5.6-sol
+updated_by: claude (fable 5.1 主控 / anthropic/claude-opus-5 实现，模型名自报未验证)
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -242,6 +242,8 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | 价格目录的带日期来源快照 | `reports/model-pricing-2026-07-10.md` |
 | 历史证据边界 | `reports/benchmark-2026-07-10.md` |
 | Pi + DeepSeek V4 Flash 实例 | `examples/pi-deepseek-v4-flash-easy.md` |
+| Claude 模型 ID 实测快照与 fallback/辅助模型现象 | `reports/claude-model-probe-2026-09-02.md` |
+| 重新探测 Claude 实际服务的模型 ID | `scripts/probe_claude_models.py --models <ids>`（真实调用，消耗额度；`--selftest` 只跑 fixture） |
 | 私有运行配置模板 | `assets/config.example.yml` |
 
 加载原则：主文件 → 所选执行器 reference，最多一跳；不要一次性加载全部 references。
@@ -258,6 +260,7 @@ python3 scripts/estimate_cost.py --selftest
 python3 scripts/route_model.py --selftest
 python3 scripts/run_claude_prompt.py --selftest
 python3 scripts/run_matrix.py --selftest
+python3 scripts/probe_claude_models.py --selftest
 ```
 
 复杂行为还要运行一个脱敏的真实前向实例，并核对产物或 manifest 内容，不能只核对退出码。

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by unknown
 # @created_at unknown
-# @modified_by openai/gpt-5.6-sol
-# @modified_at 2026-08-04 14:05:00
-# @version 0.5.0
+# @modified_by anthropic/claude-opus-5
+# @modified_at 2026-09-02 00:00:00
+# @version 0.6.0
 # @description Run resumable external AI dispatch matrices with usage, integrity evidence, and user-owned state storage.
-# @changelog Enforce safe run ids and block new runs when the configured retained-run limit is reached.
+# @changelog Handle the 2026-09-02 claude shapes: stream-json fallback events, auxiliary-model exclusion in modelUsage, and unrecognized_model stderr.
 """Resumable, strictly-serial executor for a model/executor dispatch matrix.
 
 Phase 1 scope: this script is built and self-tested against mock commands
@@ -65,6 +65,9 @@ ALL_STATUSES = {
     "blocked_auth",
     "blocked_quota",
     "blocked_paid_api",
+    # Set by the dispatcher, not by this script: route_model.py's reviewer
+    # Independence Gate refused the executor/reviewer pair, so no call ran.
+    "blocked_independence",
     "pending_quota",
     "timeout",
     "fallback_or_downgrade",
@@ -101,7 +104,17 @@ CODEX_TOKENS_USED_RE = re.compile(r"tokens used", re.IGNORECASE)
 # (or `--output-format=json`) invocation can be parsed for a verifiable model
 # echo. Plain-text-mode claude output has no reliable echo and keeps falling
 # back to actual_model_unverified -- see detect_actual_model() below.
-CLAUDE_OUTPUT_FORMAT_JSON_RE = re.compile(r"--output-format[=\s]+json\b", re.IGNORECASE)
+CLAUDE_OUTPUT_FORMAT_JSON_RE = re.compile(r"--output-format[=\s]+(?:stream-)?json\b", re.IGNORECASE)
+# 2026-09-02 (CLI 2.1.257): an unknown --model value makes the CLI exit 1 and
+# print this stderr marker before any model is reached. Distinct from
+# UNSUPPORTED_RE's wordings, so it needs its own pattern.
+CLAUDE_UNRECOGNIZED_MODEL_RE = re.compile(r"^.*\[claude-code:unrecognized_model\].*$", re.MULTILINE)
+# 2026-09-02 (CLI 2.1.257): every --output-format json result carried the CLI's
+# own helper model in modelUsage alongside the model that served the request
+# (10/10 probe calls). Mirrors providers.anthropic.auxiliary_models in
+# references/model-catalog.yml; prefix-matched so a future date suffix on the
+# same family still excludes. See reports/claude-model-probe-2026-09-02.md.
+CLAUDE_AUXILIARY_MODEL_PREFIXES = ("claude-haiku-4-5",)
 # Two decoration patterns confirmed against a live `claude` 2.1.206 CLI on
 # 2026-07-10 (see reports/benchmark-2026-07-10.md for the raw payloads):
 #   - no --model flag (session/account default): modelUsage key came back
@@ -256,7 +269,153 @@ def _normalize_claude_model_id(value: str) -> str:
     return CLAUDE_MODEL_BRACKET_SUFFIX_RE.sub("", value.strip())
 
 
-def _extract_claude_model_from_json(payload: Any) -> str | None:
+def claude_auxiliary_prefixes(catalog_data: dict | None = None) -> tuple[str, ...]:
+    """Model-id prefixes that identify the CLI's own helper turns.
+
+    Read from the catalog's providers.anthropic.auxiliary_models when a
+    catalog is available (so the fact lives in one place), otherwise the
+    module constant. Entries are matched by prefix after stripping any
+    trailing 8-digit date suffix in the catalog value, so the dated id
+    "claude-haiku-4-5-20251001" yields the prefix "claude-haiku-4-5".
+    """
+    if isinstance(catalog_data, dict):
+        provider = ((catalog_data.get("providers") or {}).get("anthropic") or {})
+        listed = provider.get("auxiliary_models")
+        if isinstance(listed, list) and listed:
+            prefixes = tuple(
+                re.sub(r"-\d{8}$", "", str(item).strip())
+                for item in listed
+                if isinstance(item, str) and item.strip()
+            )
+            if prefixes:
+                return prefixes
+    return CLAUDE_AUXILIARY_MODEL_PREFIXES
+
+
+def _is_claude_auxiliary_model(model_id: str, prefixes: tuple[str, ...]) -> bool:
+    normalized = _normalize_claude_model_id(model_id)
+    return any(normalized.startswith(prefix) for prefix in prefixes)
+
+
+def _claude_json_documents(stdout: str) -> list[dict]:
+    """Parse claude stdout as either one JSON object or JSONL stream events.
+
+    `--output-format json` prints a single object; `--output-format stream-json`
+    prints one JSON object per line. Returning a list covers both without the
+    caller having to know which mode produced the text.
+    """
+    text = stdout.strip()
+    if not text:
+        return []
+    try:
+        payload = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        payload = None
+    if isinstance(payload, dict):
+        return [payload]
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+    documents: list[dict] = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(event, dict):
+            documents.append(event)
+    return documents
+
+
+def detect_claude_model_evidence(stdout: str, prefixes: tuple[str, ...] | None = None) -> dict[str, Any]:
+    """Derive claude actual-model evidence from json or stream-json stdout.
+
+    Returns a dict with:
+      actual_model     -- the id to report, or None when it cannot be derived
+      fallback_model / original_model -- set only when the stream carried a
+                          type=system fallback event (2026-09-02: subtype
+                          model_refusal_fallback, original_model=claude-fable-5,
+                          fallback_model=claude-opus-4-8)
+      evidence_source  -- which shape produced actual_model
+      ambiguous_model_keys -- the non-auxiliary modelUsage keys when there was
+                          not exactly one; the caller must then report
+                          actual_model_unverified rather than pick one.
+
+    Auxiliary CLI helper models are removed from modelUsage before the unique
+    key is taken, because the 2026-09-02 probe found them present in 10/10
+    calls -- "first key in insertion order" is no longer a valid heuristic.
+    """
+    if prefixes is None:
+        prefixes = CLAUDE_AUXILIARY_MODEL_PREFIXES
+    evidence: dict[str, Any] = {
+        "actual_model": None,
+        "fallback_model": None,
+        "original_model": None,
+        "evidence_source": None,
+        "ambiguous_model_keys": [],
+    }
+    documents = _claude_json_documents(stdout)
+    if not documents:
+        return evidence
+
+    for event in documents:
+        if event.get("type") != "system":
+            continue
+        fallback = event.get("fallback_model")
+        if isinstance(fallback, str) and fallback:
+            original = event.get("original_model")
+            evidence["fallback_model"] = fallback
+            evidence["original_model"] = original if isinstance(original, str) and original else None
+            evidence["actual_model"] = fallback
+            evidence["evidence_source"] = "stream_system_fallback_event"
+            return evidence
+
+    for event in reversed(documents):
+        model = _extract_claude_model_from_json(event, prefixes)
+        if model:
+            evidence["actual_model"] = model
+            evidence["evidence_source"] = "model_usage_or_model_field"
+            return evidence
+        keys = _claude_model_usage_keys(event, prefixes)
+        if keys is not None and len(keys) != 1:
+            evidence["ambiguous_model_keys"] = keys
+            evidence["evidence_source"] = "model_usage_ambiguous"
+            return evidence
+
+    for event in reversed(documents):
+        message = event.get("message")
+        if event.get("type") == "assistant" and isinstance(message, dict):
+            model = message.get("model")
+            if isinstance(model, str) and model:
+                evidence["actual_model"] = model
+                evidence["evidence_source"] = "stream_assistant_message_model"
+                return evidence
+    return evidence
+
+
+def _claude_model_usage_keys(payload: Any, prefixes: tuple[str, ...]) -> list[str] | None:
+    """Candidate modelUsage keys, or None when there is no modelUsage map.
+
+    Auxiliary CLI helper models are excluded only when the map has more than
+    one key. A single-key map is returned as-is: there the one key IS the
+    served model, even when it belongs to the auxiliary family (dispatching
+    to claude-haiku-4-5 itself is a legitimate case and must not be turned
+    into "no evidence").
+    """
+    if not isinstance(payload, dict):
+        return None
+    model_usage = payload.get("modelUsage")
+    if not isinstance(model_usage, dict) or not model_usage:
+        return None
+    keys = [key for key in model_usage if isinstance(key, str) and key]
+    if len(keys) <= 1:
+        return keys
+    return [key for key in keys if not _is_claude_auxiliary_model(key, prefixes)]
+
+
+def _extract_claude_model_from_json(payload: Any, prefixes: tuple[str, ...] | None = None) -> str | None:
     """Extract the raw actual-model identifier from a parsed claude
     --output-format json payload. Two known shapes:
       - a top-level "model" string field (defensive fallback only -- not
@@ -270,20 +429,23 @@ def _extract_claude_model_from_json(payload: Any) -> str | None:
     for comparison purposes happens separately in
     _normalize_claude_model_id, so the record's actual_model field stays a
     faithful, undoctored echo of what the CLI actually printed.
-    If modelUsage has more than one key (a multi-model session), the first
-    key in insertion order is returned -- Phase 1 dispatch calls are
-    expected to be single-model one-shot invocations.
+    2026-09-02 update (CLI 2.1.257): modelUsage always also carries the CLI's
+    own auxiliary helper model, so in a MULTI-key modelUsage map the
+    auxiliary keys are removed first (a single-key map is left alone) and the
+    result is returned only when EXACTLY ONE non-auxiliary key remains.
+    Zero or several remaining keys return None, which the caller reports as
+    actual_model_unverified -- never a guess.
     """
+    if prefixes is None:
+        prefixes = CLAUDE_AUXILIARY_MODEL_PREFIXES
     if not isinstance(payload, dict):
         return None
     model = payload.get("model")
-    if isinstance(model, str) and model:
+    if isinstance(model, str) and model and payload.get("type") != "system":
         return model
-    model_usage = payload.get("modelUsage")
-    if isinstance(model_usage, dict) and model_usage:
-        first_key = next(iter(model_usage))
-        if isinstance(first_key, str) and first_key:
-            return first_key
+    keys = _claude_model_usage_keys(payload, prefixes)
+    if keys and len(keys) == 1:
+        return keys[0]
     return None
 
 
@@ -307,17 +469,18 @@ def _claude_model_matches(requested: str, actual: str, catalog_data: dict | None
     return _normalize_claude_model_id(actual) in allowed
 
 
-def detect_actual_model(executor: str, stdout: str, cmd: str | None = None) -> str | None:
+def detect_actual_model(executor: str, stdout: str, cmd: str | None = None, catalog_data: dict | None = None) -> str | None:
     """Best-effort actual-model echo detection.
 
     codex: scans stdout for a leading "model: xxx" line (unchanged from
     Phase 1).
     claude: only attempts detection when `cmd` shows the call used
-    `--output-format json` (or `--output-format=json`); parses stdout as
-    JSON and looks for modelUsage/model (see _extract_claude_model_from_json).
-    Plain-text-mode claude calls (no cmd given, or cmd without the json
-    flag) return None -- the caller keeps reporting actual_model_unverified
-    for those, per the Model Integrity Gate.
+    `--output-format json`/`=json` or `--output-format stream-json`; see
+    detect_claude_model_evidence for the three shapes handled (stream
+    fallback event, modelUsage after auxiliary-model exclusion, stream
+    assistant message model). Plain-text-mode claude calls (no cmd given, or
+    cmd without an output-format flag) return None -- the caller keeps
+    reporting actual_model_unverified for those, per the Model Integrity Gate.
     """
     if executor == "codex":
         match = CODEX_MODEL_LINE_RE.search(stdout[:2000])
@@ -325,11 +488,7 @@ def detect_actual_model(executor: str, stdout: str, cmd: str | None = None) -> s
     if executor == "claude":
         if not cmd or not CLAUDE_OUTPUT_FORMAT_JSON_RE.search(cmd):
             return None
-        try:
-            payload = json.loads(stdout)
-        except (json.JSONDecodeError, ValueError):
-            return None
-        return _extract_claude_model_from_json(payload)
+        return detect_claude_model_evidence(stdout, claude_auxiliary_prefixes(catalog_data))["actual_model"]
     if executor == "pi":
         message = _pi_assistant_message_end(stdout)
         model = message.get("model") if isinstance(message, dict) else None
@@ -494,8 +653,17 @@ def run_one_case(
             "note": "input/output split or catalog pricing unavailable; total tokens were not misclassified as output",
         }
 
-    actual_model = detect_actual_model(executor, stdout, cmd)
+    claude_evidence: dict[str, Any] | None = None
+    if executor == "claude" and cmd and CLAUDE_OUTPUT_FORMAT_JSON_RE.search(cmd):
+        claude_evidence = detect_claude_model_evidence(stdout, claude_auxiliary_prefixes(catalog_data))
+        actual_model = claude_evidence["actual_model"]
+    else:
+        actual_model = detect_actual_model(executor, stdout, cmd, catalog_data)
     record["actual_model"] = actual_model
+
+    unrecognized_match = (
+        CLAUDE_UNRECOGNIZED_MODEL_RE.search(combined) if executor == "claude" else None
+    )
 
     if timed_out:
         record["status"] = "timeout"
@@ -503,12 +671,35 @@ def run_one_case(
         record["status"] = "blocked_quota"
     elif UNSUPPORTED_RE.search(combined):
         record["status"] = "unsupported"
+    elif unrecognized_match:
+        record["status"] = "unsupported"
+        record["notes"].append(
+            "claude CLI rejected the requested model id before dispatch; verbatim stderr: "
+            + unrecognized_match.group(0).strip()
+        )
     elif exit_code == 0:
         if executor == "codex" and actual_model and model and actual_model != model:
             record["status"] = "fallback_or_downgrade"
             record["notes"].append(f"codex echoed model={actual_model!r}, requested {model!r}")
         elif executor == "claude":
-            if actual_model and model:
+            if claude_evidence and claude_evidence.get("fallback_model"):
+                record["status"] = "fallback_or_downgrade"
+                record["notes"].append(
+                    "claude stream-json carried a type=system fallback event: original_model="
+                    f"{claude_evidence.get('original_model')!r}, fallback_model="
+                    f"{claude_evidence['fallback_model']!r}; requested {model!r}. "
+                    "actual_model is taken from fallback_model, not from the requested id."
+                )
+            elif claude_evidence and claude_evidence.get("ambiguous_model_keys") is not None and claude_evidence.get(
+                "evidence_source"
+            ) == "model_usage_ambiguous":
+                record["status"] = "actual_model_unverified"
+                record["notes"].append(
+                    "claude modelUsage did not leave exactly one non-auxiliary model key after "
+                    f"excluding CLI helper models; remaining keys={claude_evidence['ambiguous_model_keys']!r}. "
+                    "No actual_model is inferred from an ambiguous map."
+                )
+            elif actual_model and model:
                 if _claude_model_matches(model, actual_model, catalog_data):
                     record["status"] = "passed"
                     record["notes"].append(
@@ -981,6 +1172,34 @@ def run_selftest() -> int:
             '"total_cost_usd":0.0677,"usage":{"input_tokens":4,"output_tokens":22},'
             '"modelUsage":{"claude-opus-4-8":{"inputTokens":4,"outputTokens":22,"costUSD":0.0677}}}'
         )
+        # 2026-09-02 fixtures (CLI 2.1.257 probe shapes; see
+        # reports/claude-model-probe-2026-09-02.md).
+        claude_aux_pair_stdout = (
+            '{"subtype":"success","is_error":false,'
+            '"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":900,"outputTokens":12},'
+            '"claude-fable-5-1":{"inputTokens":2,"outputTokens":4}}}'
+        )
+        claude_ambiguous_stdout = (
+            '{"subtype":"success","is_error":false,'
+            '"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":900,"outputTokens":12},'
+            '"claude-sonnet-5":{"inputTokens":2,"outputTokens":4},'
+            '"claude-opus-4-8":{"inputTokens":3,"outputTokens":5}}}'
+        )
+        claude_stream_fallback_lines = [
+            '{"type":"system","subtype":"init","model":"claude-fable-5"}',
+            '{"type":"assistant","message":{"role":"assistant","model":"claude-opus-4-8"}}',
+            '{"type":"system","subtype":"model_refusal_fallback",'
+            '"original_model":"claude-fable-5","fallback_model":"claude-opus-4-8"}',
+            '{"type":"result","subtype":"success",'
+            '"modelUsage":{"claude-haiku-4-5-20251001":{"inputTokens":900,"outputTokens":12},'
+            '"claude-opus-5":{"inputTokens":2,"outputTokens":4}}}',
+        ]
+        claude_stream_fallback_printf = "printf '%s\\n' " + " ".join(
+            f"'{line}'" for line in claude_stream_fallback_lines
+        )
+        claude_unrecognized_stderr = (
+            '[claude-code:unrecognized_model] {"model":"claude-sonnet-4-8","query_source":"sdk"}'
+        )
         claude_json_cases = [
             {
                 "case_id": "claude-json-exact-match",
@@ -1024,6 +1243,54 @@ def run_selftest() -> int:
                 "cmd_template": (
                     "printf 'not valid json'  "
                     "# mocked: claude --print --output-format json (corrupted/partial output)"
+                ),
+            },
+            {
+                # 2026-09-02 probe shape: modelUsage always also carries the
+                # CLI's auxiliary helper model; the business key must still be
+                # recovered.
+                "case_id": "claude-json-auxiliary-model-excluded",
+                "provider": "anthropic",
+                "executor": "claude",
+                "model": "claude-fable-5-1",
+                "reasoning": "low",
+                "cmd_template": (
+                    f"printf '%s' '{claude_aux_pair_stdout}'  "
+                    "# mocked: claude --print --output-format json --model claude-fable-5-1"
+                ),
+            },
+            {
+                "case_id": "claude-json-ambiguous-after-auxiliary-exclusion",
+                "provider": "anthropic",
+                "executor": "claude",
+                "model": "claude-sonnet-5",
+                "reasoning": "low",
+                "cmd_template": (
+                    f"printf '%s' '{claude_ambiguous_stdout}'  "
+                    "# mocked: claude --print --output-format json (two business models in one session)"
+                ),
+            },
+            {
+                # 2026-09-02 probe shape: only stream-json exposes the fallback.
+                "case_id": "claude-stream-json-fallback-event",
+                "provider": "anthropic",
+                "executor": "claude",
+                "model": "claude-fable-5",
+                "reasoning": "low",
+                "cmd_template": (
+                    f"{claude_stream_fallback_printf}  "
+                    "# mocked: claude --print --output-format stream-json --verbose --model claude-fable-5"
+                ),
+            },
+            {
+                "case_id": "claude-unrecognized-model-stderr",
+                "provider": "anthropic",
+                "executor": "claude",
+                "model": "claude-sonnet-4-8",
+                "reasoning": "low",
+                "cmd_template": (
+                    f"printf '%s' '{claude_unrecognized_stderr}' 1>&2; exit 1  "
+                    "# mocked: claude --print --output-format json --model claude-sonnet-4-8"
                 ),
             },
             {
@@ -1077,6 +1344,34 @@ def run_selftest() -> int:
             "claude json unparseable stdout -> falls back to actual_model_unverified, not a fabricated pass",
             claude_by_id["claude-json-unparseable-stdout"]["status"] == "actual_model_unverified",
             claude_by_id["claude-json-unparseable-stdout"]["status"],
+        )
+        aux_case = claude_by_id["claude-json-auxiliary-model-excluded"]
+        check(
+            "claude json: CLI auxiliary model excluded, business key recovered -> passed",
+            aux_case["status"] == "passed" and aux_case["actual_model"] == "claude-fable-5-1",
+            f"{aux_case['status']} / {aux_case['actual_model']}",
+        )
+        ambiguous_case = claude_by_id["claude-json-ambiguous-after-auxiliary-exclusion"]
+        check(
+            "claude json: two business models left after exclusion -> actual_model_unverified, no guess",
+            ambiguous_case["status"] == "actual_model_unverified"
+            and ambiguous_case["actual_model"] is None,
+            f"{ambiguous_case['status']} / {ambiguous_case['actual_model']}",
+        )
+        fallback_case = claude_by_id["claude-stream-json-fallback-event"]
+        check(
+            "claude stream-json fallback event -> fallback_or_downgrade with fallback_model as actual",
+            fallback_case["status"] == "fallback_or_downgrade"
+            and fallback_case["actual_model"] == "claude-opus-4-8"
+            and any("fallback_model='claude-opus-4-8'" in n for n in fallback_case["notes"]),
+            f"{fallback_case['status']} / {fallback_case['actual_model']} / {fallback_case['notes']}",
+        )
+        unrecognized_case = claude_by_id["claude-unrecognized-model-stderr"]
+        check(
+            "claude unrecognized_model stderr -> unsupported with verbatim stderr in notes",
+            unrecognized_case["status"] == "unsupported"
+            and any("[claude-code:unrecognized_model]" in n for n in unrecognized_case["notes"]),
+            f"{unrecognized_case['status']} / {unrecognized_case['notes']}",
         )
         check(
             "claude plain text mode -> still actual_model_unverified (unchanged Phase 1 fallback)",

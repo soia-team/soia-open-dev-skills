@@ -7,15 +7,69 @@
 - **权限模式**：默认 `--permission-mode auto`（自动模式：常规操作免确认，危险操作自动回退询问）；`bypassPermissions` 仅在明确接受工作目录改动风险时使用
 - **交互式会话**：仅在确需人工连续交互时才直接进入 TUI
 
-## 模型分级
+## 已实测 ID 表（2026-09-02，CLI 2.1.257）
 
-> ⚠️ 下表模型名称仅供参考，具体可用档位请以 `claude --help` / 你账号可用的模型列表为准；模型代号会随时间推移而变化。
+> ⚠️ **以实时探测为准。** 下表是一次性快照，不是长期承诺：模型代号随时间变化，
+> 可用性还取决于你的账号与套餐。派发前用 `python3 scripts/probe_claude_models.py --models <ids>`
+> 重新确认，不要拿本表当运行时真源（运行时真源是 `references/model-catalog.yml`）。
 
-| 场景 | 模型（示例档位） | 定位 |
-|------|------|------|
-| 调度 / 代码审查 / 计划拆分 / 复杂推理 | 高阶推理档（thinking=high） | 派发子 agent、审 PR、规划提案、复杂 bug 定位 |
-| 代码编写 / 中等任务 | 中阶档 | UI 编辑、文档改写、中型重构，作为高阶档的节流替代 |
-| 轻量 Edit / Read / Grep | 轻量档 | 一次性小改、快速查阅 |
+探测方式：`claude -p --model <id> --output-format json`，单轮、无工具、无 MCP、无 settings。
+
+| requested id | rc | 结果 |
+|---|---|---|
+| `claude-fable-5-1` | 0 | 精确匹配 |
+| `claude-fable-5` | 0 | **fallback 到 opus**（见下节） |
+| `claude-opus-5` | 0 | 精确匹配 |
+| `claude-opus-4-8` | 0 | 精确匹配 |
+| `claude-opus-4-7` | 0 | 精确匹配 |
+| `claude-opus-4-6` | 0 | 精确匹配 |
+| `claude-sonnet-5` | 0 | 精确匹配 |
+| `claude-sonnet-4-6` | 0 | 精确匹配 |
+| `claude-sonnet-4-8` | 1 | `unrecognized_model` |
+| `claude-sonnet-4-7` | 1 | `unrecognized_model` |
+
+本次探测**只**证明"这个 id 能不能被服务"。它不构成任何价格、上下文窗口、推理档或
+能力分级证据——prompt 是单词回显。因此不要据此排任务分级；分级仍需按任务类型
+单独取证。完整原始摘要见 `reports/claude-model-probe-2026-09-02.md`。
+
+## fallback 与辅助模型
+
+三个现象会让"退出码 0 + 有输出"仍然不等于"用了你要的模型"：
+
+1. **fallback 事件（只有 stream-json 看得见）**：请求 `claude-fable-5` 时，
+   `--output-format stream-json --verbose` 的事件流里出现
+   `type=system` / `subtype=model_refusal_fallback`，带
+   `original_model=claude-fable-5` 与 `fallback_model=claude-opus-4-8`；
+   同次 `assistant.message.model` 也是 `claude-opus-4-8`。
+   `--output-format json` **不含**该事件，只能从 `modelUsage` 的键与请求不同间接看出。
+   技能处理：`run_matrix.py` 见到该事件即判 `fallback_or_downgrade`，
+   `actual_model` 取 `fallback_model`。需要可靠模型证据时优先用 `stream-json`。
+   注意这是单日单账号单 prompt 的观察，**不能**据此宣称该模型已下线——它 rc=0
+   且正常返回；catalog 中它仍是 `available`，但派发必须逐次读 `fallback_model`。
+2. **`modelUsage` 多键（辅助模型）**：10/10 次调用的 `modelUsage` 都额外含
+   `claude-haiku-4-5-20251001`（CLI 自身的辅助模型），所以"取第一个键"已经失效。
+   技能处理：多键时先按 `providers.anthropic.auxiliary_models`（前缀匹配
+   `claude-haiku-4-5`）排除，剩余唯一键才作为 `actual_model`；剩 0 个或多于 1 个
+   判 `actual_model_unverified`。单键 map 不排除，否则直接派发 haiku 会被误判。
+3. **`unrecognized_model`**：不认识的 id 让 CLI 退出码 1，stderr 打印
+   `[claude-code:unrecognized_model]` 加一个含 `model`/`query_source` 的 JSON。
+   技能处理：判 `unsupported`，并把 stderr 原文写进 `notes`；这类 id 以
+   `availability: unrecognized_by_cli` 入 catalog，且不进入任何 `routing_profile`。
+
+## 同宿主派发
+
+当主控**本身**就运行在 Claude Code 里时，派发子任务应当用宿主自己的 Agent 工具，
+而不是再起一个 `claude -p` 子进程：后者会重复登录态、丢失宿主上下文，并额外计费。
+
+但要接受一个能力边界：宿主 Agent 工具的 model 参数是**家族别名**
+（`sonnet` / `opus` / `haiku` / `fable`），不是具体版本号，宿主也不回显它实际
+解析到的版本。因此：
+
+- 回执的 `actual_model` 必须写 `host-routed(<alias>)`，例如 `host-routed(opus)`。
+- **不得**把别名脑补成具体版本号（不能写 `claude-opus-5`），也不得把请求值当实际值。
+- 需要钉死具体版本时，只能改用 `claude -p --model <id> --output-format stream-json`
+  子进程路线，用上一节的证据链验证。
+- 这条限制属于 Model Integrity Gate 第 3 条"宿主模型仅可观测、不可控"的具体化。
 
 ## 推荐命令模板
 

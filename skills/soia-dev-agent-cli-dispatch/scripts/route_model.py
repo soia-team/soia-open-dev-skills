@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
-# @modified_by openai/gpt-5
-# @modified_at 2026-08-30 09:03:06
-# @version 0.1.5
+# @modified_by anthropic/claude-opus-5
+# @modified_at 2026-09-02 00:00:00
+# @version 0.2.0
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog Assert Pi DeepSeek Vision low as explicit smoke-tested evidence while retaining no auto-route.
+# @changelog Add dispatch_role and the reviewer Independence Gate over catalog provider/model_family.
 """Mechanically route an executor family to a verified model/effort pair."""
 
 from __future__ import annotations
@@ -23,6 +23,18 @@ import catalog_lib  # noqa: E402
 
 class RouteError(Exception):
     pass
+
+
+class IndependenceGateError(RouteError):
+    """Raised when a reviewer would not be independent of the executor."""
+
+
+# dispatch_role values recognized by the Independence Gate. Only `reviewer`
+# is gated here: a reviewer that shares the executor's provider AND
+# model_family cannot supply independent judgement about that executor's own
+# output. The other roles are accepted and recorded, but not constrained.
+DISPATCH_ROLES = ("coordinator", "executor", "verifier", "reviewer", "adversary", "mechanical")
+GATED_ROLES = ("reviewer",)
 
 
 PREFERRED_EFFORTS = {
@@ -72,7 +84,69 @@ def _cost_range(model: dict[str, Any]) -> dict[str, str | None]:
     return {"basis": "1M input + 1M output, standard tier", "min_usd": value, "max_usd": value}
 
 
-def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None) -> dict[str, Any]:
+def _resolve_identity(data: dict, requested: str) -> tuple[str, str] | None:
+    """Return (provider, model_family) for a catalog model, or None if unknown."""
+    resolution = catalog_lib.find_model(data, requested)
+    model = resolution.get("model")
+    provider = resolution.get("provider")
+    if not isinstance(model, dict) or not provider:
+        return None
+    family = model.get("model_family")
+    return (str(provider), str(family) if family else "")
+
+
+def check_independence(data: dict, role: str | None, reviewer_model: str | None, executor_model: str | None) -> dict[str, Any] | None:
+    """Independence Gate. Returns an evidence dict, or raises for a conflict.
+
+    Only applies to gated roles (currently `reviewer`). A reviewer must be
+    told which model produced the work under review (`executor_model`);
+    without it there is no way to prove independence, so the gate blocks
+    rather than assuming. Same provider AND same model_family means the
+    reviewer is the same generation of the same model line as the
+    implementer -- that is not an independent second opinion.
+    """
+    if not role:
+        return None
+    if role not in DISPATCH_ROLES:
+        raise RouteError(f"unknown dispatch_role {role!r}; expected one of {list(DISPATCH_ROLES)}")
+    if role not in GATED_ROLES:
+        return {"dispatch_role": role, "independence": "not_gated"}
+    if not executor_model:
+        raise IndependenceGateError(
+            f"independence_gate: dispatch_role={role!r} requires --executor-model "
+            "(the model that produced the work under review); independence cannot be asserted without it"
+        )
+    reviewer_identity = _resolve_identity(data, reviewer_model) if reviewer_model else None
+    executor_identity = _resolve_identity(data, executor_model)
+    if executor_identity is None:
+        raise IndependenceGateError(
+            f"independence_gate: executor model {executor_model!r} is not in the catalog, "
+            "so its provider/model_family cannot be compared; register it before dispatching a reviewer"
+        )
+    if reviewer_identity is None:
+        return {
+            "dispatch_role": role,
+            "independence": "unverified",
+            "executor_model": executor_model,
+            "executor_model_family": executor_identity[1],
+            "note": "reviewer model is not resolvable in the catalog; independence is unverified, not proven",
+        }
+    if reviewer_identity == executor_identity:
+        raise IndependenceGateError(
+            f"independence_gate: reviewer model {reviewer_model!r} and executor model "
+            f"{executor_model!r} share provider={reviewer_identity[0]!r} and "
+            f"model_family={reviewer_identity[1]!r}; a same-family reviewer is not independent"
+        )
+    return {
+        "dispatch_role": role,
+        "independence": "independent",
+        "executor_model": executor_model,
+        "executor_model_family": executor_identity[1],
+        "reviewer_model_family": reviewer_identity[1],
+    }
+
+
+def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None) -> dict[str, Any]:
     if complexity not in PREFERRED_EFFORTS:
         raise RouteError(f"invalid complexity {complexity!r}")
     if requested_model:
@@ -101,7 +175,10 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
         model = candidates[0]
         effort, selection_status = _choose_effort(model, complexity, None)
         reason = f"catalog routing_profile={complexity}; discovery and reasoning evidence are present"
+    independence = check_independence(data, role, model.get("model_id"), executor_model)
+    receipt_extra = {"independence_gate": independence} if independence else {}
     return {
+        **receipt_extra,
         "executor": executor,
         "selected_model": model.get("model_id"),
         "selected_reasoning_effort": effort,
@@ -182,6 +259,55 @@ def run_selftest() -> int:
         checks.append(("agy rejects Gemini API catalog ids even when explicitly requested", True))
     else:
         checks.append(("agy rejects Gemini API catalog ids even when explicitly requested", False))
+    # --- Independence Gate (dispatch_role) ---
+    try:
+        route_model(data, "claude", "medium", "claude-sonnet-5", role="reviewer", executor_model="claude-sonnet-5")
+    except IndependenceGateError:
+        checks.append(("reviewer with the same model as the executor blocks", True))
+    else:
+        checks.append(("reviewer with the same model as the executor blocks", False))
+    try:
+        route_model(data, "claude", "medium", "claude-opus-4-8", role="reviewer", executor_model="claude-opus-4-7")
+    except IndependenceGateError:
+        checks.append(("reviewer in the same model_family as the executor blocks", True))
+    else:
+        checks.append(("reviewer in the same model_family as the executor blocks", False))
+    try:
+        route_model(data, "claude", "medium", "claude-sonnet-5", role="reviewer")
+    except IndependenceGateError:
+        checks.append(("reviewer without --executor-model blocks", True))
+    else:
+        checks.append(("reviewer without --executor-model blocks", False))
+    cross_provider = route_model(
+        data, "claude", "medium", "claude-opus-4-8", role="reviewer",
+        executor_model="deepseek-v4-flash-vision-exp",
+    )
+    checks.append((
+        "reviewer from a different provider passes the gate",
+        cross_provider["independence_gate"]["independence"] == "independent"
+        and cross_provider["selection_status"] != "blocked",
+    ))
+    cross_generation = route_model(
+        data, "claude", "medium", "claude-opus-5", role="reviewer", executor_model="claude-opus-4-8",
+    )
+    checks.append((
+        "opus-5 reviewing opus-4-8 is independent (distinct model_family)",
+        cross_generation["independence_gate"]["independence"] == "independent",
+    ))
+    non_gated = route_model(data, "claude", "medium", role="executor")
+    checks.append((
+        "non-reviewer roles are recorded but not gated",
+        non_gated["independence_gate"]["independence"] == "not_gated",
+    ))
+    no_role = route_model(data, "claude", "medium")
+    checks.append(("omitting --role leaves the receipt unchanged", "independence_gate" not in no_role))
+    try:
+        route_model(data, "claude", "medium", role="auditor")
+    except RouteError:
+        checks.append(("unknown dispatch_role blocks", True))
+    else:
+        checks.append(("unknown dispatch_role blocks", False))
+
     receipt = route_model(data, "claude", "medium")
     checks.append(("route receipt has fixed fields", all(key in receipt for key in ("selected_model", "selected_reasoning_effort", "task_complexity", "selection_reason", "estimated_cost_range", "catalog_version", "selection_status"))))
     print("=== route_model.py selftest ===")
@@ -198,6 +324,8 @@ def main() -> int:
     parser.add_argument("--complexity", choices=["easy", "medium", "hard"])
     parser.add_argument("--model")
     parser.add_argument("--reasoning")
+    parser.add_argument("--role", choices=list(DISPATCH_ROLES), help="dispatch_role for this call; 'reviewer' activates the Independence Gate")
+    parser.add_argument("--executor-model", dest="executor_model", help="model that produced the work under review; required when --role reviewer")
     parser.add_argument("--catalog")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
@@ -211,7 +339,10 @@ def main() -> int:
         validation = catalog_lib.validate_catalog(data)
         if validation["errors"]:
             raise RouteError("invalid catalog: " + "; ".join(validation["errors"][:5]))
-        result = route_model(data, args.executor, args.complexity, args.model, args.reasoning)
+        result = route_model(
+            data, args.executor, args.complexity, args.model, args.reasoning,
+            role=args.role, executor_model=args.executor_model,
+        )
     except (OSError, catalog_lib.CatalogError, RouteError) as exc:
         print(json.dumps({"selection_status": "blocked", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         return 2

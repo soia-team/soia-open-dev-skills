@@ -1,6 +1,6 @@
 # 输入契约
 
-脚本接收一个 JSON object。`title` 必填；`scope` 默认 `task`，可选 `task`、`change_set`、`project`；`view` 默认 `auto`，可选 `auto`、`overview`、`call_chain`、`data_flow`、`boundary`、`conformance`、`full`。`task` 表示当前展示请求，不强制只有一个文件或一个逻辑单元。
+脚本接收一个 JSON object。`title` 必填；`scope` 默认 `task`，可选 `task`、`change_set`、`project`；`view` 默认 `auto`，可选 `auto`、`progress`、`overview`、`call_chain`、`data_flow`、`boundary`、`conformance`、`full`。`task` 表示当前展示请求，不强制只有一个文件或一个逻辑单元。
 
 ## 字段
 
@@ -11,6 +11,7 @@
   "title": "Retry status boundary review",
   "objective": "让 reviewer 能重建跨文件逻辑",
   "stage": "审查",
+  "metrics": [{"label": "进行中", "value": 2, "tone": "active"}],
   "steps": [{"name": "追踪请求", "status": "completed", "detail": "从入口跟到 port"}],
   "facts": [{"title": "观察", "detail": "直接看到的事实", "claim_type": "observed", "references": [{"file": "src/api/routes.ts", "line": 42}]}],
   "files": [{"path": "src/api/routes.ts", "owner": "HTTP adapter", "layer": "adapter", "role": "职责或变更", "references": [{"file": "src/api/routes.ts", "line": 42}]}],
@@ -26,6 +27,8 @@
 ```
 
 `files` 也接受 `changed_files`、`file_matrix`、`changes` 或 `code_changes`。架构调用关系也接受 `architecture`、`architecture_calls` 或 `call_graph`；验证也接受 `evidence` 或 `checks`。
+
+`progress` 视图读取 `metrics`、`steps`、`blockers` 和 `next_steps`；任务项可用 `owner` 与 `next`/`next_action` 提供紧凑负责人和下一门。它不会渲染代码矩阵、调用链或完整证据墙，除非改选相应 view。
 
 ## claim 与引用
 

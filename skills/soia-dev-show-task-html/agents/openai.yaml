@@ -1,4 +1,4 @@
 interface:
   display_name: "Show Task HTML"
-  short_description: "把 AI 代码变更、架构调用和数据流整理为离线、可复制的 HTML 视图。"
-  default_prompt: "展示这个变更集：用最小必要视图说明文件 owner/layer、核心调用链、数据流、规范符合性和证据。"
+  short_description: "用最小视图展示开发进度、调用链、数据流与架构边界。"
+  default_prompt: "展示当前开发进度和代码变更：先选最小视图，复杂时再生成离线 HTML。"

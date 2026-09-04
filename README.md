@@ -74,7 +74,7 @@ flowchart LR
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | 帮 reviewer 看懂 AI 代码变更、跨文件架构调用、数据流、边界、规范符合性与证据 | ✅ |
+| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | 用最小视图展示开发进度，并帮 reviewer 看懂 AI 代码的调用链、数据流、边界与规范符合性 | ✅ |
 
 ✅ 装完即用　🟡 需先完成登录或申请 API key，技能会在执行前告诉你缺什么
 

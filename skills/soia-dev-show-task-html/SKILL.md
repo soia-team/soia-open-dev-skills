@@ -1,11 +1,11 @@
 ---
 name: soia-dev-show-task-html
-description: 将开发任务、代码变更或项目结构转成最小可用视图：简单关系直接画，复杂跨文件调用链与数据流生成离线 HTML。用于快速看懂 AI 生成代码并检查架构边界与规范符合性。触发：「show me」「展示这个任务」「给我画一下」
-version: 0.2.0
+description: 将开发进度与 AI 代码变更转成最小可用视图：简单关系直接画，阶段状态用紧凑看板，复杂调用链与数据流生成离线 HTML。触发：「show me」「展示这个任务」「给我画一下」
+version: 0.2.1
 created_at: 2026-09-04 15:43:10
-updated_at: 2026-09-04 16:05:28
+updated_at: 2026-09-04 16:41:24
 created_by: gpt-5.6-luna
-updated_by: gpt-5.6-luna
+updated_by: gpt-5.6-sol
 ---
 
 # soia-dev-show-task-html
@@ -19,6 +19,7 @@ updated_by: gpt-5.6-luna
 ### 这个技能可以做什么
 
 - 简单关系：在对话中给最小表格、调用树或 Mermaid。
+- 阶段汇报：用紧凑 KPI、任务行、阻塞和下一步快速看全局。
 - 复杂跨文件改动：生成离线、响应式、可复制文字的 HTML，展示文件 owner/layer、调用链、数据流、模块边界、规范符合性、验证证据、风险、阻塞和下一步。
 
 ### 客户如何使用
@@ -52,7 +53,7 @@ updated_by: gpt-5.6-luna
 
 ```bash
 python3 <skill-dir>/scripts/show_task_html.py --selftest
-python3 <skill-dir>/scripts/show_task_html.py --input <scope.json> --scope <task|change_set|project> --view <auto|overview|call_chain|data_flow|boundary|conformance|full>
+python3 <skill-dir>/scripts/show_task_html.py --input <scope.json> --scope <task|change_set|project> --view <auto|progress|overview|call_chain|data_flow|boundary|conformance|full>
 ```
 
 生成器是确定性的，只渲染输入，不读仓库、不联网、不写当前时间。通用跨文件审查 fixture 位于 `examples/task.json`；无效 scope/view、缺少标题、危险标记、非法输出路径和未授权覆盖都应显式失败。

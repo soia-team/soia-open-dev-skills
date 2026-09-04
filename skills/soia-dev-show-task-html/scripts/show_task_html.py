@@ -16,10 +16,11 @@ from typing import Any
 SKILL_NAME = "soia-dev-show-task-html"
 FIXTURE = Path(__file__).resolve().parents[1] / "examples" / "task.json"
 VALID_SCOPES = ("task", "change_set", "project")
-VALID_VIEWS = ("auto", "overview", "call_chain", "data_flow", "boundary", "conformance", "full")
+VALID_VIEWS = ("auto", "progress", "overview", "call_chain", "data_flow", "boundary", "conformance", "full")
 SCOPE_LABELS = {"task": "当前任务", "change_set": "变更集", "project": "项目"}
 VIEW_LABELS = {
     "auto": "自动最小视图",
+    "progress": "阶段进度",
     "overview": "概览",
     "call_chain": "核心调用链",
     "data_flow": "数据流",
@@ -174,6 +175,20 @@ def card_list(items: list[Any], detail_keys: tuple[str, ...]) -> str:
     return "".join(cards)
 
 
+def compact_cards(items: list[Any], detail_keys: tuple[str, ...]) -> str:
+    cards = []
+    for item in items:
+        state = status_value(item)
+        cards.append(
+            '<article class="card">'
+            f'<div class="card-title">{esc(item_title(item))}</div>'
+            f'<div class="card-detail">{esc(details(item, detail_keys), "")}</div>'
+            f'<span class="status status-{state}">{STATUS_LABELS[state]}</span>'
+            '</article>'
+        )
+    return "".join(cards)
+
+
 def section(key: str, heading: str, content: str) -> str:
     if not content:
         return ""
@@ -296,6 +311,48 @@ def render_evidence(task: dict[str, Any]) -> str:
     return "".join(parts)
 
 
+def render_progress(task: dict[str, Any]) -> str:
+    metrics = as_items(pick(task, "metrics", "stats", default=[]))
+    tasks = as_items(pick(task, "steps", "tasks", "stages", "phase_steps", default=[]))
+    blockers = as_items(pick(task, "blockers", "blocking", default=[]))
+    next_steps = as_items(pick(task, "next_steps", "next", default=[]))
+    parts = []
+    if metrics:
+        cards = []
+        for item in metrics:
+            if isinstance(item, dict):
+                label = pick(item, "label", "name", "title", default="指标")
+                value = pick(item, "value", "count", default="—")
+                tone = str(pick(item, "tone", "status", default="pending")).lower()
+                tone = tone if tone in {"done", "pass", "active", "blocked", "fail", "pending"} else "pending"
+                cards.append(f'<div class="stat stat-{tone}"><strong>{esc(value)}</strong><span>{esc(label)}</span></div>')
+            else:
+                cards.append(f'<div class="stat"><strong>{esc(item)}</strong></div>')
+        parts.append('<div class="stats">' + "".join(cards) + "</div>")
+    if tasks:
+        rows = []
+        for item in tasks:
+            state = status_value(item)
+            owner = pick(item, "owner", "agent", default="") if isinstance(item, dict) else ""
+            next_action = pick(item, "next", "next_action", "gate", default="") if isinstance(item, dict) else ""
+            detail = details(item, ("detail", "summary", "description"))
+            rows.append(
+                '<div class="progress-row">'
+                f'<div class="progress-main"><strong>{esc(item_title(item))}</strong>'
+                f'<span>{esc(detail, "")}</span></div>'
+                f'<span class="progress-owner">{esc(owner, "")}</span>'
+                f'<span class="status status-{state}">{STATUS_LABELS[state]}</span>'
+                f'<span class="progress-next">{esc(next_action, "")}</span>'
+                '</div>'
+            )
+        parts.append('<h3>任务</h3><div class="progress-list">' + "".join(rows) + "</div>")
+    if blockers:
+        parts.append('<h3>阻塞</h3><div class="compact-grid">' + compact_cards(blockers, ("detail", "reason", "owner")) + "</div>")
+    if next_steps:
+        parts.append('<h3>下一步</h3><div class="compact-grid">' + compact_cards(next_steps, ("detail", "owner", "due")) + "</div>")
+    return "".join(parts)
+
+
 def normalize_task(raw: dict[str, Any], scope_override: str | None = None, view_override: str | None = None) -> dict[str, Any]:
     task = dict(raw)
     task["scope"] = normalize_scope(scope_override if scope_override is not None else task.get("scope", "task"))
@@ -331,6 +388,8 @@ def selected_sections(task: dict[str, Any]) -> list[str]:
     order = ["overview", "files", "call_chain", "data_flow", "boundary", "conformance", "evidence"]
     if view in {"auto", "full"}:
         return [key for key in order if available[key]]
+    if view == "progress":
+        return ["progress"] if render_progress(task) else []
     wanted = {"overview": ["overview"], "call_chain": ["overview", "files", "call_chain"], "data_flow": ["overview", "files", "data_flow"], "boundary": ["overview", "files", "boundary"], "conformance": ["overview", "files", "conformance"]}[view]
     return [key for key in wanted if available[key]]
 
@@ -348,13 +407,17 @@ def render_document(raw_task: dict[str, Any], scope_override: str | None = None,
 main {{ width:min(1180px,100% - 32px); margin:0 auto; padding:36px 0 64px; }} h1 {{ margin:0 0 12px; font-size:clamp(28px,5vw,48px); line-height:1.15; overflow-wrap:anywhere; }} h2 {{ margin:0 0 18px; font-size:22px; }} h3 {{ margin:8px 0 12px; font-size:16px; }}
 .hero {{ background:linear-gradient(135deg,#172554,#2563eb); color:#fff; border-radius:20px; padding:32px; box-shadow:0 14px 35px #1725542b; }} .objective,.overview {{ margin:0; overflow-wrap:anywhere; }} .objective {{ font-size:18px; max-width:82ch; }} .meta {{ display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; }} .meta span {{ border:1px solid #ffffff55; border-radius:999px; padding:4px 12px; font-size:14px; }}
 .section {{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px; margin-top:20px; }} .grid {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }} .card {{ border:1px solid var(--line); border-radius:12px; padding:14px 16px; background:#fbfdff; min-width:0; }} .card-title {{ font-weight:700; overflow-wrap:anywhere; }} .card-detail {{ color:var(--muted); overflow-wrap:anywhere; }} .card-detail:empty {{ display:none; }}
+.stats {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }} .stat {{ border:1px solid var(--line); border-radius:12px; padding:12px 14px; background:#fbfdff; }} .stat strong {{ display:block; font-size:24px; line-height:1.2; }} .stat span {{ color:var(--muted); font-size:12px; }} .stat-done,.stat-pass {{ border-color:#a9dec4; }} .stat-active {{ border-color:#a9c4fa; }} .stat-blocked,.stat-fail {{ border-color:#f3b4af; }}
+.progress-list {{ border-top:1px solid var(--line); }} .progress-row {{ display:grid; grid-template-columns:minmax(240px,1fr) 110px 90px minmax(150px,.7fr); gap:12px; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); }} .progress-main strong,.progress-main span {{ display:block; }} .progress-main span,.progress-owner,.progress-next {{ color:var(--muted); font-size:13px; overflow-wrap:anywhere; }} .compact-grid {{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }}
 .status,.claim {{ display:inline-block; margin:9px 8px 0 0; border-radius:999px; padding:1px 9px; font-size:12px; font-weight:700; }} .status-done,.status-pass,.claim-observed {{ color:var(--good); background:#e7f6ee; }} .status-active,.claim-inferred {{ color:var(--accent); background:#e8f0ff; }} .status-blocked,.status-fail {{ color:var(--bad); background:#feebea; }} .status-pending,.status-unknown,.claim-unknown {{ color:var(--warn); background:#fff4d6; }}
 .evidence-meta {{ margin-top:6px; color:var(--muted); overflow-wrap:anywhere; }} .ref {{ display:inline-block; margin:5px 6px 0 0; padding:1px 6px; border:1px solid var(--line); border-radius:5px; background:#f7f9fc; }} .ref.missing {{ font-size:12px; }} code {{ font:0.92em ui-monospace,SFMono-Regular,Menlo,monospace; overflow-wrap:anywhere; }}
 .table-wrap {{ overflow-x:auto; }} table {{ width:100%; border-collapse:collapse; }} th,td {{ text-align:left; vertical-align:top; border-bottom:1px solid var(--line); padding:10px 12px; min-width:130px; }} th {{ color:var(--muted); font-size:13px; }}
 .node-row {{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:16px 0; }} .node {{ border:1px solid #9db9f9; background:#eef4ff; border-radius:12px; padding:9px 14px; font-weight:650; overflow-wrap:anywhere; }} .relations,.flow {{ display:grid; gap:8px; }} .relation {{ background:#f7f9fc; border-left:3px solid var(--accent); padding:9px 12px; overflow-wrap:anywhere; }} .arrow {{ color:var(--accent); padding:0 10px; }} .relation-label {{ color:var(--muted); margin-left:10px; }}
-footer {{ color:var(--muted); text-align:center; margin-top:28px; font-size:13px; }} @media (max-width:700px) {{ main {{ width:min(100% - 20px,1180px); padding-top:20px; }} .hero,.section {{ padding:20px; border-radius:14px; }} .grid {{ grid-template-columns:1fr; }} th,td {{ min-width:120px; }} }}
+footer {{ color:var(--muted); text-align:center; margin-top:28px; font-size:13px; }} @media (max-width:700px) {{ main {{ width:min(100% - 20px,1180px); padding-top:20px; }} .hero,.section {{ padding:20px; border-radius:14px; }} .grid,.compact-grid {{ grid-template-columns:1fr; }} .progress-row {{ grid-template-columns:1fr auto; }} .progress-owner,.progress-next {{ grid-column:1 / -1; }} th,td {{ min-width:120px; }} }}
 </style></head><body><main><header class="hero"><h1>{esc(title)}</h1><p class="objective">{esc(objective)}</p><div class="meta"><span>范围：{SCOPE_LABELS[task['scope']]}</span><span>视图：{VIEW_LABELS[task['view']]}</span>{f'<span>阶段：{esc(pick(task, "stage", "phase", default="未提供"))}</span>' if nonempty(pick(task, "stage", "phase", default=None)) else ''}</div></header>''']
     sections = selected_sections(task)
+    if "progress" in sections:
+        parts.append(section("progress", "进度总览", render_progress(task)))
     if "overview" in sections:
         steps = as_items(pick(task, "steps", "stages", "phase_steps", default=[]))
         files = as_items(pick(task, "files", "changed_files", "file_matrix", "changes", "code_changes", default=[]))
@@ -426,6 +489,7 @@ def run_selftest() -> None:
     full = render_document(task)
     minimal = render_document({"title": "Minimal scope", "objective": "只展示一个最小主题。"})
     dict_ref = render_document({"title": "Reference shape", "verification": [{"check": "one", "evidence": "direct", "references": {"file": "src/one.py", "line": 9}}]})
+    progress = render_document({"title": "Progress", "view": "progress", "metrics": [{"label": "进行中", "value": 2, "tone": "active"}], "steps": [{"name": "Slice A", "status": "running", "owner": "Terra", "next": "review"}], "blockers": [{"title": "Owner decision", "detail": "waiting"}], "next_steps": [{"name": "Review"}]})
     for scope in VALID_SCOPES:
         render_document({"title": "scope", "scope": scope})
     for view in VALID_VIEWS:
@@ -445,6 +509,8 @@ def run_selftest() -> None:
         raise AssertionError("overview duplicated facts or implied an unverified node order")
     if any(f'data-section="{key}"' in minimal for key in ("overview", "files", "call_chain", "data_flow", "boundary", "conformance", "evidence")):
         raise AssertionError("auto view rendered an empty section")
+    if 'data-section="progress"' not in progress or 'data-section="files"' in progress or "Slice A" not in progress or "出处未提供" in progress:
+        raise AssertionError("progress view did not stay compact")
     for invalid in ({"scope": "workspace"}, {"view": "diagram"}):
         try:
             render_document({"title": "invalid", **invalid})

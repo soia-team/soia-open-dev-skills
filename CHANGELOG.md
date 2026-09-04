@@ -3,6 +3,13 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.12.2 — 2026-09-04
+
+show-task-html 0.3.2：信息密度与视觉体系重做（KPI 不裁切、任务行三列对齐、字号收敛 5 档、中文排版、移动端收紧）
+
+## 维护
+- chore(release): open next train after v1.12.1 (#76)
+
 ## v1.12.1 — 2026-09-04
 
 新增紧凑 progress 视图：KPI、任务、阻塞与下一步

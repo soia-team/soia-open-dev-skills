@@ -6,7 +6,7 @@
 
 **让 AI 改代码，不再「应该没问题」就交差**
 
-12 个技能把边界、验证与复核焊进流程；先划范围，改完必须拿出证据
+13 个技能把边界、验证与复核焊进流程；先划范围，改完必须拿出证据
 
 [English](README.en.md) · 中文 · [全生态门户](https://github.com/soia-team/soia-open-skills)
 
@@ -36,7 +36,7 @@ flowchart LR
     D -.不通过.-> C
 ```
 
-## 12 个技能
+## 13 个技能
 
 ### 01 改动闭环　`需求或缺陷 → 有边界、有验证、有复核的改动`
 
@@ -70,11 +70,19 @@ flowchart LR
 | [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | 外部 AI CLI 调度与模型路由，受控派活与用量回执 | 🟡 |
 | [`soia-dev-agent-md-advisor`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-md-advisor.md) | AI 项目指令与配置设计顾问：诊断、起草与改写建议 | ✅ |
 
+### 05 代码变更理解　`AI 代码变更 → 架构调用、数据流与证据视图`
+
+| 技能 | 职责 | 开箱 |
+|---|---|:-:|
+| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | 帮 reviewer 看懂 AI 代码变更、跨文件架构调用、数据流、边界、规范符合性与证据 | ✅ |
+
 ✅ 装完即用　🟡 需先完成登录或申请 API key，技能会在执行前告诉你缺什么
 
 ## 安装
 
-三个宿主任选，装整个领域插件即 12 个技能一次到位。
+三个宿主任选，装整个领域插件即 13 个技能一次到位。
+
+发布与本机安装分开：默认按项目、明确宿主、单个技能定向安装；全局、整域或全宿主范围只有客户明确选择并先看 dry-run 后执行，发布不会自动同步到本机。
 
 ```bash
 claude plugin marketplace add soia-team/soia-open-skills && claude plugin install soia-dev@soia

@@ -2,7 +2,7 @@
 
 > Generated from `skills/*/SKILL.md` and optional `agents/openai.yaml`.
 > Do not edit by hand. Run `python3 scripts/generate_skill_catalog.py`.
-> Discoverable by `npx skills add soia-team/soia-open-dev-skills -l`: 12 skills.
+> Discoverable by `npx skills add soia-team/soia-open-dev-skills -l`: 13 skills.
 
 ## Source Fields
 
@@ -24,6 +24,7 @@
 | [`soia-dev-project-scaffold`](./soia-dev-project-scaffold/) | 为任意新 Git 项目创建最小 AI 协作基线。 | Use $soia-dev-project-scaffold to create a minimal AGENTS.md and docs baseline for a new Git project. |
 | [`soia-dev-release-plan-checklist`](./soia-dev-release-plan-checklist/) | 生成互联网软件发版的预检、灰度与发布后验证清单。 | 为服务 A 的生产发布生成版本、制品、预检门、灰度、回滚和发布后验证清单。 |
 | [`soia-dev-review-panel`](./soia-dev-review-panel/) | Run a multi-lens, adversarially-verified review over a code diff or a skill package — independent lenses first, refute-by-default verification second, one graded report last. | Use soia-dev-review-panel: 多角度审一下我这次改动，每条发现都要经过对抗式复核再报告 |
+| [`soia-dev-show-task-html`](./soia-dev-show-task-html/) | 把 AI 代码变更、架构调用和数据流整理为离线、可复制的 HTML 视图。 | 展示这个变更集：用最小必要视图说明文件 owner/layer、核心调用链、数据流、规范符合性和证据。 |
 | [`soia-dev-task-execute`](./soia-dev-task-execute/) | 执行任意工程任务的通用闭环：定义边界、实施最小改动、验证、独立复核与回执。适用于代码、配置、文档和维护任务 |  |
 | [`soia-dev-terminal-ops`](./soia-dev-terminal-ops/) | Monitor long-running POSIX jobs and recover stalled processes safely | Use $soia-dev-terminal-ops to monitor this long-running command, diagnose progress with multiple signals, and apply the TERM-to-KILL confirmation gates if recovery is needed. |
 | [`soia-dev-test-draft-doc`](./soia-dev-test-draft-doc/) | Turn requirements or a PRD into a test plan, cases, regression checklist, and acceptance matrix. |  |

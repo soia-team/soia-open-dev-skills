@@ -1,0 +1,59 @@
+{
+  "scope": "change_set",
+  "view": "full",
+  "title": "Retry status boundary review",
+  "objective": "Help a reviewer reconstruct the cross-file retry flow without reading the entire change set.",
+  "stage": "Review",
+  "steps": [
+    {"name": "Trace the request", "status": "completed", "detail": "Follow the route into the service and port."},
+    {"name": "Confirm the consumer", "status": "pending", "detail": "Locate the delivery view before calling the flow complete."}
+  ],
+  "facts": [
+    {"title": "Observed call path", "detail": "The route delegates retry decisions to the service before persistence.", "claim_type": "observed", "references": [{"file": "src/api/routes.ts", "line": 42}]},
+    {"title": "Open question", "detail": "The external delivery timeout is not evidenced in this change set.", "references": []}
+  ],
+  "files": [
+    {"path": "src/api/routes.ts", "owner": "HTTP adapter", "layer": "adapter", "role": "Translates the request into a retry command.", "references": [{"file": "src/api/routes.ts", "line": 42}]},
+    {"path": "src/retry/retry-service.ts", "owner": "Retry service", "layer": "service", "role": "Applies retry policy and emits a domain decision.", "references": [{"file": "src/retry/retry-service.ts", "line": 18}]},
+    {"path": "src/retry/retry-port.ts", "owner": "Retry port", "layer": "port", "role": "Defines the persistence boundary.", "references": [{"file": "src/retry/retry-port.ts", "line": 7}]},
+    {"path": "src/storage/retry-repository.ts", "owner": "Retry repository", "layer": "storage", "role": "Stores the decision for later delivery.", "references": [{"file": "src/storage/retry-repository.ts", "line": 31}]},
+    {"path": "tests/retry-service.test.ts", "owner": "Test suite", "layer": "verification", "role": "Checks success and exhausted-retry paths.", "references": [{"file": "tests/retry-service.test.ts", "line": 55}]}
+  ],
+  "call_chain": {
+    "overview": "The request adapter calls the service; the service owns policy and depends inward on a port.",
+    "nodes": ["routes.ts · adapter", "retry-service.ts · service", "retry-port.ts · port", "retry-repository.ts · storage"],
+    "edges": [
+      {"from": "routes.handleRetry", "to": "RetryService.decide", "label": "command", "claim_type": "observed", "references": [{"file": "src/api/routes.ts", "line": 42}]},
+      {"from": "RetryService.decide", "to": "RetryPort.save", "label": "domain decision", "claim_type": "inferred", "references": [{"file": "src/retry/retry-service.ts", "line": 29}]},
+      {"from": "RetryPort.save", "to": "RetryRepository.save", "label": "adapter implementation", "claim_type": "observed", "references": [{"file": "src/storage/retry-repository.ts", "line": 31}]}
+    ]
+  },
+  "data_flow": {
+    "overview": "Track the retry request from input through policy and persistence to the delivery view.",
+    "steps": [
+      {"from": "HTTP request", "to": "RetryCommand", "transform": "parse and validate", "claim_type": "observed", "references": [{"file": "src/api/routes.ts", "line": 42}]},
+      {"from": "RetryCommand", "to": "RetryDecision", "transform": "apply policy", "claim_type": "observed", "references": [{"file": "src/retry/retry-service.ts", "line": 24}]},
+      {"from": "RetryDecision", "to": "RetryRecord", "transform": "port to storage adapter", "claim_type": "inferred", "references": [{"file": "src/retry/retry-port.ts", "line": 7}]},
+      {"from": "RetryRecord", "to": "Delivery view", "transform": "read for display", "claim_type": "unknown", "references": []}
+    ]
+  },
+  "boundaries": [
+    {"name": "Service boundary", "responsibility": "Owns policy; must not depend directly on storage details.", "depends_on": "RetryPort", "direction": "inward", "claim_type": "observed", "references": [{"file": "src/retry/retry-service.ts", "line": 18}]},
+    {"name": "Storage boundary", "responsibility": "Implements persistence without changing domain decisions.", "depends_on": "RetryPort", "direction": "outward adapter", "claim_type": "inferred", "references": [{"file": "src/storage/retry-repository.ts", "line": 31}]}
+  ],
+  "conformance": [
+    {"rule": "Dependencies point toward ports", "expected": "Service depends on a port, not storage", "observed": "Service imports RetryPort", "status": "pass", "claim_type": "observed", "references": [{"file": "src/retry/retry-service.ts", "line": 3}]},
+    {"rule": "Every public finding has a source", "expected": "Use file:line evidence or mark unknown", "observed": "Delivery view path lacks evidence", "status": "unknown", "claim_type": "unknown", "references": []}
+  ],
+  "verification": [
+    {"check": "Retry service tests", "evidence": "Success and exhausted paths pass.", "status": "passed", "claim_type": "observed", "references": [{"file": "tests/retry-service.test.ts", "line": 55}]},
+    {"check": "Dangerous text sample", "evidence": "Input text <script>alert(1)</script> must remain text.", "status": "passed", "claim_type": "observed", "references": [{"file": "tests/retry-service.test.ts", "line": 61}]}
+  ],
+  "risks": [
+    {"title": "View contract unclear", "detail": "The final delivery view is inferred but not present in the change set.", "claim_type": "inferred", "references": [{"file": "src/retry/retry-service.ts", "line": 29}]}
+  ],
+  "blockers": [],
+  "next_steps": [
+    {"name": "Confirm delivery consumer", "detail": "Find the reader that renders RetryRecord and add a file:line reference.", "claim_type": "unknown", "references": []}
+  ]
+}

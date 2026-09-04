@@ -6,7 +6,7 @@
 
 **Stop letting the agent close a change with "should be fine"**
 
-12 skills that weld scope, verification and review into the flow: define the boundary first, produce evidence after
+13 skills that weld scope, verification and review into the flow: define the boundary first, produce evidence after
 
 [中文](README.md) · English · [Ecosystem portal](https://github.com/soia-team/soia-open-skills)
 
@@ -36,7 +36,7 @@ flowchart LR
     D -.fails.-> C
 ```
 
-## 12 skills
+## 13 skills
 
 ### 01 Change loop　`Requirement or bug → a change with scope, verification and review`
 
@@ -70,11 +70,19 @@ flowchart LR
 | [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | External AI CLI dispatch and model routing, with controlled hand-off and usage receipts | 🟡 |
 | [`soia-dev-agent-md-advisor`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-md-advisor.md) | Advisor for AI project instructions and config: diagnosis, drafting and rewriting | ✅ |
 
+### 05 Understanding code changes　`AI-generated code → architecture, data flow and evidence views`
+
+| Skill | Responsibility | Ready |
+|---|---|:-:|
+| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | Helps reviewers understand AI-generated code changes, cross-file architecture calls, data flow, boundaries, conformance and evidence | ✅ |
+
 ✅ Works right after install　🟡 Needs a login or API key first; the skill tells you what is missing before it runs
 
 ## Install
 
-Any of three hosts. Installing the domain plugin brings all 12 skills at once.
+Any of three hosts. Installing the domain plugin brings all 13 skills at once.
+
+Publishing and local installation are separate: the default is one skill for one project and one explicit host. Global, whole-domain or all-host scope requires an explicit choice and a dry-run first; publishing never syncs to local hosts automatically.
 
 ```bash
 claude plugin marketplace add soia-team/soia-open-skills && claude plugin install soia-dev@soia

@@ -1,11 +1,11 @@
 ---
 name: soia-dev-show-task-html
 description: 将开发进度与 AI 代码变更转成最小可用视图：简单关系直接画，阶段状态用紧凑看板，复杂调用链与数据流生成离线 HTML。触发：「show me」「展示这个任务」「给我画一下」
-version: 0.2.1
+version: 0.3.0
 created_at: 2026-09-04 15:43:10
-updated_at: 2026-09-04 16:41:24
+updated_at: 2026-09-04 19:56:18
 created_by: gpt-5.6-luna
-updated_by: gpt-5.6-sol
+updated_by: gpt-5.6-terra
 ---
 
 # soia-dev-show-task-html
@@ -20,7 +20,7 @@ updated_by: gpt-5.6-sol
 
 - 简单关系：在对话中给最小表格、调用树或 Mermaid。
 - 阶段汇报：用紧凑 KPI、任务行、阻塞和下一步快速看全局。
-- 复杂跨文件改动：生成离线、响应式、可复制文字的 HTML，展示文件 owner/layer、调用链、数据流、模块边界、规范符合性、验证证据、风险、阻塞和下一步。
+- 复杂跨文件改动：生成离线、紧凑高密度、响应式且可复制文字的 HTML，展示文件 owner/layer、调用链、数据流、模块边界、规范符合性、验证证据、风险、阻塞和下一步。
 
 ### 客户如何使用
 

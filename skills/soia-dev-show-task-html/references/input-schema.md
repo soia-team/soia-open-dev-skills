@@ -30,6 +30,8 @@
 
 `progress` 视图读取 `metrics`、`steps`、`blockers` 和 `next_steps`；任务项可用 `owner` 与 `next`/`next_action` 提供紧凑负责人和下一门。它不会渲染代码矩阵、调用链或完整证据墙，除非改选相应 view。
 
+`metrics` 的 `value` 应为短值（短数字或短状态词，建议不超过 12 个字符）；长描述请放在 `label`，或改用 `steps`/`facts`。生成器会对超长值做安全降级以避免裁切，但不保证其视觉美观；字段语义与既有键名不变。
+
 ## claim 与引用
 
 每条 fact、finding、evidence、边、边界和符合性记录可带 `claim_type`：

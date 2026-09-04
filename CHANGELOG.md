@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.12.1 — 2026-09-04
+
+新增紧凑 progress 视图：KPI、任务、阻塞与下一步
+
+## 修复
+- fix(dev): add compact progress visualization (#74)
+
+## 维护
+- chore(release): open next train after v1.12.0 (#73)
+
 ## v1.12.0 — 2026-09-04
 
 新增 soia-dev-show-task-html：用最小视图解释 AI 代码调用链、数据流与架构边界

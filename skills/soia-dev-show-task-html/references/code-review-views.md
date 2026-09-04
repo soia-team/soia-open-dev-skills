@@ -11,6 +11,7 @@ Agent 先读取当前 scope 的项目规则、`AGENTS.md`/贡献约束、架构�
 | view | 选择 |
 |---|---|
 | `auto` | 只选有数据且能解释当前重点的最小必要区块；不铺空区块 |
+| `progress` | KPI、任务状态、阻塞和下一步；用于 5 秒阶段汇报，不展开代码证据墙 |
 | `overview` | 范围、目标、阶段/步骤和少量已核实事实 |
 | `call_chain` | 入口到核心 service/domain/port/adapter 的节点和方向 |
 | `data_flow` | 输入 → 转换 → domain/service/port → adapter/storage/external → view |

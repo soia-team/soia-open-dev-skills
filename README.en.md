@@ -74,7 +74,7 @@ flowchart LR
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | Helps reviewers understand AI-generated code changes, cross-file architecture calls, data flow, boundaries, conformance and evidence | ✅ |
+| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | Shows development progress in the smallest useful view and explains AI code call chains, data flow, boundaries and conformance | ✅ |
 
 ✅ Works right after install　🟡 Needs a login or API key first; the skill tells you what is missing before it runs
 

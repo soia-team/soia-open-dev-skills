@@ -3,6 +3,18 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.12.3 — 2026-09-04
+
+show-task-html 0.3.2 实际交付：信息密度与视觉体系重做（v1.12.2 因 dev 未推送而空发，本版补上）
+
+## 修复
+- fix(dev): repair mobile clipping and status visibility
+- fix(dev): prevent task HTML density clipping
+
+## 维护
+- style(dev): densify task HTML view
+- chore(release): open next train after v1.12.2 (#78)
+
 ## v1.12.2 — 2026-09-04
 
 show-task-html 0.3.2：信息密度与视觉体系重做（KPI 不裁切、任务行三列对齐、字号收敛 5 档、中文排版、移动端收紧）

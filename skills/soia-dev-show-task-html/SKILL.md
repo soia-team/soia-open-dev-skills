@@ -24,7 +24,7 @@ updated_by: gpt-5.6
 
 ### 客户如何使用
 
-先说明范围和重点，例如“展示这个变更集的核心调用链”。复杂 HTML 前，Agent 必须读取当前 scope 的项目规则、架构/设计契约、真实 diff 和相关代码；将事实标为 `observed`、有链路依据的推断标为 `inferred`，无证据标为 `unknown`，并保留准确 `file:line`。脚本不负责这些核实工作。
+先说明范围和重点，例如“展示这个变更集的核心调用链”。复杂 HTML 前，Agent 按要表达的结论类型加载最小证据：`progress` 读取适用项目规则、任务状态和已有证据；只有调用链、数据流、边界或规范符合性结论才读取对应架构/设计契约、真实 diff 和相关代码。将事实标为 `observed`、有链路依据的推断标为 `inferred`，无证据标为 `unknown`，并保留准确 `file:line`。脚本不负责这些核实工作。
 
 输入字段、scope/view 选项和引用格式见 [references/input-schema.md](references/input-schema.md)。审查视角和最小区块选择见 [references/code-review-views.md](references/code-review-views.md)。复杂输入再读取这些 reference，简单对话图不必读取。
 
@@ -44,8 +44,8 @@ updated_by: gpt-5.6
 
 ## 核心流程
 
-1. 判断是简单对话图还是复杂 HTML，并确认 `task`、`change_set` 或 `project` 范围；范围不明先询问。
-2. 读取 scope 对应的项目规则、架构/设计契约、真实 diff 和相关代码，整理为带 `claim_type` 与 `file:line` 的 JSON；不把猜测写成观察。
+1. 判断是简单对话图还是复杂 HTML；默认范围为当前请求对应的 `task`，只有存在多个候选且会实质改变结论时才询问。
+2. `progress` 视图读取适用项目规则、任务状态和已有证据摘要，不强制读取代码；`call_chain`、`data_flow`、`boundary`、`conformance` 等代码视图才读取支持对应结论所需的架构/设计契约、真实 diff 和相关代码，整理为带 `claim_type` 与 `file:line` 的 JSON；不把猜测写成观察。
 3. 选择最小 `view`；`auto` 只渲染已提供且非空的必要区块。复杂输入运行 `scripts/show_task_html.py`，默认临时目录；仅客户明确指定时传 `--output`，覆盖需明确允许并传 `--force`。
 4. 核对真实 HTML：内容、引用、转义、无外部资源、响应式和可复制性；回报输出位置、命令、缺口和下一步。
 
@@ -58,7 +58,7 @@ python3 <skill-dir>/scripts/show_task_html.py --input <scope.json> --scope <task
 
 生成器是确定性的，只渲染输入，不读仓库、不联网、不写当前时间。通用跨文件审查 fixture 位于 `examples/task.json`；无效 scope/view、缺少标题、危险标记、非法输出路径和未授权覆盖都应显式失败。
 
-交付前至少运行 selftest 和一次真实前向测试，并核对实际 HTML 内容，不只看退出码。
+每份实际 HTML 都必须核对内容、引用、转义、资源、响应式和可复制性。生成器首次安装、升级或修改后运行 selftest；版本和生成器未变且已有可复用的 selftest 证据时不重复运行。真实前向测试按视图类型和本次输入变化执行，不只看退出码。
 
 ## 资源
 

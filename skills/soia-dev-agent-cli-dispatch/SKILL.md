@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.6.0
+version: 1.6.1
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-05 00:00:00
+updated_at: 2026-09-05 09:07:18
 created_by: claude opus 4.6
 updated_by: claude (fable 5.1 主控 / anthropic/claude-opus-5 实现，模型名自报未验证)
 ---
@@ -191,7 +191,8 @@ python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|h
 ### 4. 建立隔离与权限门
 
 - 每个写任务使用独立 workdir；多任务不得同时写同一文件。
-- 创建 `git worktree` 前展示目标路径、分支和用途，并等待客户明确批准。
+- 创建 `git worktree` 前展示目标路径、分支和用途，并等待客户明确批准；已在当前任务书中明确批准的目标不重复确认。新增、移动、删除或改变 Worktree/分支/目标路径仍须单独批准。
+- “覆盖”指替换未知内容、他人改动或授权范围外目标，不包括已授权文件集内的常规补丁编辑。
 - 删除、覆盖、提交、push、发布、发送、授权变更及其他远端写入必须单独获得当前任务授权。
 - 工作区已有未知改动时不提交、不清理、不覆盖；把冲突范围回报给客户。
 

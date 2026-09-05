@@ -1,9 +1,9 @@
 ---
 name: soia-dev-show-task-html
 description: 将开发进度与 AI 代码变更转成最小可用视图：简单关系直接画，阶段状态用紧凑看板，复杂调用链与数据流生成离线 HTML。触发：「show me」「展示这个任务」「给我画一下」
-version: 0.3.3
+version: 0.3.4
 created_at: 2026-09-04 15:43:10
-updated_at: 2026-09-05 09:07:18
+updated_at: 2026-09-05 09:12:00
 created_by: gpt-5.6-luna
 updated_by: gpt-5.6
 ---
@@ -31,6 +31,8 @@ updated_by: gpt-5.6
 ### 依赖与安装
 
 运行依赖只有 Python 3 标准库；不需要 API key、登录态、浏览器、第三方服务或网络。
+
+安装路线由安装 owner 按客户已确认计划选择：Claude Code 域插件使用 `claude plugin install soia-dev@soia`（须已接入市场）；项目单技能使用 `npx skills add soia-team/soia-open-dev-skills -a <agent> -s soia-dev-show-task-html`，执行前核实当前 CLI 参数。WorkBuddy 使用[专家安装说明](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)，不由 npx 代装。上述说明不构成安装授权。
 
 发布与本机安装分开，发布不会自动同步宿主。默认按项目、明确宿主、单个技能定向安装；项目/全局、单技能/整域、单宿主/全宿主均可支持，但范围不明先询问，扩大到全局或 `*` 全量前先展示 dry-run 和目标清单。若当前环境没有可验证的安装命令，不要发明命令；本 checkout 只代表本地调试。
 

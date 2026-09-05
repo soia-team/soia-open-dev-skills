@@ -60,7 +60,7 @@ providers:
         model_family: gpt-6
         availability: available
         context_window: null
-        supported_reasoning_levels: [medium]
+        supported_reasoning_levels: [medium, high]
         reasoning_levels_confidence: forward_verified_single_run
         default_reasoning_level: medium
         pricing:
@@ -74,7 +74,7 @@ providers:
           source_id: astra-forward-2026-09-05
         routing_profile: [hard]
         discovered_at: "2026-09-05"
-        discovery_evidence: "2026-09-05 真实深审前向验证（SoiaDeck TASK-G0.0.4-067）：requested=actual=gpt-6-astra（会话头 model: 行核验），reasoning=medium，94,061 tokens，read-only 沙箱。9 项审查全部给出 file:line 证据，抓到 1 个实现层 REFUTED（存在性防线缺口：未知权威状态词可越权回落）+3 项可执行最小处方，复审后经返工全部证实有效；零幻觉引用。结论：审核/深审档 verified；执行档未测试。角色定位（Owner 2026-09-05 裁）：只作审核、重点方案、建议位，不作执行位。"
+        discovery_evidence: "2026-09-05 真实深审前向验证（SoiaDeck TASK-G0.0.4-067）：requested=actual=gpt-6-astra（会话头 model: 行核验），reasoning=medium，94,061 tokens，read-only 沙箱。9 项审查全部给出 file:line 证据，抓到 1 个实现层 REFUTED（存在性防线缺口：未知权威状态词可越权回落）+3 项可执行最小处方，复审后经返工全部证实有效；零幻觉引用。结论：审核/深审档 verified；执行档未测试。角色定位（Owner 2026-09-05 晚更新，废止早前限 1 次与仅审核限定）：high 推理解锁，承担文档、设计、审核三类工作；实现与自身审核不得同片（配对纪律）。"
       - model_id: gpt-5.6-sol
         display_name: "GPT-5.6 Sol"
         aliases: [sol]

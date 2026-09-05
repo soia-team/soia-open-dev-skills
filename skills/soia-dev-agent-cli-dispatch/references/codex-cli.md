@@ -166,7 +166,34 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 
 ## GPT-6 Astra（2026-09-05 前向验证）
 
-- **角色定位（调用方 Owner 裁定）**：只用于**审核、重点方案、给建议**；不用于执行/实现（与主控职责重合、且为家族最稀缺档）。
-- 调用形态与 5.6 系一致：`codex exec -m gpt-6-astra -c model_reasoning_effort=medium -s read-only … < /dev/null`。
+- **历史验证角色**：下述深审当时按调用方 Owner 裁定，仅用于审核、重点方案和建议，不执行实现。这是该次验证的角色边界；当前派发以调用方最新适用裁决为准，历史记录不覆盖后续授权。审核、主控协调与代码实现是不同职责，获准担任主控不自动授予代码实现权限，也不推广到其它项目。
+- 上述只读深审的调用形态：`codex exec -m gpt-6-astra -c model_reasoning_effort=medium -s read-only … < /dev/null`；其它角色按本次授权选择权限。
 - 前向验证证据（SoiaDeck TASK-G0.0.4-067 深审）：requested=actual=`gpt-6-astra`（会话头 `model:` 行核验），medium，94,061 tokens；9 项审查全部 file:line 证据、抓到 1 个实现层 REFUTED + 3 项最小处方，返工证实全部有效，零幻觉引用。仅 medium 档已验证。
 - 配额（订阅侧 Pro 5x，5 小时窗口本地消息估算）：Astra 25-225 · Sol 50-500 · Terra 125-1,000 · Luna 1,250-10,000 · 5.4-mini 300-1,750。Astra 最稀缺，排程时优先留给最高价值深审。
+
+### 按任务选择推理档（Owner 使用建议）
+
+下表是 Owner 的使用建议，不是新增能力验证；实际职责和写入范围依调用方最新适用裁决及本次任务授权。
+
+| 建议档 | 适合的任务 |
+|---|---|
+| light（轻量；实际参数映射为 `low`） | 查资料、解释代码、小修改的补丁建议、文案、日常问答 |
+| `medium` / `high` | 复杂调试分析、架构设计、长任务；按当前步骤难度选择，不因耗时长就全程使用 high |
+| `xhigh` / `ultra`（ultra 仅限目标宿主明确支持时） | 极难推理、重要审计、长期研究；机械步骤不默认使用高档 |
+
+- 显式模型和档位优先；执行前核对所选模型在目标宿主上的支持情况。不可用时报告差异，不静默替换。
+- 本仓只有 `medium` 已有本地前向验证；其余建议不标记为 verified，不扩大自动路由，也不修改 `model-catalog.yml` 的验证数据。显式选择未验证组合时按主文件记录 `explicit_unverified`，requested/actual model 与 reasoning 分开记录。
+- “小修改”在仅审核/建议的任务中指补丁建议；若调用方最新裁决已允许实现，则按其明确文件范围执行，不重复要求解除已被覆盖的历史限制。档位建议本身不授予实现权限。
+
+### API、外部 CLI 与宿主参数
+
+以下 API 支持信息于 2026-09-05 核对；跨接口不得照搬字段或推断枚举等价。
+
+| 调用入口 | 推理参数 | 支持边界 |
+|---|---|---|
+| OpenAI Responses API | `reasoning.effort` | Astra 支持 `low`、`medium`、`high`、`xhigh`、`max` |
+| OpenAI Chat Completions API | `reasoning_effort` | 使用该 API 的正式枚举；不是 CLI 配置字段 |
+| 外部 Codex CLI | `-c model_reasoning_effort="<level>"` | 核对目标 CLI 版本与所选模型支持的档位；不能用 API 或桌面宿主枚举代替检查 |
+| Codex 桌面或其它宿主工具 | 以实际工具 schema 为准，例如 `thinking` / `reasoningEffort` | 只传该工具对所选模型明确支持的值；宿主支持 `ultra` 不证明外部 CLI/API 也支持 |
+
+API 枚举来源：[Astra 官方模型页](https://developers.openai.com/api/docs/models/gpt-6-astra)；API 字段区别见[官方参数说明](https://developers.openai.com/api/docs/guides/latest-model#gpt-6-astra-update-api-and-model-parameters)。`max` 是 API 正式档位，不能遗漏，也不能与宿主的 `ultra` 擅自等同或互换。`light` 是建议用语，只有目标接口支持 `low` 时才按该映射传参；API 不原样接收 `light` 或 `ultra`。支持某档不代表本仓已验证该档。

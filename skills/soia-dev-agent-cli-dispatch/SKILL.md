@@ -3,11 +3,11 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.6.1
+version: 1.6.2
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-05 09:07:18
+updated_at: 2026-09-05 10:46:22
 created_by: claude opus 4.6
-updated_by: claude (fable 5.1 主控 / anthropic/claude-opus-5 实现，模型名自报未验证)
+updated_by: Codex (actual model unverified)
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -48,20 +48,22 @@ updated_by: claude (fable 5.1 主控 / anthropic/claude-opus-5 实现，模型�
 - 可选依赖：`soia-meta-sync-skills`，仅用于把已安装技能同步到客户明确选择的其他宿主。
 - 各 CLI 的认证、模型和套餐由其官方登录态或 provider 配置管理；本技能不代管凭据。
 
-安装整个 dev 插件：
+默认按项目、单技能、单个明确指定的 Agent 安装。在已选项目目录运行，将 `<explicit-agent>` 替换为客户选择的 Agent ID：
+
+```bash
+npx skills add soia-team/soia-open-dev-skills -a "<explicit-agent>" -s soia-dev-agent-cli-dispatch -y
+```
+
+只有客户显式选择全局范围时才加 `-g`；只有显式选择全部 Agent 时才用 `-a '*'`。项目、宿主、技能和影响范围已明确获批时不重复确认；缺少关键选择时先问，不因发现技能缺失自动安装。
+
+只有客户明确选择整个 dev 插件及其安装范围时，才使用对应插件安装流程；以下为 Claude Code 命令示例，执行前按已批准的范围设置安装选项：
 
 ```bash
 claude plugin marketplace add soia-team/soia-open-skills
 claude plugin install soia-dev@soia
 ```
 
-只安装本技能：
-
-```bash
-npx skills add soia-team/soia-open-dev-skills -g -a '*' -s soia-dev-agent-cli-dispatch -y
-```
-
-不要同时维护插件副本和 `~/.agents/skills` 共享副本，以免同名技能漂移。
+同一宿主、同一使用范围内不要同时维护插件副本和 skills 目录副本，以免同名技能漂移。完整安装说明以[元仓 README 安装入口](https://github.com/soia-team/soia-open-skills#从这里开始)为准。
 
 **WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
 
@@ -120,6 +122,8 @@ python3 scripts/resolve_storage.py --json
 ```
 
 不在客户回执中打印凭据、账号、完整响应正文或本机私有绝对路径。
+
+若 Skill 导致需要确认、暂停或留下已请求但未完成的工作，在暂停说明及最终回执中点名并链接实际读取的具体 `SKILL.md`（关联规则也给出来源），引用相关原句，解释它为何适用于当前动作，并说明已完成部分与受阻部分。区分规则明确要求与派发者自身推断；仅在已有授权不能覆盖且规则确实适用时请求补充确认，不把历史裁决、建议或其它工作模式的门禁当作新增审批。规则链接使用可公开或客户可访问且不泄露私有目录的形式。
 
 ## 触发与边界
 

@@ -3,6 +3,18 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.13.0 — 2026-09-05
+
+Add verified Astra reviewer profile and clarify task-scoped approvals and visualization
+
+## 新增
+- feat(dispatch): add GPT-6 Astra reviewer-role profile with forward-verified evidence
+
+## 维护
+- chore(release): prepare minor train and complete install guidance (#82)
+- docs: clarify autonomy and preserve explicit approval gates (#81)
+- chore(release): open next train after v1.12.3 (#80)
+
 ## v1.12.3 — 2026-09-04
 
 show-task-html 0.3.2 实际交付：信息密度与视觉体系重做（v1.12.2 因 dev 未推送而空发，本版补上）

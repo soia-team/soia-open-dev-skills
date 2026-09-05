@@ -54,6 +54,27 @@ providers:
   openai:
     executor_cli: codex
     models:
+      - model_id: gpt-6-astra
+        display_name: "GPT-6 Astra"
+        aliases: [astra]
+        model_family: gpt-6
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [medium]
+        reasoning_levels_confidence: forward_verified_single_run
+        default_reasoning_level: medium
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_per_1m: null
+          output_per_1m: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "API 价格未采集；订阅侧 Pro 5x 档 5 小时窗口本地消息估算 25-225 条（对照 Sol 50-500 / Terra 125-1,000 / Luna 1,250-10,000），为 codex 家族中最稀缺档位。"
+          effective_date: "2026-09-05"
+          source_id: astra-forward-2026-09-05
+        routing_profile: [hard]
+        discovered_at: "2026-09-05"
+        discovery_evidence: "2026-09-05 真实深审前向验证（SoiaDeck TASK-G0.0.4-067）：requested=actual=gpt-6-astra（会话头 model: 行核验），reasoning=medium，94,061 tokens，read-only 沙箱。9 项审查全部给出 file:line 证据，抓到 1 个实现层 REFUTED（存在性防线缺口：未知权威状态词可越权回落）+3 项可执行最小处方，复审后经返工全部证实有效；零幻觉引用。结论：审核/深审档 verified；执行档未测试。角色定位（Owner 2026-09-05 裁）：只作审核、重点方案、建议位，不作执行位。"
       - model_id: gpt-5.6-sol
         display_name: "GPT-5.6 Sol"
         aliases: [sol]

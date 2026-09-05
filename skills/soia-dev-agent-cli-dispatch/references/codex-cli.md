@@ -163,3 +163,10 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 5. **无关未提交文件：列明、不 add、回执申明**。任务书写明"工作树可能存在无关未提交文件（列出或描述特征），不得 add，只提交本任务文件"；codex 完成后在回执申明"无关文件未纳入 commit"。同一脏工作树上四次派发零误提交的正面模式。
 6. **heredoc 写 prompt 前必 `mkdir -p`**（两次踩坑）：目标目录不存在时 `cat > $DIR/prompt.txt` 静默失败，codex 收到空输入照样开跑。
 7. **回执模板增补两行**：①原文引用会话头 `model:` 行；②"无关未提交文件未纳入 commit"申明。
+
+## GPT-6 Astra（2026-09-05 前向验证）
+
+- **角色定位（调用方 Owner 裁定）**：只用于**审核、重点方案、给建议**；不用于执行/实现（与主控职责重合、且为家族最稀缺档）。
+- 调用形态与 5.6 系一致：`codex exec -m gpt-6-astra -c model_reasoning_effort=medium -s read-only … < /dev/null`。
+- 前向验证证据（SoiaDeck TASK-G0.0.4-067 深审）：requested=actual=`gpt-6-astra`（会话头 `model:` 行核验），medium，94,061 tokens；9 项审查全部 file:line 证据、抓到 1 个实现层 REFUTED + 3 项最小处方，返工证实全部有效，零幻觉引用。仅 medium 档已验证。
+- 配额（订阅侧 Pro 5x，5 小时窗口本地消息估算）：Astra 25-225 · Sol 50-500 · Terra 125-1,000 · Luna 1,250-10,000 · 5.4-mini 300-1,750。Astra 最稀缺，排程时优先留给最高价值深审。

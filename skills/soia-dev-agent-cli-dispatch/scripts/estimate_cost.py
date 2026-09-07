@@ -269,7 +269,7 @@ def run_selftest() -> int:
 
     # 1. Sonnet-5 promotional price, exact 1M in + 1M out (matches the
     #    source's own "1M input + 1M output" column: $2 + $10 = $12).
-    r = estimate(data, "claude-sonnet-5", 1_000_000, 1_000_000)
+    r = estimate(data, "claude-sonnet-5", 1_000_000, 1_000_000, as_of_date="2026-08-31")
     check(
         "sonnet-5 promo: 1M in + 1M out == $12.00",
         r["confidence"] == "exact" and r["total_cost_decimal"] == "12",

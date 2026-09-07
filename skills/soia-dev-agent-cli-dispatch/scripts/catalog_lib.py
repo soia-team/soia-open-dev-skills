@@ -311,7 +311,9 @@ def validate_catalog(data: dict) -> dict[str, list[str]]:
             if not isinstance(levels, list):
                 errors.append(f"model {model_id!r}: supported_reasoning_levels must be a list")
                 levels = []
-            if confidence not in {"unverified", "official_docs", "smoke_tested", "verified"}:
+            # A single forward run is evidence, not full reasoning-level coverage.
+            # Keep it distinct from the confidence levels admitted by auto-routing.
+            if confidence not in {"unverified", "official_docs", "smoke_tested", "verified", "forward_verified_single_run"}:
                 errors.append(f"model {model_id!r}: invalid reasoning_levels_confidence {confidence!r}")
             if confidence == "unverified" or not levels:
                 warnings.append(
@@ -334,7 +336,7 @@ def validate_catalog(data: dict) -> dict[str, list[str]]:
                 if not levels:
                     errors.append(f"model {model_id!r}: routed models require verified reasoning levels")
 
-            if confidence in {"smoke_tested", "verified"} and (
+            if confidence in {"smoke_tested", "verified", "forward_verified_single_run"} and (
                 not model.get("discovered_at") or not model.get("discovery_evidence")
             ):
                 errors.append(f"model {model_id!r}: verified reasoning requires discovery evidence")
@@ -600,6 +602,19 @@ sources:
         "validate: routed model without discovery evidence rejected",
         any("routed models require" in e for e in result["errors"]),
     )
+
+    single_run = copy.deepcopy(unverified)
+    single_model = single_run["providers"]["openai"]["models"][0]
+    single_model.update({
+        "supported_reasoning_levels": ["medium"],
+        "reasoning_levels_confidence": "forward_verified_single_run",
+    })
+    result = validate_catalog(single_run)
+    check("validate: single forward run requires evidence",
+          any("requires discovery evidence" in e for e in result["errors"]))
+    single_model.update({"discovered_at": "2026-09-05", "discovery_evidence": "isolated fixture run"})
+    check("validate: single forward run with evidence accepted",
+          not validate_catalog(single_run)["errors"])
 
     # 7. find_model: exact, alias, loose, and unknown resolution.
     catalog_path = _default_catalog_path()

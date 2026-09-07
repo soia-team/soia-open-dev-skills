@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v1.13.1 — 2026-09-07
+
+Clarify scoped autonomy and Astra guidance; repair dispatch release self-checks
+
+## 修复
+- fix(dispatch): validate single-run evidence and pin historical price fixture (#85)
+
+## 维护
+- docs(dispatch): astra high unlocked for docs/design/review per owner update
+- chore(release): open next train after v1.13.0 (#84)
+
 ## v1.13.0 — 2026-09-05
 
 Add verified Astra reviewer profile and clarify task-scoped approvals and visualization

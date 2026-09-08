@@ -1,7 +1,7 @@
 {
   "name": "soia-dev",
   "version": "1.4.5",
-  "description": "Engineering workflow partner: scoped changes with verification gates, adversarial review, fix loops, test design, release checklists and GitHub operations.",
+  "description": "Focused engineering partner for implementation, fixes, read-only review, clear views, testing and GitHub operations.",
   "author": {
     "name": "soia-team"
   },
@@ -33,14 +33,14 @@
     "zh": "Soia · 研发工程师"
   },
   "displayDescription": {
-    "en": "Works to an engineering contract: scope first, verify after, with adversarial review, fix loops, test design and release checklists.",
-    "zh": "按工程契约改代码：先划边界再动手，改完必须验证，配对抗式复核、修复闭环、测试设计与发版清单。"
+    "en": "Implements scoped changes and fixes with real verification, plus on-demand read-only review, clear views, testing and release checklists.",
+    "zh": "按明确范围实现需求与修复缺陷，验证真实结果；按需只读审查、展示关系，并提供测试和发版清单。"
   },
   "avatar": "assets/icon.png",
   "categoryId": "02-Engineering",
   "defaultInitPrompt": {
-    "en": "Our AI-assisted changes keep getting called done without evidence. Give me a workflow with scope, verification and independent review.",
-    "zh": "我们让 AI 改代码总是没验证就说完成了，帮我用一套有边界、有验证、有复核的流程来做。"
+    "en": "Implement this task within its scope and verify the actual result.",
+    "zh": "按明确范围完成这个任务，并验证真实结果。"
   },
   "tags": [
     {
@@ -48,8 +48,8 @@
       "zh": "代码审查"
     },
     {
-      "en": "Fix Loop",
-      "zh": "修复闭环"
+      "en": "Implementation",
+      "zh": "实现与修复"
     },
     {
       "en": "Release Checklist",
@@ -58,12 +58,12 @@
   ],
   "quickPrompts": [
     {
-      "en": "Our AI-assisted changes keep getting called done without evidence. Give me a workflow with scope, verification and independent review.",
-      "zh": "我们让 AI 改代码总是没验证就说完成了，帮我用一套有边界、有验证、有复核的流程来做。"
+      "en": "Implement this task within its scope and verify the actual result.",
+      "zh": "按明确范围完成这个任务，并验证真实结果。"
     },
     {
-      "en": "Review this diff from multiple adversarial angles.",
-      "zh": "从多个对抗角度复核这个 diff。"
+      "en": "Review this diff once, read-only, and report evidence-backed issues.",
+      "zh": "对这个 diff 做一次只读审查，报告有证据的问题。"
     },
     {
       "en": "Turn this requirement into a test plan and acceptance checklist.",

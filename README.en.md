@@ -97,7 +97,7 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 Restart the client, then summon **Soia · 研发工程师** under Experts → My Experts.
 
-> For a single skill use npx: `npx skills add soia-team/soia-open-dev-skills -g -a '*' -s <skill-name> -y` — pick one route or the other; running both puts the same skill in the index twice and the copies drift apart.
+> For one project skill: `npx skills add soia-team/soia-open-dev-skills -a <explicit-agent> -s <skill-name>`. Add `-g` only for an explicitly selected global install. Choose this or the domain plugin to avoid duplicate, drifting copies.
 
 ## What it does not do
 

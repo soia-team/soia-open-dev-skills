@@ -97,7 +97,7 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 装完重启客户端，在【专家中心 → 我的专家】召唤 **Soia · 研发工程师**。
 
-> 只想要单个技能可走 npx：`npx skills add soia-team/soia-open-dev-skills -g -a '*' -s <技能名> -y`——与插件二选一，并存会产生双份索引且各自漂移。
+> 项目单技能：`npx skills add soia-team/soia-open-dev-skills -a <明确宿主> -s <技能名>`；仅明确选择全局时加 `-g`。与域插件二选一，避免双份索引各自漂移。
 
 ## 不负责什么
 

@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.1.0 — 2026-09-08
+
+统一工程与 UI 技能真源；精简方法入口，图表与设计工具按需使用。
+
+## 新增
+- feat(dev): consolidate architecture and UI skills with local progressive guidance (#92)
+
+## 维护
+- chore(release): prepare v2.1.0 architecture and UI train (#93)
+- chore(release): open next train after v2.0.0 (#91)
+
 ## v2.0.0 — 2026-09-08
 
 T5 第一批：精简编码协议、合并实现修复、一次只读审查与轻量展示，移除旧入口

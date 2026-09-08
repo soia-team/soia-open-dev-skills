@@ -1,6 +1,6 @@
 {
   "name": "soia-dev",
-  "version": "2.0.0",
+  "version": "2.0.1-SNAPSHOT",
   "description": "Focused engineering partner for implementation, fixes, read-only review, clear views, testing and GitHub operations.",
   "author": {
     "name": "soia-team"

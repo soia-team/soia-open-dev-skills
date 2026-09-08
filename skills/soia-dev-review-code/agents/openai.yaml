@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Code"
+  short_description: "对固定代码候选或技能包做一次只读审查，报告有证据的实际问题。"
+  default_prompt: "请用 $soia-dev-review-code 只读审查这次改动，不自动修复或合并。"

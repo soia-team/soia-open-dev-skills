@@ -1,4 +1,4 @@
 interface:
-  display_name: "Show Task HTML"
-  short_description: "用最小视图展示开发进度、调用链、数据流与架构边界。"
-  default_prompt: "展示当前开发进度和代码变更：先选最小视图，复杂时再生成离线 HTML。"
+  display_name: "Show Me"
+  short_description: "用最小视图解释当前话题，简单关系直接画，复杂关系再做聚焦 HTML。"
+  default_prompt: "请用 $soia-dev-show-task-html 展示当前话题，直接选最小有用视图。"

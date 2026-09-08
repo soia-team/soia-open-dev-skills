@@ -11,15 +11,14 @@
   "skills": [
     "./skills/soia-dev-agent-cli-dispatch",
     "./skills/soia-dev-agent-md-advisor",
-    "./skills/soia-dev-coding-protocol",
     "./skills/soia-dev-doc-sync",
-    "./skills/soia-dev-fix-loop",
+    "./skills/soia-dev-enforce-coding-protocol",
     "./skills/soia-dev-github-ops",
+    "./skills/soia-dev-implement-task",
     "./skills/soia-dev-project-scaffold",
     "./skills/soia-dev-release-plan-checklist",
-    "./skills/soia-dev-review-panel",
+    "./skills/soia-dev-review-code",
     "./skills/soia-dev-show-task-html",
-    "./skills/soia-dev-task-execute",
     "./skills/soia-dev-terminal-ops",
     "./skills/soia-dev-test-draft-doc"
   ],

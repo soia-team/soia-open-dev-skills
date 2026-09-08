@@ -5,7 +5,8 @@ Use when the user is the PR *author* and hands you a review to act on: "帮我�
 这个 PR" / "把这个评审意见改了" / a PR or review URL with "按评审改一下" /
 "reviewer 要我改的都改了". This is the mirror image of Pre-Merge Rule Review:
 that one produces advice for a reviewer; this one consumes a reviewer's advice
-and turns it into pushed fixes. It never merges — see Step 5.
+and turns it into verified local fixes. Push and re-review requests require
+their own authorization. It never merges — see Step 5.
 
 ### Step 0 — Resolve the PR and pull the review as findings
 
@@ -54,32 +55,24 @@ If the PR head is on a fork you cannot push to (`isCrossRepository: true` and
 — the fix would have nowhere to go. If the local tree is dirty, stop and
 surface it rather than fixing on top of unrelated uncommitted work.
 
-### Step 2 — Hand the findings to soia-dev-fix-loop
+### Step 2 — Use soia-dev-implement-task for the findings
 
-Do not invent a fix procedure here. Pass the normalized findings from Step 0 to
-`soia-dev-fix-loop`, which runs the reproduce → decide (fix/reject/defer) →
-minimal-fix → regression + independent recheck → receipt loop, applying
-`soia-dev-coding-protocol`'s anti-fake-fix discipline during the edits. This
-skill owns none of that — it only supplies the findings and the checked-out
-branch.
+Pass the normalized findings, confirmed branch and authorized scope to
+`soia-dev-implement-task`'s findings branch. It owns diagnosis, fix/reject/defer,
+minimal edits and focused verification; do not repeat its workflow here.
+If missing, pause this branch and report the dependency, without automatic
+installation or an all-host install command.
 
-If `soia-dev-fix-loop` isn't installed, stop and tell the user to install it
-(`npx skills add soia-team/soia-open-dev-skills -g -a '*' -s soia-dev-fix-loop -y`)
-rather than hand-rolling a fix loop.
-
-A reviewer finding is a claim, not a verdict: fix-loop may legitimately
+A reviewer finding is a claim, not a verdict: implementation may legitimately
 `reject` one with evidence or `defer` it with a tracked follow-up. Do not
 silently skip any — every point the reviewer raised must end with a fix,
 reject, or defer that you can show.
 
 ### Step 3 — Optional self-review before pushing
 
-If the fixes are non-trivial, run `soia-dev-review-panel` over your own diff
-(`git diff origin/<baseRefName>...HEAD` — use the remote-tracking base ref,
-which is present after checkout, rather than a bare `<baseRefName>` that may not
-exist locally) with its code lens group + adversarial verification, so you
-catch your own regressions before the reviewer does. Higher first-pass
-acceptance, fewer round-trips.
+Use the implementation's focused checks and final diff verification. Only
+run `soia-dev-review-code` when the user or project explicitly requires it;
+do not reopen a panel or adversarial cycle because fixes were made.
 
 ### Step 4 — Push back to the PR branch
 
@@ -103,7 +96,7 @@ exchange.
 
 The author does not merge their own PR that a reviewer marked
 `CHANGES_REQUESTED` — that bypasses the exact gate the reviewer just raised.
-After pushing, re-request review and hand back:
+After pushing, re-request review or post a comment only when authorized:
 
 ```bash
 gh pr edit <n> --repo <owner>/<repo> --add-reviewer <reviewer-login>
@@ -111,8 +104,9 @@ gh pr edit <n> --repo <owner>/<repo> --add-reviewer <reviewer-login>
 gh pr comment <n> --repo <owner>/<repo> --body "<per-finding: fixed / rejected+why / deferred+where>"
 ```
 
-Report: fix-loop's receipt (each finding → fixed/rejected/deferred with
-evidence), the push result, and that re-review has been requested. State
+Report: implementation results (each finding → fixed/rejected/deferred with
+evidence), whether pushing was authorized and completed, and whether re-review
+was requested. Do not claim an unperformed remote action. State
 explicitly that merging is the reviewer's call, not this procedure's — even if
 the author has write/admin permission and could merge. Only merge if the user,
 in a later message after seeing this report, explicitly says to.

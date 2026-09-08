@@ -1,68 +1,47 @@
 ---
 name: soia-dev-show-task-html
-description: 将开发进度与 AI 代码变更转成最小可用视图：简单关系直接画，阶段状态用紧凑看板，复杂调用链与数据流生成离线 HTML。触发：「show me」「展示这个任务」「给我画一下」
-version: 0.3.4
+description: 用最小视图帮用户看懂当前话题；简单关系直接画，复杂关系才做聚焦 HTML。触发：show me、展示这个任务、给我画一下
+version: 0.4.0
 created_at: 2026-09-04 15:43:10
-updated_at: 2026-09-05 09:12:00
+updated_at: 2026-09-08 16:25:00
 created_by: gpt-5.6-luna
-updated_by: gpt-5.6
+updated_by: gpt-5
 ---
 
 # soia-dev-show-task-html
 
-帮助用户用最小必要视图看懂 AI 代码变更。默认范围是当前展示请求（`task`），也支持 `change_set` 和 `project`；脚本只渲染调用方已核实的 JSON，不扫描仓库、不猜测事实。
-
-> Help the user understand the current topic visually. Skip the preamble and keep prose brief. Pick the smallest view that makes the key point clear.
-
 ## 客户可读说明
 
-### 这个技能可以做什么
+**能做什么：** 把当前问题、进度或代码关系讲明白。直接给最小有用视图，少写前言；不默认做看板、报告或证据墙。
 
-- 简单关系：在对话中给最小表格、调用树或 Mermaid。
-- 阶段汇报：用紧凑 KPI、任务行、阻塞和下一步快速看全局。
-- 复杂跨文件改动：生成离线、紧凑高密度、响应式且可复制文字的 HTML，展示文件 owner/layer、调用链、数据流、模块边界、规范符合性、验证证据、风险、阻塞和下一步。
+**如何使用：** 说“展示这个任务”或指出想看懂的关系即可。默认用当前话题，只有范围会实质改变答案时才问。
 
-### 客户如何使用
+## 选最小视图
 
-先说明范围和重点，例如“展示这个变更集的核心调用链”。复杂 HTML 前，Agent 按要表达的结论类型加载最小证据：`progress` 读取适用项目规则、任务状态和已有证据；只有调用链、数据流、边界或规范符合性结论才读取对应架构/设计契约、真实 diff 和相关代码。将事实标为 `observed`、有链路依据的推断标为 `inferred`，无证据标为 `unknown`，并保留准确 `file:line`。脚本不负责这些核实工作。
+- 一个事实或一步动作：直接回答，不强行画图。
+- 几项对应关系：短表格；调用、目录或层级：缩进树；分支或时序：简短伪代码或 Mermaid。
+- 解释改动：显示关键 diff；新内容可给完整小片段，不重复整份文件。
+- 内容确实需要空间布局、交互或较多视觉信息：才生成一页聚焦 HTML。围绕用户要理解的重点组织，不加默认 KPI、评分、分类统计或固定回执。
 
-输入字段、scope/view 选项和引用格式见 [references/input-schema.md](references/input-schema.md)。审查视角和最小区块选择见 [references/code-review-views.md](references/code-review-views.md)。复杂输入再读取这些 reference，简单对话图不必读取。
+只取支持当前结论的材料。进度不强制扫描代码；调用关系须核对相关实现，推断或未知用普通话标清，不强制 JSON 或证据标签。
+
+## HTML（按需）
+
+沿用已有产品风格，文字可复制，兼顾桌面与窄屏；动态文本安全转义，不执行不可信输入，默认离线且无外部资源。输出到系统临时目录或客户指定位置，不覆盖未知文件。验收时实际打开/渲染核对内容与布局，再给可点击结果；未渲染就明确说明。
+
+已有结构化输入、批量生成或客户明确要固定看板时，才读[可选生成器](references/generator.md)；手写 HTML 不受它的 schema 限制。
+
+## 使用边界
 
 ### 依赖与安装
 
-运行依赖只有 Python 3 标准库；不需要 API key、登录态、浏览器、第三方服务或网络。
+对话视图无依赖；可选生成器只需 Python 3 标准库。安装与发布分别确认，默认项目、明确宿主、单技能。
+项目安装：`npx skills add soia-team/soia-open-dev-skills -a <agent> -s soia-dev-show-task-html`；执行前核实当前 CLI 参数。
+整域需明确选择：先接入市场 `soia-team/soia-open-skills`，Claude Code 用 `claude plugin marketplace add` / `claude plugin install soia-dev@soia`，Codex 用 `codex plugin marketplace add` / `codex plugin add soia-dev@soia`；完整步骤见[官方安装说明](https://github.com/soia-team/soia-open-skills#安装)。
+WorkBuddy 使用[专家安装说明](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)，不由 npx 代装；上述命令不构成安装授权。
 
-安装路线由安装 owner 按客户已确认计划选择：Claude Code 域插件使用 `claude plugin install soia-dev@soia`（须已接入市场）；项目单技能使用 `npx skills add soia-team/soia-open-dev-skills -a <agent> -s soia-dev-show-task-html`，执行前核实当前 CLI 参数。WorkBuddy 使用[专家安装说明](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)，不由 npx 代装。上述说明不构成安装授权。
+**私密信息与中间数据：** 不需要 key 或登录态；最小范围取材并脱敏，不外传源码，不建立状态或缓存。
 
-发布与本机安装分开，发布不会自动同步宿主。默认按项目、明确宿主、单个技能定向安装；项目/全局、单技能/整域、单宿主/全宿主均可支持，但范围不明先询问，扩大到全局或 `*` 全量前先展示 dry-run 和目标清单。若当前环境没有可验证的安装命令，不要发明命令；本 checkout 只代表本地调试。
+**日志与完成回执：** 视图本身就是主要结果；HTML 附位置和必要验证缺口即可，不另交固定格式报告。
 
-### 私密信息与中间数据
-
-只读取完成当前 scope 所需的规则、契约、diff 和代码；输入先移除 key、token、cookie、密码、会话、账号标识和私有绝对路径。脚本不外联、不执行输入，所有 HTML 文本安全转义。默认输出到 OS 临时目录，不写 state、cache、配置或仓库目录；指定 `--output` 才形成客户交付物，默认不覆盖已有文件。
-
-### 日志与完成回执
-
-回执至少说明 scope/view、读取并渲染的非空区块、`observed/inferred/unknown` 分布、输出类别、真实验证命令和未覆盖证据；不回显敏感输入。发布或安装状态不得从本地调试推断。
-
-## 核心流程
-
-1. 判断是简单对话图还是复杂 HTML；默认范围为当前请求对应的 `task`，只有存在多个候选且会实质改变结论时才询问。
-2. `progress` 视图读取适用项目规则、任务状态和已有证据摘要，不强制读取代码；`call_chain`、`data_flow`、`boundary`、`conformance` 等代码视图才读取支持对应结论所需的架构/设计契约、真实 diff 和相关代码，整理为带 `claim_type` 与 `file:line` 的 JSON；不把猜测写成观察。
-3. 选择最小 `view`；`auto` 只渲染已提供且非空的必要区块。复杂输入运行 `scripts/show_task_html.py`，默认临时目录；仅客户明确指定时传 `--output`，覆盖需明确允许并传 `--force`。
-4. 核对真实 HTML：内容、引用、转义、无外部资源、响应式和可复制性；回报输出位置、命令、缺口和下一步。
-
-## 生成器与验证
-
-```bash
-python3 <skill-dir>/scripts/show_task_html.py --selftest
-python3 <skill-dir>/scripts/show_task_html.py --input <scope.json> --scope <task|change_set|project> --view <auto|progress|overview|call_chain|data_flow|boundary|conformance|full>
-```
-
-生成器是确定性的，只渲染输入，不读仓库、不联网、不写当前时间。通用跨文件审查 fixture 位于 `examples/task.json`；无效 scope/view、缺少标题、危险标记、非法输出路径和未授权覆盖都应显式失败。
-
-每份实际 HTML 都必须核对内容、引用、转义、资源、响应式和可复制性。生成器首次安装、升级或修改后运行 selftest；版本和生成器未变且已有可复用的 selftest 证据时不重复运行。真实前向测试按视图类型和本次输入变化执行，不只看退出码。
-
-## 资源
-
-- [输入契约与引用格式](references/input-schema.md)：复杂 HTML 前按需读取。
-- [审查视图与区块选择](references/code-review-views.md)：需要决定视角、证据和最小视图时读取。
+方法参考 [HumanLayer show-me](https://github.com/humanlayer/skills/blob/main/plugins/show-me/skills/show-me/SKILL.md)，使用本仓自己的流程与安全边界。

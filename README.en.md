@@ -6,7 +6,7 @@
 
 **Stop letting the agent close a change with "should be fine"**
 
-13 skills that weld scope, verification and review into the flow: define the boundary first, produce evidence after
+12 on-demand skills: set the boundary, implement, and verify actual outcomes
 
 [中文](README.md) · English · [Ecosystem portal](https://github.com/soia-team/soia-open-skills)
 
@@ -14,7 +14,6 @@
   <img alt="plugin version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsoia-team%2Fsoia-open-dev-skills%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=F5A623&prefix=v">
   <img alt="skills" src="https://img.shields.io/badge/skills-12-brightgreen">
   <img alt="hosts" src="https://img.shields.io/badge/hosts-Claude%20%C2%B7%20Codex%20%C2%B7%20WorkBuddy-8A2BE2">
-  <img alt="always-on cost" src="https://img.shields.io/badge/always--on-~971%20tok-lightgrey">
   <img alt="license" src="https://img.shields.io/github/license/soia-team/soia-open-dev-skills?color=blue">
 </p>
 
@@ -24,28 +23,26 @@
 
 ## What it solves
 
-The most misleading state in AI-assisted coding: **the command ran, a conclusion was written, and nobody verified anything.** What's missing is not a smarter model — it's a flow that does not let steps be skipped.
+Choose one focused entry, read the relevant context, make a minimal complete change, and verify actual behavior. Ordinary tasks do not automatically add a panel, adversarial round, or repeated review.
 
 ```mermaid
 flowchart LR
     A["Requirement · Bug<br/>Review finding"] --> B["Set the boundary<br/>what changes, what doesn't"]
     B --> C["Minimal change"]
     C --> D["Verify<br/>actually run it, not 'should'"]
-    D --> E["Independent review<br/>adversarial, multi-lens"]
-    E --> F["Receipt<br/>done / skipped / failed, each listed"]
+    D --> E["Result<br/>changes, evidence and gaps"]
     D -.fails.-> C
 ```
 
-## 13 skills
+## 12 skills
 
 ### 01 Change loop　`Requirement or bug → a change with scope, verification and review`
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| [`soia-dev-task-execute`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-task-execute.md) | General engineering loop: define boundary, minimal change, verify, independent review, receipt | ✅ |
-| [`soia-dev-coding-protocol`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-coding-protocol.md) | Establishes minimal-scope, verify-first, anti-fake-fix and post-write review contracts | ✅ |
-| [`soia-dev-fix-loop`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-fix-loop.md) | Five steps for review or test findings: reproduce, decide, fix, regress, receipt | ✅ |
-| [`soia-dev-review-panel`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-review-panel.md) | Adversarial multi-lens review of a diff or skill package — read-only, never edits, merges or publishes | ✅ |
+| [`soia-dev-enforce-coding-protocol`](skills/soia-dev-enforce-coding-protocol/SKILL.md) | Short scope, authority and risk-based verification constraints; no extra workflow | ✅ |
+| [`soia-dev-implement-task`](skills/soia-dev-implement-task/SKILL.md) | One implementation flow for requirements, bugs and findings | ✅ |
+| [`soia-dev-review-code`](skills/soia-dev-review-code/SKILL.md) | One read-only review of a fixed candidate; no automatic fixes or merge | ✅ |
 
 ### 02 Testing and release　`Requirement or change → test plan, release checklist, rollout gates`
 
@@ -74,13 +71,13 @@ flowchart LR
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | Shows development progress in the smallest useful view and explains AI code call chains, data flow, boundaries and conformance | ✅ |
+| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | Explains the current topic in the smallest useful view; focused HTML only when visual complexity warrants it | ✅ |
 
 ✅ Works right after install　🟡 Needs a login or API key first; the skill tells you what is missing before it runs
 
 ## Install
 
-Any of three hosts. Installing the domain plugin brings all 13 skills at once.
+Choose a host and one skill by default; an explicitly selected domain plugin includes all 12 skills.
 
 Publishing and local installation are separate: the default is one skill for one project and one explicit host. Global, whole-domain or all-host scope requires an explicit choice and a dry-run first; publishing never syncs to local hosts automatically.
 
@@ -100,7 +97,6 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 Restart the client, then summon **Soia · 研发工程师** under Experts → My Experts.
 
-> **Always-on cost ~971 tok**. `claude plugin disable soia-dev@soia` drops it to zero; enable it again any time.
 > For a single skill use npx: `npx skills add soia-team/soia-open-dev-skills -g -a '*' -s <skill-name> -y` — pick one route or the other; running both puts the same skill in the index twice and the copies drift apart.
 
 ## What it does not do

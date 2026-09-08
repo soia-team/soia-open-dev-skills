@@ -6,7 +6,7 @@
 
 **让 AI 改代码，不再「应该没问题」就交差**
 
-13 个技能把边界、验证与复核焊进流程；先划范围，改完必须拿出证据
+12 个按需技能：先明确边界，直接实施，用实际结果验证
 
 [English](README.en.md) · 中文 · [全生态门户](https://github.com/soia-team/soia-open-skills)
 
@@ -14,7 +14,6 @@
   <img alt="plugin version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsoia-team%2Fsoia-open-dev-skills%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=F5A623&prefix=v">
   <img alt="skills" src="https://img.shields.io/badge/技能-12-brightgreen">
   <img alt="hosts" src="https://img.shields.io/badge/宿主-Claude%20%C2%B7%20Codex%20%C2%B7%20WorkBuddy-8A2BE2">
-  <img alt="always-on cost" src="https://img.shields.io/badge/常驻-~971%20tok-lightgrey">
   <img alt="license" src="https://img.shields.io/github/license/soia-team/soia-open-dev-skills?color=blue">
 </p>
 
@@ -24,28 +23,26 @@
 
 ## 它解决什么
 
-AI 编码最会骗人的状态：**命令跑通了，结论也写了，但没人验证过**。缺的不是更聪明的模型，是一条不许跳步的流程。
+按任务选一个清楚的入口，读必要上下文，做最小完整改动，再验证真实行为。普通任务不默认叠加 panel、对抗或多轮审查。
 
 ```mermaid
 flowchart LR
     A["需求 · 缺陷<br/>审查发现"] --> B["定边界<br/>改哪些 · 不改哪些"]
     B --> C["最小改动"]
     C --> D["验证<br/>真跑一遍，不看'应该'"]
-    D --> E["独立复核<br/>对抗式多视角"]
-    E --> F["回执<br/>做了/跳过/失败各自列出"]
+    D --> E["结果<br/>改动、证据与缺口"]
     D -.不通过.-> C
 ```
 
-## 13 个技能
+## 12 个技能
 
 ### 01 改动闭环　`需求或缺陷 → 有边界、有验证、有复核的改动`
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| [`soia-dev-task-execute`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-task-execute.md) | 通用工程任务闭环：定边界、最小改动、验证、独立复核、回执 | ✅ |
-| [`soia-dev-coding-protocol`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-coding-protocol.md) | 为普通代码改动建立最小范围、验证前置、anti-fake-fix 与写后复核契约 | ✅ |
-| [`soia-dev-fix-loop`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-fix-loop.md) | 五步处理审查或测试发现：复现、决策、修复、回归复核、回执 | ✅ |
-| [`soia-dev-review-panel`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-review-panel.md) | 从多视角对 diff 或技能包做对抗式复核，只读不改、不合并、不发布 | ✅ |
+| [`soia-dev-enforce-coding-protocol`](skills/soia-dev-enforce-coding-protocol/SKILL.md) | 短协议：范围、权限与风险相称的验证，不另起流程 | ✅ |
+| [`soia-dev-implement-task`](skills/soia-dev-implement-task/SKILL.md) | 需求实现、缺陷修复与 findings 共用一个实施流程 | ✅ |
+| [`soia-dev-review-code`](skills/soia-dev-review-code/SKILL.md) | 固定候选，一次只读审查；不自动修复或合并 | ✅ |
 
 ### 02 测试与发版　`需求或变更 → 测试计划、发布清单与灰度门`
 
@@ -74,13 +71,13 @@ flowchart LR
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | 用最小视图展示开发进度，并帮 reviewer 看懂 AI 代码的调用链、数据流、边界与规范符合性 | ✅ |
+| [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | 用最小视图解释当前话题；简单关系直接画，复杂关系再做聚焦 HTML | ✅ |
 
 ✅ 装完即用　🟡 需先完成登录或申请 API key，技能会在执行前告诉你缺什么
 
 ## 安装
 
-三个宿主任选，装整个领域插件即 13 个技能一次到位。
+三个宿主任选；默认单技能，明确选择整域插件时包含本仓 12 个技能。
 
 发布与本机安装分开：默认按项目、明确宿主、单个技能定向安装；全局、整域或全宿主范围只有客户明确选择并先看 dry-run 后执行，发布不会自动同步到本机。
 
@@ -100,7 +97,6 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 装完重启客户端，在【专家中心 → 我的专家】召唤 **Soia · 研发工程师**。
 
-> **常驻成本 ~971 tok**。不用时 `claude plugin disable soia-dev@soia` 降到零，随时开回来。
 > 只想要单个技能可走 npx：`npx skills add soia-team/soia-open-dev-skills -g -a '*' -s <技能名> -y`——与插件二选一，并存会产生双份索引且各自漂移。
 
 ## 不负责什么

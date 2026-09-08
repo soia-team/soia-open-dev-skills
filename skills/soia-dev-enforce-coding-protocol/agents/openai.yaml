@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coding Protocol"
+  short_description: "用短协议约束工程范围与验证，按实际风险加检查，不另起流程。"
+  default_prompt: "请用 $soia-dev-enforce-coding-protocol 约束本次改动的范围与验证。"

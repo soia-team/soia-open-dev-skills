@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.0.0 — 2026-09-08
+
+T5 第一批：精简编码协议、合并实现修复、一次只读审查与轻量展示，移除旧入口
+
+## 新增
+- feat(dev)!: consolidate engineering skills and simplify show-me (#88)
+
+## 维护
+- chore(release): prepare v2 major train for removed skill entries (#89)
+- chore(release): open next train after v1.13.1 (#87)
+
 ## v1.13.1 — 2026-09-07
 
 Clarify scoped autonomy and Astra guidance; repair dispatch release self-checks

@@ -1,7 +1,7 @@
 {
   "name": "soia-dev",
   "version": "2.0.1-SNAPSHOT",
-  "description": "开发编码技能：工程协议、代码审查、缺陷修复、任务执行与 AI 派发",
+  "description": "工程与 UI 技能：功能规格、架构、实现审查、UI 设计验收与按需工具",
   "author": {
     "name": "soia-team"
   },

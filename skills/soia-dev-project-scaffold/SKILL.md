@@ -1,98 +1,46 @@
 ---
 name: soia-dev-project-scaffold
-description: 为任意新 Git 项目生成最小 AI 协作基线：可编辑的 AGENTS.md 和 docs 导航目录；在写入前确认目标路径。触发：「新项目初始化」「搭 AI 协作基线」「生成文档骨架」
-version: 1.0.4
+description: 为 Git 项目补最小 AI 协作入口与文档导航，优先沿用已有约定。触发：补项目协作基线、初始化 AGENTS、生成文档骨架
+version: 1.1.0
 created_at: 2026-07-20 11:52:54
-updated_at: 2026-08-05 13:30:00
+updated_at: 2026-09-08 17:24:05
 created_by: gpt-5.6-luna
-updated_by: claude-opus-5
+updated_by: gpt-5
 ---
 
 # soia-dev-project-scaffold
 
 ## 客户可读说明
 
-### 这个技能可以做什么
+**能做什么：** 为新/空项目建立最小协作入口，或给已有项目补真正缺少的规则与导航。不是应用框架生成器，不默认创建完整治理目录。
 
-为一个新建或空白的 Git 项目创建一套最小、可编辑的 AI 协作基线：`AGENTS.md`、文档导航、项目概览、变更记录和 AI 工作记录目录。它不生成应用框架、云服务模块或组织内部治理结构。
+**如何使用：** 给目标目录和希望补的内容。先看最近的 AGENTS/CLAUDE、README、构建/测试入口和已有文档布局；保留有效约定，不重建已有体系。
 
-### 客户如何使用
+## 最小实施
 
-提供目标项目的绝对路径，并明确允许创建文件。先运行帮助或检查目录；目标已有同名文件时，先展示差异并取得覆盖确认。
+- 已有项目只补缺项：一句项目定位、可验证常用命令、必要目录职责、特殊安全/完成门，以及已有文档入口。缺命令时写待确认，不发明脚本。
+- 多宿主选择一个可维护真源，其他入口按宿主能力做短引用或链接；不盲目覆盖文件、增加 agent/hook/skills 全家桶。
+- 已明确授权补齐时用最小补丁；未知同名内容或越界目标先停下确认。保留未提交工作，不自动 git init、安装依赖或提交。
 
-```bash
-bash skills/soia-dev-project-scaffold/shells/init-project-baseline.sh <project-path>
-```
+空目录且客户需要下列完整基线时，可用现有脚本（从技能目录运行）：
+
+    bash shells/init-project-baseline.sh <project-path>
+
+它一次创建 AGENTS.md、docs/navigation.md、project-overview.md，以及 product/changelog/ai-workspace/templates 的 README；任一目标已存在即拒绝，不能用它“补一项”。只要少量文件时直接按项目约定创建，不强行运行全套。
+
+## 验证与交付
+
+读回新增内容，核对引用及命令来源，再看 Git diff/status。脚本可用 --help 和 bash -n 检查；实际生成用临时空目录验证，并确认重跑拒绝覆盖。交付创建项、待填事实和未运行命令。
+
+## 使用边界
 
 ### 依赖与安装
 
-```bash
-claude plugin marketplace add soia-team/soia-open-skills
-```
+脚本需要 Bash 与标准文件工具；Git 用于检查，不自动初始化。
+默认项目单技能：`npx skills add soia-team/soia-open-dev-skills -a <agent> -s soia-dev-project-scaffold`，执行前核实当前参数。
+整域需明确选择：Claude Code 使用 `claude plugin marketplace add` / `claude plugin install soia-dev@soia`，Codex 使用 `codex plugin marketplace add` / `codex plugin add soia-dev@soia`；市场为 soia-team/soia-open-skills，完整步骤见[官方安装说明](https://github.com/soia-team/soia-open-skills#安装)。
+WorkBuddy 使用[专家安装说明](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)，不由 npx 代装。上述命令不构成安装或发布授权。
 
-```bash
-claude plugin install soia-dev@soia
-```
+**私密信息与中间数据：** 只使用授权材料并对引用脱敏；不需要凭据、不默认建立配置/state/cache。要求保存的交付物写批准位置，临时数据用 OS 临时目录；不将客户原文写进技能仓库。
 
-只要这一个技能时，可用 npx 路线。注意技能会落进共享真源 `~/.agents/skills`；若同时装了插件，同一技能会出现两份索引且各自漂移，建议二选一：
-
-```bash
-npx skills add soia-team/soia-open-dev-skills -g -a '*' -s soia-dev-project-scaffold -y
-```
-
-依赖 POSIX shell、`mkdir` 和 `git`（仅用于检查，不初始化仓库）。不需要私有配置；项目特定规则应由客户在生成后的 `AGENTS.md` 中补充。
-
-**WorkBuddy** 的装载单位是角色化专家而不是插件，`npx skills add -a '*'` 覆盖不到它，需要单独安装，见 [docs/install/workbuddy.md](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)。
-
-### 私密信息与中间数据
-
-- 本技能只读取目标目录是否存在及同名文件状态，不扫描目标项目之外的文件，也不收集账号、凭据或项目正文。
-- 正式产物仅是下方列出的基线文件，写入客户明确指定的项目路径；发现同名文件时停止，不创建隐式备份、不覆盖。
-- 脚本不建立持久 state、cache、私有配置或独立日志，也不需要 Provider 凭据。帮助和预览结果只输出到 stdout。
-- 如实现过程中需要临时检查文件，使用操作系统临时目录并在完成后清理；不得把客户绝对路径或项目内容复制进公共模板。
-- 回执仅列目标路径、创建/跳过的相对文件和验证结果，不打印无关目录内容。
-
-### 日志与完成回执
-
-```markdown
-完成：<已创建或预览的基线>。
-
-日志摘要：
-- target: <绝对路径>
-- created/updated: <文件列表>
-- skipped/failed: <原因或无>
-
-验证：<git status、文件清单和读取检查>
-问题与下一步：<需要填充的项目规则或无>
-```
-
-## 适用与边界
-
-适用于“新建 Git 项目”“补 AGENTS.md”“建立 docs/ 导航”等请求。不用于已有项目的大规模重构、语言/框架脚手架，或需要组织专属目录模板的项目。
-
-## 最小流程
-
-1. 确认绝对目标路径和写入授权。
-2. 检查是否已存在 `AGENTS.md` 或将生成的 docs 文件；存在时先停下并询问是否覆盖。
-3. 运行脚本，或按同一文件清单手动创建。
-4. 用 `git -C <project-path> status --short` 和 `find`/`sed` 复核生成结果。
-5. 回执列出创建项、验证证据及仍需客户填写的项目规则。
-
-## 输出
-
-脚本生成：
-
-- `AGENTS.md`
-- `docs/navigation.md`
-- `docs/project-overview.md`
-- `docs/product/README.md`
-- `docs/changelog/README.md`
-- `docs/ai-workspace/README.md`
-- `docs/templates/README.md`
-
-## 验证
-
-```bash
-bash skills/soia-dev-project-scaffold/shells/init-project-baseline.sh --help
-bash -n skills/soia-dev-project-scaffold/shells/init-project-baseline.sh
-```
+**日志与完成回执：** 结果本身是主要交付；说明实际变更或未改动、关键依据与未验证部分，不强制额外报告。

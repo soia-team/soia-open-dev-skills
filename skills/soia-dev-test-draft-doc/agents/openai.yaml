@@ -1,4 +1,4 @@
 interface:
-  display_name: "Draft Test Documents"
-  short_description: "Turn requirements or a PRD into a test plan, cases, regression checklist, and acceptance matrix."
-  default_prompt: "基于以下需求生成测试计划、正常/边界/异常/数据流用例、回归清单和验收对照表：<需求文本>"
+  display_name: "测试设计"
+  short_description: "从需求与变更设计可执行用例和验收对照，不冒充实际测试执行"
+  default_prompt: "使用 $soia-dev-test-draft-doc 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

@@ -1,4 +1,4 @@
 interface:
-  display_name: "Dev Terminal Ops"
-  short_description: "Monitor long-running POSIX jobs and recover stalled processes safely"
-  default_prompt: "Use $soia-dev-terminal-ops to monitor this long-running command, diagnose progress with multiple signals, and apply the TERM-to-KILL confirmation gates if recovery is needed."
+  display_name: "长任务与终端"
+  short_description: "观察长任务与日志，多信号判断停滞并安全停止或恢复明确进程"
+  default_prompt: "使用 $soia-dev-terminal-ops 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

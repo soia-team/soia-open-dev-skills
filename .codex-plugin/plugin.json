@@ -1,14 +1,14 @@
 {
   "name": "soia-dev",
   "version": "2.0.1-SNAPSHOT",
-  "description": "开发编码技能：工程协议、代码审查、缺陷修复、任务执行与 AI 派发",
+  "description": "工程与 UI 技能：功能规格、架构、实现审查、UI 设计验收与按需工具",
   "author": {
     "name": "soia-team"
   },
   "interface": {
-    "displayName": "开发编码技能库",
-    "shortDescription": "工程协议、代码审查、缺陷修复、任务执行与 AI 派发",
-    "longDescription": "面向软件开发的工程协议、代码审查、缺陷修复、任务执行、终端操作与 AI 派发技能。",
+    "displayName": "工程与 UI 技能库",
+    "shortDescription": "功能规格、架构、实现审查、UI 设计验收与按需工具",
+    "longDescription": "工程与 UI 方法的统一真源；提供功能规格、架构治理、实现审查和 UI 设计验收，图表、Office、Open Design 与外部 AI 调度按需使用。",
     "developerName": "soia-team",
     "category": "Developer Tools",
     "capabilities": [

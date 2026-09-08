@@ -1,0 +1,4 @@
+interface:
+  display_name: "架构设计与治理"
+  short_description: "按设计、评审或漂移模式核对职责与契约，给出可验证的架构判断"
+  default_prompt: "使用 $soia-dev-govern-architecture 处理当前请求，保留已批准约束并说明实际证据与未验证范围。"

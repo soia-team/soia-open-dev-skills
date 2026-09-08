@@ -1,0 +1,4 @@
+interface:
+  display_name: "Open Design 工具"
+  short_description: "检查 Open Design 并交付可验证的 HTML 原型、deck、动画与导出"
+  default_prompt: "使用 $soia-dev-open-design-ops 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

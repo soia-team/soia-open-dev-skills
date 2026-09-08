@@ -1,0 +1,4 @@
+interface:
+  display_name: "Archify 图表"
+  short_description: "生成可维护的 Archify JSON 图表，核对渲染与预览产物"
+  default_prompt: "使用 $soia-dev-archify-diagrams 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

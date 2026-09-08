@@ -1,7 +1,7 @@
 {
   "name": "soia-dev",
   "version": "2.0.0",
-  "description": "Focused engineering partner for implementation, fixes, read-only review, clear views, testing and GitHub operations.",
+  "description": "工程与 UI 技能：功能规格、架构、实现审查、UI 设计验收与按需工具",
   "author": {
     "name": "soia-team"
   },
@@ -11,10 +11,18 @@
   "skills": [
     "./skills/soia-dev-agent-cli-dispatch",
     "./skills/soia-dev-agent-md-advisor",
+    "./skills/soia-dev-archify-diagrams",
+    "./skills/soia-dev-audit-ui",
+    "./skills/soia-dev-design-ui",
     "./skills/soia-dev-doc-sync",
+    "./skills/soia-dev-draft-feature-spec",
+    "./skills/soia-dev-drawio-visio-diagrams",
     "./skills/soia-dev-enforce-coding-protocol",
     "./skills/soia-dev-github-ops",
+    "./skills/soia-dev-govern-architecture",
     "./skills/soia-dev-implement-task",
+    "./skills/soia-dev-officecli-ops",
+    "./skills/soia-dev-open-design-ops",
     "./skills/soia-dev-project-scaffold",
     "./skills/soia-dev-release-plan-checklist",
     "./skills/soia-dev-review-code",

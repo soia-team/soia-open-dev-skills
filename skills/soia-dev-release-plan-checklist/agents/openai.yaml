@@ -1,4 +1,4 @@
 interface:
-  display_name: "Dev Plan Release Checklist"
-  short_description: "生成互联网软件发版的预检、灰度与发布后验证清单。"
-  default_prompt: "为服务 A 的生产发布生成版本、制品、预检门、灰度、回滚和发布后验证清单。"
+  display_name: "软件发布计划"
+  short_description: "设计软件发布预检、灰度、停止与回滚清单，不执行部署"
+  default_prompt: "使用 $soia-dev-release-plan-checklist 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "UI 设计"
+  short_description: "围绕用户任务设计信息结构、交互状态与视觉，保持已批准样式"
+  default_prompt: "使用 $soia-dev-design-ui 处理当前请求，保留已批准约束并说明实际证据与未验证范围。"

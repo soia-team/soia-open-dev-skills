@@ -60,23 +60,19 @@ a hypothetical one.
 If no rule file exists, say so plainly in the final report instead of
 inventing rules from memory of other repositories.
 
-### Step 3 — Hand off to soia-dev-review-panel for the actual cross-check
+### Step 3 — Use soia-dev-review-code for the cross-check
 
-Do not re-derive a review checklist here. Use `soia-dev-review-panel`'s code
-lens group (correctness/self-verification, security, test coverage & anti-fake-fix,
-scope & consistency) against the diff from Step 1, with the rule files from
-Step 2 as its "rules" input for the scope/consistency lens. That skill also
-owns the "open the real file, don't trust the diff snippet" discipline and
-the graded-confidence (seen/inferred/unconfirmed) finding format — this
-procedure doesn't maintain a second copy of either.
+Give `soia-dev-review-code` the fixed candidate, diff and actual project rules
+from Steps 1–2. It owns the single read-only review; this procedure does not
+add a second checklist, adversarial round or automatic panel.
 
-If `soia-dev-review-panel` isn't installed, stop and tell the user to install
-it (`npx skills add soia-team/soia-open-dev-skills -g -a '*' -s soia-dev-review-panel -y`)
-rather than falling back to an ad-hoc checklist.
+If the skill is missing, pause this review branch and report the dependency.
+Installation requires a separately confirmed scope; ordinary GitHub queries
+are not blocked by a missing review skill.
 
 ### Step 4 — Report
 
-Use `soia-dev-review-panel`'s Step 5 output as the body of the reply (verdict
+Use `soia-dev-review-code`'s result as the body of the reply (verdict
 first, findings by tier, coverage notes), plus these two additions that are
 specific to this GitHub procedure and not part of the generic methodology:
 

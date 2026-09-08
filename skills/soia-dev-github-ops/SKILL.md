@@ -1,13 +1,13 @@
 ---
 name: soia-dev-github-ops
 description: GitHub gh CLI 运维、PR 合规审查与修复。触发：「查 CI 挂了」「发 release」「加协作者权限」
-version: 2.1.4
+version: 2.2.0
 created_at: 2026-07-09 07:45:34
-updated_at: 2026-08-05 13:30:00
+updated_at: 2026-09-08 16:25:00
 created_by: claude opus 4.6
-updated_by: claude-opus-5
+updated_by: gpt-5
 dependencies:
-  hard: [soia-dev-review-panel, soia-dev-fix-loop]
+  optional: [soia-dev-review-code, soia-dev-implement-task]
 ---
 
 # soia-dev-github-ops
@@ -30,7 +30,7 @@ Use gh CLI for GitHub issue, PR, checks, review, workflow run, release, and coll
 | 完成本技能覆盖的工作 | 读取用户请求、必要上下文和本技能正文流程，执行最小可靠步骤 | 客户会看到执行计划、命令输出摘要、代码/文档变更、验证结果和风险说明。 |
 | 给某个人加/查/撤仓库协作者权限 | 先确认目标仓库、用户名、权限级别，再执行 `gh api` 写操作并核实生效 | 权限级别说明、确认清单、生效核实结果 |
 | 合并前想知道这个 PR 符不符合规则 | 拉 diff + 这个仓库自己的规则文件，交叉核对后给分档建议；不自动合并 | 一句话结论、按阻断/应改/无异议分档的发现清单、CI 与 mergeable 状态 |
-| 收到评审意见（贴 PR/评审 URL 说"帮我修复"）| 拉取评审（含行内 + 会话评论）→ checkout 分支 → 委托 fix-loop 逐条修 → push 回原分支并请求重审；不自动合并 | 每条意见的处理状态、验证证据、push 结果、请求重审回执 |
+| 收到评审意见（贴 PR/评审 URL 说"帮我修复"）| 拉取评审（含行内 + 会话评论）→ 确认分支 → implement-task 逐条修；push 和请求重审分别按授权执行，不自动合并 | 每条意见的处理状态、验证证据、已授权远端操作结果 |
 | 缺少依赖、权限、配置或 key | 停止需要外部状态的动作，明确指出缺什么 | 安装命令、申请地址、配置路径或需要客户确认的问题 |
 | 执行完成 | 汇总成功、跳过、失败、文件变更和验证结果 | 一段可复制进工单/日志的完成回执 |
 
@@ -41,7 +41,11 @@ Use gh CLI for GitHub issue, PR, checks, review, workflow run, release, and coll
 
 ### 依赖与安装
 
-安装（推荐：装整个领域插件，一次装好本仓全部技能）：
+默认按项目、明确宿主、单技能安装；整域仅在客户明确选择后使用。安装与发布单独确认，见[官方安装说明](https://github.com/soia-team/soia-open-skills#安装)。
+
+普通 GitHub 查询和平台操作无需加载实现或审查技能；进入对应分支时才按需使用 `soia-dev-review-code` 或 `soia-dev-implement-task`。缺失只暂停该分支，报告所缺依赖，不自动安装。
+
+客户已选择整域插件时：
 
 ```bash
 claude plugin marketplace add soia-team/soia-open-skills

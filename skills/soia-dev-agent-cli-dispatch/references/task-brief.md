@@ -1,13 +1,14 @@
 # 任务书模板与写作准则
 
-派发外部 AI CLI 前，把请求写成一页**任务书**。任务书是执行者的权威规格：原对话、工单正文和历史讨论是背景，任务书本身才是契约。本文件给出 7 字段模板、四条写作原则、三段式交付契约、证据有效性优先的 check 0，以及收敛上限。
+派发外部 AI CLI 前，把请求写成一页**任务书**。任务书是执行者的权威规格：原对话、工单正文和历史讨论是背景，任务书本身才是契约。本文件给出 8 字段模板、四条写作原则、三段式交付契约、证据有效性优先的 check 0，以及收敛上限。
 
 主文件按需一跳加载本文件；认领字段与抓取判据见 `claim-protocol.md`，禁止句改写见 `writing-positive-constraints.md`。
 
 ## 内容导航
 
 - 四条写作原则
-- 7 字段模板
+- 8 字段模板
+- 适用技能：派发方的义务字段
 - 完整反例（逐条剖析）
 - 三段式契约：Input / Workflow / Output + Verdict
 - 回执硬要求：执行面板收敛
@@ -25,7 +26,7 @@
 
 > 正负写法对照与「禁令必须配正向目标」的规则见 `writing-positive-constraints.md`。
 
-## 7 字段模板
+## 8 字段模板
 
 ```markdown
 ## 任务书
@@ -44,6 +45,10 @@
 - `functionName()` 返回类型：现在返回什么、应当返回什么
 - 配置形状：需要新增的配置项
 
+**适用技能（Applicable skills）：**
+- `soia-dev-implement-task`：本单主流程
+- `soia-dev-enforce-coding-protocol`：改动范围与验证约束
+
 **验收标准（Acceptance criteria）：**
 - [ ] 具体、可测的标准 1
 - [ ] 具体、可测的标准 2
@@ -54,6 +59,17 @@
 ```
 
 派发时在任务书头部补两个字段：`claimed_by`（认领者，留空即可被抓取）与 `gate_tier: A|B|C`（复审强度档）。两者的判据见 `claim-protocol.md`。
+
+## 适用技能：派发方的义务字段
+
+**「适用技能」逐个列出本单应当加载的技能名（技能仓里的 `name`，不带路径），由派发方填写。** 列出后有两项硬要求：
+
+1. **执行者开工前先加载这些技能全文**，不是只看到技能清单里的描述行。清单可见只是候选，正文进上下文才算生效。
+2. **执行者在回报第一节写明实际加载了哪几个**，没加载的逐个写原因（例如技能不在本机清单、加载失败、任务书列错名）；清单与回报对不上时主控按回报缺陷退回。
+
+留空视为**任务书缺陷**：执行者按输入契约缺失在回执首行点名，并可退回补填；派发方不得以「技能都在清单里、模型自己会挑」为由省略本字段。
+
+这个字段针对的是「技能送达≠技能生效」：技能出现在执行端的可用清单里，与执行者真的加载并遵循它，是两件事。判据（可见技能数与 Skill 调用数的数法）与 2026-09-11 一手数据见 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的同名失效模式。
 
 ## 完整反例（逐条剖析）
 
@@ -80,6 +96,7 @@
 | 无类别、无当前/期望行为 | 写行为 | 执行者不知道是修缺陷还是加能力，只能挑一种猜 | 补类别，并写清现状与目标行为 |
 | 引用文件路径与行号 | 以耐久换精确 | 队列里躺两天后路径与行号双双失效，执行者按错位的行号改到无关代码 | 改为点名类型、函数签名与配置形状 |
 | 无验收标准 | 逐条独立可验证 | 执行者自报完成，主控无逐条可判的证据 | 补 3–5 条可单独失败的验收标准 |
+| 无适用技能字段 | 显式范围边界（技能范围） | 技能清单里看得见，正文一次都没进上下文，执行者按自己的默认习惯发挥 | 逐个列出本单技能名，并要求回报写明实际加载项 |
 | 「顺手理顺相关的」 | 显式范围边界 | 改动无上界，diff 卷进无关重构 | 把「相关」写成具名范围，其余进范围之外 |
 | 「该加的测试加上」 | 写行为 + 验收标准 | 测试范围与形式全凭执行者发挥，覆盖不到真正的行为 | 在验收标准里写清哪条行为由哪个检查证明 |
 
@@ -145,7 +162,7 @@ disposition: recapture | rebuild | fix | ship
 
 ## 来源与承接说明
 
-- **7 字段模板、四条写作原则、逐条剖析的反例**：承接自 `mattpocock` 仓 `engineering/triage/AGENT-BRIEF.md`（外部概念：其 `Category / Summary / Current behavior / Desired behavior / Key interfaces / Acceptance criteria / Out of scope` 字段序，以及 bad brief 的逐条剖析结构）。本仓按派单制做了两处改造：一是补入 `claimed_by` 与 `gate_tier` 两个派发头字段；二是把定位口径分成两层——任务书层点名类型、签名与配置形状，不写路径行号；findings 层保留 `file:line` 这类可定位位置。
+- **8 字段模板、四条写作原则、逐条剖析的反例**：承接自 `mattpocock` 仓 `engineering/triage/AGENT-BRIEF.md`（外部概念：其 `Category / Summary / Current behavior / Desired behavior / Key interfaces / Acceptance criteria / Out of scope` 字段序，以及 bad brief 的逐条剖析结构）。本仓按派单制做了三处改造：一是补入 `claimed_by` 与 `gate_tier` 两个派发头字段；二是把定位口径分成两层——任务书层点名类型、签名与配置形状，不写路径行号；findings 层保留 `file:line` 这类可定位位置；三是新增本仓自有的「适用技能」字段（2026-09-12，针对「技能送达≠技能生效」，外部概念中没有对应字段）。
 - **三段式契约、check 0 证据有效性、4 词 disposition、修复清单 ≤8、约第 10 轮收敛**：承接自 `impeccable` 仓 `reference/degraded/finish-reviewer.md` 的 Input Contract / Workflow / Output Contract / Verdict Pass 四段结构（外部概念）；本仓把它从「无浏览器评审器」泛化为通用任务书回执契约，并保留其「词由证据导出、上级原样上报」的口径。
-- **7 字段的字段序与 `gate_tier` 档位**：与我们 `soiadeck` 仓 `docs/governance/goals/execution-policy.md` §3 最小上下文包（Baseline / Goal-Task-Claim / Objective-Scope / Contracts / Acceptance / Evidence / Handoff）同向，两处对同一份派发信息各自描述；本仓取 7 字段模板作为任务书侧真源。
-- **实战素材**：`codex-cli.md`「实战控制规程」第 5 条（无关未提交文件列明、不 add、回执申明）与第 4 条（派发前基线核验）为「显式范围边界」原则的一手来源；`owner-directives` 指令 211（删除前验证归档 commit 真实落盘）与指令 222（图状态回写必须逐条附一手证据，对账批不得凭表述补 passed）为 check 0「证据有效性优先」的一手来源。
+- **8 字段的字段序与 `gate_tier` 档位**：与我们 `soiadeck` 仓 `docs/governance/goals/execution-policy.md` §3 最小上下文包（Baseline / Goal-Task-Claim / Objective-Scope / Contracts / Acceptance / Evidence / Handoff）同向，两处对同一份派发信息各自描述；本仓取 8 字段模板（7 字段 + 适用技能）作为任务书侧真源。
+- **实战素材**：`codex-cli.md`「实战控制规程」第 5 条（无关未提交文件列明、不 add、回执申明）与第 4 条（派发前基线核验）为「显式范围边界」原则的一手来源；`owner-directives` 指令 211（删除前验证归档 commit 真实落盘）与指令 222（图状态回写必须逐条附一手证据，对账批不得凭表述补 passed）为 check 0「证据有效性优先」的一手来源；「适用技能」字段来自 2026-09-11 主控对执行端会话的取证对比（可见技能 1→16、Skill 调用数 0），一手数据与可复算判据登记在 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的「技能送达≠技能生效」。

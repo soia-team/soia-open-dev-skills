@@ -1,7 +1,7 @@
 ---
 name: soia-dev-audit-ui
-description: 只读验收界面，将布局、键盘等技术证据与 UX、视觉判断分开报告。触发：验收这个界面、检查键盘和布局、评审视觉与体验
-version: 1.1.0
+description: 只读验收界面，将布局、键盘等技术证据与 UX、视觉判断分开报告。触发：验收这个界面、检查键盘和布局、评审视觉与体验、界面验收、按验收标准核对界面
+version: 1.2.0
 created_at: 2026-09-08 17:24:05
 updated_at: 2026-09-12 12:00:00
 created_by: gpt-5

@@ -3,6 +3,20 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.3.0 — 2026-09-11
+
+P0 六项 references 补强（任务书模板/claim 两档协议/验收线 Closed-Open 契约/失效模式反例/UI 量化判据/正向表述准则）+dsh 证据字段升级
+
+## 新增
+- feat(skills): P0 六项 references 补强（任务书/claim/失效模式/UI 判据/验收线/正向约束） (#103)
+
+## 修复
+- fix(dispatch): dsh 证据字段升级为 session 取证口径并统一按量计费表述 (#102)
+
+## 维护
+- chore: 列车提为 2.3.0-SNAPSHOT（P0 references 批属新能力，按 minor 规则）
+- chore(release): open next train after v2.2.1 (#101)
+
 ## v2.2.1 — 2026-09-11
 
 dsh session 取证法入技能（model_integrity 可验证）+成本口径纠正为按量计费

@@ -1,11 +1,11 @@
 ---
 name: soia-dev-enforce-coding-protocol
 description: 用短协议约束工程改动的范围、权限与验证，不另起流程。触发：执行编码协议、约束本次改动、检查修复是否有证据
-version: 1.0.0
+version: 1.0.1
 created_at: 2026-09-08 16:25:00
-updated_at: 2026-09-08 16:25:00
+updated_at: 2026-09-11 14:52:06
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: dsh + deepseek-flash (session-file verified)
 ---
 
 # soia-dev-enforce-coding-protocol
@@ -23,6 +23,8 @@ updated_by: gpt-5
 - **按风险加验证。** 普通局部改动用聚焦测试；公共接口、数据迁移、安全或跨进程边界检查直接消费者、失败路径与恢复。只在授权范围内排查同类模式，不顺手扩大清理。
 - **验证行为本体。** 不以吞错、TODO、放松断言、删除失败测试或静默 fallback 冒充修复。命令成功不等于目标成立；核对实际输出，并保留失败和未覆盖项。
 - **到证据足够就停。** 写完做一次针对性验证与差异核对；失败才修复对应问题。没有新证据或规则要求，不重开多轮审查、对抗或全套测试。
+
+每条条款在挡什么失效模式，见[失效模式索引](references/failure-modes.md)；起草或复审任务书时按需加载。
 
 ## 使用边界
 

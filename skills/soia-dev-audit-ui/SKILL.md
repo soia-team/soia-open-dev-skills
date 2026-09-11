@@ -1,11 +1,11 @@
 ---
 name: soia-dev-audit-ui
 description: 只读验收界面，将布局、键盘等技术证据与 UX、视觉判断分开报告。触发：验收这个界面、检查键盘和布局、评审视觉与体验
-version: 1.0.0
+version: 1.0.1
 created_at: 2026-09-08 17:24:05
-updated_at: 2026-09-08 17:24:05
+updated_at: 2026-09-11 14:52:06
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: dsh + deepseek-flash (session-file verified)
 ---
 
 # soia-dev-audit-ui
@@ -26,6 +26,8 @@ updated_by: gpt-5
 - 接缝：真实路由、遮罩/portal、滚动、事件传播及异步反馈。项目指定的自动化门照常执行，测试通过不替代上述运行检查。
 
 只有截图时只判断截图可见内容，键盘、状态和实际交互标为未验证；不据此断言可访问性通过。
+
+各项下限、WCAG 条款、证据来源标注与严重度判据见[技术验收判据](references/technical-checks.md)；按需加载，不必每次验收全量读取。
 
 ## UX / 视觉判断
 

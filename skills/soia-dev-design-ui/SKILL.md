@@ -1,11 +1,11 @@
 ---
 name: soia-dev-design-ui
 description: 设计界面的信息结构、交互、视觉与实现交接，保持已批准的品牌和样式边界。触发：设计这个界面、梳理交互流程、做 UI 设计交接
-version: 1.0.0
+version: 1.0.1
 created_at: 2026-09-08 17:24:05
-updated_at: 2026-09-08 17:24:05
+updated_at: 2026-09-11 14:52:06
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: dsh + deepseek-flash (session-file verified)
 ---
 
 # soia-dev-design-ui
@@ -27,6 +27,8 @@ updated_by: gpt-5
 ## 交付与验证
 
 使用客户指定的工具和格式；需要 Open Design 原型、HTML deck 或动画时，由可用的工具能力执行，不能用其他产物冒充指定路线。缺工具时说明可交付的设计部分和未执行部分，不自动安装。
+
+量化下限（对比度、行宽、触控尺寸、动效时长档、性能阈值）见[工艺下限](references/craft-floor.md)；方向定稿后按需加载。
 
 可见产物要实际渲染，在相关宽度检查层级、溢出与关键交互。交接说明组件/状态/token 对应和仍需决定的事项；图稿、原型通过不代表生产 UI 已验收。技术验收与 UX/视觉判断可由 audit-ui 分开做，但不是每次设计必须串行加载的依赖。
 

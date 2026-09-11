@@ -1,11 +1,11 @@
 ---
 name: soia-dev-implement-task
 description: 在明确授权内实现需求、诊断修复或处理 findings，合并执行与修复流程。触发：实现这个任务、修复这个 bug、处理审查发现
-version: 1.0.0
+version: 1.0.1
 created_at: 2026-09-08 16:25:00
-updated_at: 2026-09-08 16:25:00
+updated_at: 2026-09-11 14:52:06
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: dsh + deepseek-flash (session-file verified)
 ---
 
 # soia-dev-implement-task
@@ -23,6 +23,8 @@ updated_by: gpt-5
 3. **缺陷先定位。** 从输入、日志或失败测试复现，沿数据和调用路径找到首个偏离预期的位置；验证一个具体假设再修改。只要求诊断时，交付原因、证据与修复建议后停止。
 4. **Findings 逐条决策。** 按当前候选核实问题，标为 fix、reject 或 defer 并给理由。只修已授权且成立的项；不靠编号全部消失冒充完成。
 5. **验证并收口。** 跑最靠近改动的检查，核对真实结果与最终 diff；高风险边界补直接消费者和失败路径。测试失败只推进相关修复，有新证据才扩大验证。停止无进展重试，报告还缺什么。
+
+收口按[验收线](references/acceptance-line.md)声明验收项、证明新检查能失败，并逐条对照证据判定；存在 `failed` 或 `未验证` 时按 Open 四段结构交付。
 
 普通接口只检查它实际承诺的输入、输出和消费者；**仅修改 AI Provider 适配时**读取 [AI Provider 验收](references/ai-provider.md)。不要把消息、工具或计费检查套到所有 adapter。
 

@@ -8,7 +8,9 @@
 > **诚实边界（务必先读）**：本文件混合三类证据，强度不同，正文逐条标注：
 > ① **provider 元数据**（机器同步，声明级事实）；② **pi 结构化回显**（Model Integrity
 > Gate 认可的运行证据）；③ **dsh 任务产物**（有产物与门禁记录，但 dsh 没有模型回显实现，
-> 属任务结果证据而非模型身份证据）。三类都不能互相冒充；未测到的字段一律不填。
+> 属任务结果证据；dsh 的模型身份可经 session 落盘文件验证，见 `references/dsh-cli.md`
+> 「模型证据提取」一节；本报告第 3 节未逐任务提取，故仍按任务结果证据处理，不冒充
+> 模型身份证据）。三类都不能互相冒充；未测到的字段一律不填。
 
 ## 1. Provider 元数据（2026-09-11，机器同步）
 
@@ -46,7 +48,8 @@ assistant、3 次工具调用）：
   `thinking_level_change`：`thinkingLevel=high`。
 - 每次 assistant `message_end` 均回显 `provider=deepseek`、`model=deepseek-flash`，
   并带结构化 usage，例如：input 197 / cacheRead 32256 / cacheWrite 0 / output 334 /
-  reasoning 172 / totalTokens 32787，`cost.total = 0`（订阅口径，各分项显式为 0）。
+  reasoning 172 / totalTokens 32787，`cost.total = 0`（按量计费（低价）；本报告所记 token 数为会话
+  峰值口径，实际费用以 provider 官方账单为准，价格数字待与官方账单对账）。
 
 这是本技能 Model Integrity Gate 认可的形态：请求 id 与最终 assistant `message_end`
 的 `message.model` 一致，且 usage 可解析。它证明 **pi + deepseek-flash 在 `high` 档真实
@@ -68,12 +71,13 @@ dsh headless + `deepseek-flash`（本机 dsh 的 `agent-default-model` 即
 | 0.17.7 补测批 | 重打装机与补测 | 过门禁、并入 |
 
 配套治理记录（同日）：「M1 主机页、W-C.1、W-B spike 三节点当日完成→验收→并入→销账；
-DMG 0.17.7 重打装机拉起」，执行侧标注为 dsh/pi + deepseek-flash（订阅口径）。
+DMG 0.17.7 重打装机拉起」，执行侧标注为 dsh/pi + deepseek-flash（按量计费（低价）；本报告所记
+token 数为会话峰值口径，实际费用以 provider 官方账单为准，价格数字待与官方账单对账）。
 
-**强度限制**：`references/supported-agents.yml` 中 dsh 的 `model_integrity: unimplemented`，
-dsh 输出没有可核验的模型回显。因此这四条是**任务产物与吞吐证据**，不能单独支撑
-`actual_model` 断言；把它们与第 2 节的身份证据合看，组成「身份（pi）+ 多任务产物（dsh）」
-的组合证据。
+**强度限制**：dsh 的 `actual_model`/`provider` 可经 session 落盘文件验证（见
+`references/dsh-cli.md`「模型证据提取」），但本节四任务未逐任务提取，属未补取证据；因此这四条
+仍是**任务产物与吞吐证据**，不能单独支撑 `actual_model` 断言；把它们与第 2 节的身份证据合看，
+组成「身份（pi）+ 多任务产物（dsh，身份待按 session 文件补取）」的组合证据。
 
 ## 4. 价格与峰谷口径
 
@@ -83,7 +87,8 @@ dsh 输出没有可核验的模型回显。因此这四条是**任务产物与�
   半价。由此推算的 off-peak 价（input 0.15 / cache-hit 0.003 / output 0.6）是**算术推导**，
   已在该条目 `billing_mode_notes` 中标注 derived；catalog 结构化字段保持高峰/标准价，
   不新增第二套数值字段。
-- pi 回执在订阅口径下 `cost.total = 0`，实际扣费不可由 catalog 推导。
+- pi 回执的 `cost.total = 0` 不构成免费证据：deepseek-flash 按量计费（低价）；本报告所记 token 数
+  为会话峰值口径，实际费用以 provider 官方账单为准，价格数字待与官方账单对账。
   catalog 数字只能作为 API 等价估算（与文件头 `notes` 的既有口径一致）。
 
 ## 5. 与 catalog 字段的对应关系
@@ -116,8 +121,10 @@ dsh 输出没有可核验的模型回显。因此这四条是**任务产物与�
 - **image-input 未实测**：`input: [text, image]` 只是 provider 声明；没有真实图片派发 case。
 - **逐档覆盖不完整**：只有 `high` 有 pi 结构化回显；`low`/`max` 是声明级（`max` 另有 dsh
   任务使用记录），没有各自的 JSONL `message_end` 存档。
-- **dsh 身份不可验证**：第 3 节四任务无法独立证明实际模型，不能包装成 `actual_model` 证据。
-- **无账单核对**：0.30/1.20 未经官方账单或用量页对账，属 provider 元数据口径。
+- **dsh 身份待补取**：第 3 节四任务未逐任务提取 session 落盘文件，不能包装成 `actual_model` 证据；
+  session 文件取证法见 `references/dsh-cli.md`「模型证据提取」。
+- **账单未逐项对账**：0.30/1.20 未经官方账单或用量页对账，属 provider 元数据口径；按量计费（低价）
+  的实际扣费待与官方账单对账，本报告所记 token 数为会话峰值口径。
 - **单会话样本**：第 2 节只有一个 pi 会话，不能据此声称全任务类型质量基准。
 - **v4-pro 09-14 后计费口径未确认**：见第 5 节最后一条。
 

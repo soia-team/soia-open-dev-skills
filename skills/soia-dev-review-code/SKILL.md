@@ -1,11 +1,11 @@
 ---
 name: soia-dev-review-code
 description: 对固定代码候选或技能包做一次只读审查，区分规格符合性与工程标准，报告可核实问题。触发：审查这次改动、review 代码、检查技能包
-version: 1.0.0
+version: 1.1.0
 created_at: 2026-09-08 16:25:00
-updated_at: 2026-09-08 16:25:00
+updated_at: 2026-09-12 12:00:00
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: deepseek-flash
 ---
 
 # soia-dev-review-code
@@ -23,7 +23,7 @@ updated_by: gpt-5
 3. **核实候选问题。** 回到原文和调用上下文，检查触发条件、反例与实际影响；能安全运行的聚焦检查可运行，外部副作用不作为审查手段。无法确认的疑点放到未验证项，不包装成缺陷。
 4. **交付后停止。** 只报告会改变下一步动作的问题；按严重度给位置、触发条件、影响和依据。没有新 diff、新证据或显式要求，不循环复审。
 
-默认单次审查；只有用户或项目明确要求时使用独立多视角/panel。自查不能冒称独立审查，换一句角色宣言也不是独立证据。
+默认单次审查；只有用户或项目明确要求时使用独立多视角/panel。自查不能冒称独立审查，换一句角色宣言也不是独立证据。升级到独立审查时的执行形态见[独立审查](references/independent-review.md)：两隔离评估、降级横幅与 `Method:` 单行溯源，并与 `soia-dev-agent-cli-dispatch` 的 Independence Gate 显式挂钩。
 
 ## 技能包分支
 

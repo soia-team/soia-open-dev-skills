@@ -1,11 +1,11 @@
 ---
 name: soia-dev-draft-feature-spec
 description: 把产品想法或需求材料整理成可验收的功能规格，并按需拆成纵向交付切片。触发：起草功能规格、把需求写成 PRD、拆分可验收功能
-version: 3.0.1
+version: 3.1.0
 created_at: 2026-07-23 00:02:50
-updated_at: 2026-09-11 14:52:06
+updated_at: 2026-09-12 12:00:00
 created_by: gpt-5
-updated_by: dsh + deepseek-flash (session-file verified)
+updated_by: deepseek-flash
 ---
 
 # soia-dev-draft-feature-spec
@@ -28,6 +28,8 @@ updated_by: dsh + deepseek-flash (session-file verified)
 ## 按需拆分
 
 只有用户要求计划或范围确需分阶段时才拆。每个切片尽量贯通一个用户结果、相关数据/API/UI 与验收，标出前置依赖和集成接缝；不要仅按“先全后端、再全前端”分层，也不强制每片都新增三层。
+
+一次机械改动的爆炸半径横跨全库、没有纵向切片能单独保持绿时，按[横向重构例外](references/wide-refactor.md)出 expand–contract 三段与阻塞链；默认仍是纵向切片。
 
 日期、人力、优先级和发布窗口没有依据就留待定。起草切片不代表已经建立或授权 Goal/Task；由目标项目既有准入流程承接。
 

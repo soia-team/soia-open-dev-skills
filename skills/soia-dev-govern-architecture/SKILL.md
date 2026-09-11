@@ -1,11 +1,11 @@
 ---
 name: soia-dev-govern-architecture
 description: 设计架构、审查给定方案或核对长期漂移，明确职责、契约、事实真源与迁移边界。触发：架构方案怎么选、审查架构边界、检查架构漂移
-version: 1.0.1
+version: 1.1.0
 created_at: 2026-09-08 17:24:05
-updated_at: 2026-09-11 14:52:06
+updated_at: 2026-09-12 12:00:00
 created_by: gpt-5
-updated_by: dsh + deepseek-flash (session-file verified)
+updated_by: deepseek-flash
 ---
 
 # soia-dev-govern-architecture
@@ -25,6 +25,8 @@ updated_by: dsh + deepseek-flash (session-file verified)
 - **核对长期漂移：** 对照有效裁决与当前实现，定位重复真源、越权写入、逆向依赖、过期适配和名义退役但仍在使用的入口。给出来源、实际消费者和影响；未读到或无法运行的部分标为未验证。
 
 跨边界变更要说清迁移次序、共存窗口、切换条件、回退与退役证据。涉及状态恢复时检查重试/重复、部分成功、失效 owner、取消与审计，按真实风险选择，不每次全套检查。
+
+长期漂移的指标与收口见[漂移核对](references/rot-audit.md)；权限与权威的维度模型见[权威模型](references/authority-model.md)；进入对应模式时按需一跳加载。
 
 ## 完成边界
 

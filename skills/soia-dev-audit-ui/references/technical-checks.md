@@ -4,6 +4,14 @@
 
 只有截图时只判断截图可见内容，键盘、状态与实际交互标为未验证；不据此断言可访问性通过。
 
+本文件的检查项行带机器可读标记 `<!-- ui-threshold: <key> = <value> -->`，`soia-dev-design-ui` 的 `references/craft-floor.md` 对同名阈值带同一标记。两侧漂移由 `soia-dev-design-ui` 的 `scripts/check_ui_thresholds.py` 机械拦截，验收前或改动任一数值后跑一次：
+
+```bash
+python3 skills/soia-dev-design-ui/scripts/check_ui_thresholds.py
+```
+
+标记值是比对真源，写成 ASCII 形式（`>=`、`-`、`x`）；可见文字保留排版写法（`≥`、`–`、`×`）。只覆盖两侧同名且都带标记的阈值，本文件独有的检查项不进比对。
+
 ## 内容导航
 
 - 检查项与下限
@@ -16,11 +24,11 @@
 
 | 检查项 | 下限 / 判据 | 条款 | 证据来源 |
 |---|---|---|---|
-| 正文与占位文字对比度 | ≥ 4.5:1 | WCAG 1.4.3（AA） | 计算值或取色实测 |
-| 大号文字对比度 | ≥ 3:1（约 ≥ 24px，或 ≥ 19px 粗体） | WCAG 1.4.3 | 同上 |
-| 增强级对比度 | ≥ 7:1 | WCAG 1.4.6（AAA） | 同上 |
-| 正文行宽 | 65–75ch | — | 计算值 |
-| 触控目标 | ≥ 44×44px | WCAG 2.5.5（AAA 2.5.8 为 24px 下限） | 实测边界盒 |
+| 正文与占位文字对比度 | ≥ 4.5:1 <!-- ui-threshold: contrast.body = >= 4.5:1 --> | WCAG 1.4.3（AA） | 计算值或取色实测 |
+| 大号文字对比度 | ≥ 3:1（约 ≥ 24px，或 ≥ 19px 粗体） <!-- ui-threshold: contrast.large = >= 3:1 --> | WCAG 1.4.3 | 同上 |
+| 增强级对比度 | ≥ 7:1 <!-- ui-threshold: contrast.enhanced = >= 7:1 --> | WCAG 1.4.6（AAA） | 同上 |
+| 正文行宽 | 65–75ch <!-- ui-threshold: line-width.body = 65-75ch --> | — | 计算值 |
+| 触控目标 | ≥ 44×44px <!-- ui-threshold: touch.target = >= 44x44px --> | WCAG 2.5.5（AAA 2.5.8 为 24px 下限） | 实测边界盒 |
 | 键盘可达 | 焦点可见、顺序符合阅读序、无键盘陷阱 | WCAG 2.1.1 / 2.4.3 / 2.4.7 | 真实键盘走查 |
 | 对话框与菜单 | 进入与退出可用、Escape 生效、关闭后焦点回到触发点 | WCAG 2.1.2 | 真实键盘走查 |
 | 可访问名称 | 每个控件有可理解名称 | WCAG 4.1.2 | 可访问性树 |
@@ -28,9 +36,9 @@
 | 减少动态效果 | `prefers-reduced-motion` 下保留语义反馈 | WCAG 2.3.3 | 真实切换后复看 |
 | 文字缩放 | 放大到 200% 不丢内容与功能 | WCAG 1.4.4 | 真实缩放后复看 |
 | 横向滚动 | 目标宽度内无意外横向滚动 | WCAG 1.4.10 | 实测 |
-| LCP | < 2.5s（第 75 百分位） | Core Web Vitals | 目标视口与设备实测 |
-| INP | < 200ms（第 75 百分位） | Core Web Vitals | 同上 |
-| CLS | < 0.1（第 75 百分位） | Core Web Vitals | 同上 |
+| LCP | < 2.5s（第 75 百分位） <!-- ui-threshold: perf.lcp = < 2.5s --> | Core Web Vitals | 目标视口与设备实测 |
+| INP | < 200ms（第 75 百分位） <!-- ui-threshold: perf.inp = < 200ms --> | Core Web Vitals | 同上 |
+| CLS | < 0.1（第 75 百分位） <!-- ui-threshold: perf.cls = < 0.1 --> | Core Web Vitals | 同上 |
 
 **键盘与语义不能仅检查 DOM 属性。** 属性齐备不等于可用：必须在真实页面上用键盘走完目标路径，并实际进入、退出对话框与菜单。项目指定的自动化门禁照常执行，测试通过不替代上述运行检查。
 
@@ -80,5 +88,5 @@
 - **外部概念**：检查维度、阈值与「触控手势必须实际演练并说明证据来源」承接自 `impeccable` 仓 `reference/audit.md`（Accessibility / Performance / Theming / Responsive / Implementation Integrity 五维、4.5:1 与 AAA 7:1、44×44px、证据来源四选一）与 `reference/audit.native.md`（iOS 44pt / Android 48dp、VoiceOver/TalkBack、平台一致性维度）；「正面发现」与「P3 过多制造噪音」的反向约束亦源自 `audit.md`（均为外部概念）。
 - **本仓改造**：原仓库的 0–4 分档、20 分总分与 Rating bands **不承接**——本技能正文明确「不固定评分」，理由成立：评分会诱导为凑分制造工作，并把主观观感包装成客观缺陷。本仓只承接分档背后的判据文字（什么是系统性漂移、什么是孤立小问题），把 P0–P3 的判据并入「严重度判据」表的四问，不引入 P 标签体系。原仓库的内置 detector 二进制与浏览器脚本注入亦不承接，与 `SKILL.md` 的存储边界和「项目指定的自动化门禁照常执行」冲突。
 - **外部标准**：LCP < 2.5s / INP < 200ms / CLS < 0.1 为 Google Core Web Vitals 公开阈值（第 75 百分位）；WCAG 条款号对应 WCAG 2.2。
-- **数值真源说明**：本文件是**验收侧**的判据真源；`soia-dev-design-ui` 的 `references/craft-floor.md` 是**设计侧**的数值真源。两个技能可独立安装，因此数值在两处各自完整保留；改动任一数值时两处同步更新。
+- **数值真源说明**：本文件是**验收侧**的判据真源；`soia-dev-design-ui` 的 `references/craft-floor.md` 是**设计侧**的数值真源。两个技能可独立安装，因此数值在两处各自完整保留；改动任一数值时两处同步更新，并运行 `soia-dev-design-ui` 的 `scripts/check_ui_thresholds.py` 机械核对同名阈值标记（漂移时非零退出，`--selftest` 跑夹具自检）。
 - **实战素材**：本仓现有 `soia-dev-audit-ui` 正文的「不能仅检查 DOM 属性」「区分已批准设计违反、可观察使用障碍和偏好建议」「不要把个人审美包装成缺陷」「只有截图时标未验证」「不固定评分」五条是本文件承接与改造的比对基线；本文件为它们补上阈值、条款与证据来源标注要求。

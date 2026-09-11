@@ -132,7 +132,7 @@ disposition: recapture | rebuild | fix | ship
 
 ## 来源与承接说明
 
-- **7 字段模板、四条写作原则、逐条剖析的反例**：承接自 `mattpocock` 仓 `engineering/triage/AGENT-BRIEF.md`（外部概念，含其 `Category / Summary / Current behavior / Desired behavior / Key interfaces / Acceptance criteria / Out of scope` 字段序与 bad brief 剖析结构）；本仓按派单制改造，补入 `claimed_by` 与 `gate_tier` 两个派发头字段，并把「不写路径行号」与我们对 findings 层「需给可定位位置」的分层口径对齐——任务书层禁路径，findings 层保留 file:line。
+- **7 字段模板、四条写作原则、逐条剖析的反例**：承接自 `mattpocock` 仓 `engineering/triage/AGENT-BRIEF.md`（外部概念：其 `Category / Summary / Current behavior / Desired behavior / Key interfaces / Acceptance criteria / Out of scope` 字段序，以及 bad brief 的逐条剖析结构）。本仓按派单制做了两处改造：一是补入 `claimed_by` 与 `gate_tier` 两个派发头字段；二是把定位口径分成两层——任务书层点名类型、签名与配置形状，不写路径行号；findings 层保留 `file:line` 这类可定位位置。
 - **三段式契约、check 0 证据有效性、4 词 disposition、修复清单 ≤8、约第 10 轮收敛**：承接自 `impeccable` 仓 `reference/degraded/finish-reviewer.md` 的 Input Contract / Workflow / Output Contract / Verdict Pass 四段结构（外部概念）；本仓把它从「无浏览器评审器」泛化为通用任务书回执契约，并保留其「词由证据导出、上级原样上报」的口径。
 - **7 字段的字段序与 `gate_tier` 档位**：与我们 `soiadeck` 仓 `docs/governance/goals/execution-policy.md` §3 最小上下文包（Baseline / Goal-Task-Claim / Objective-Scope / Contracts / Acceptance / Evidence / Handoff）同向，两处对同一份派发信息各自描述；本仓取 7 字段模板作为任务书侧真源。
 - **实战素材**：`codex-cli.md`「实战控制规程」第 5 条（无关未提交文件列明、不 add、回执申明）与第 4 条（派发前基线核验）为「显式范围边界」原则的一手来源；`owner-directives` 指令 211（删除前验证归档 commit 真实落盘）与指令 222（图状态回写必须逐条附一手证据，对账批不得凭表述补 passed）为 check 0「证据有效性优先」的一手来源。

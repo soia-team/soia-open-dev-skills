@@ -1,6 +1,6 @@
 ---
 name: soia-dev-implement-task
-description: 在明确授权内实现需求、诊断修复或处理 findings，合并执行与修复流程。触发：实现这个任务、修复这个 bug、处理审查发现
+description: 在明确授权内实现需求、诊断修复或处理 findings，合并执行与修复流程。触发：实现这个任务、修复这个 bug、处理审查发现、按任务书实现、修复缺陷、迁移、处理 findings
 version: 1.2.0
 created_at: 2026-09-08 16:25:00
 updated_at: 2026-09-12 12:00:00

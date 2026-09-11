@@ -1,7 +1,7 @@
 ---
 name: soia-dev-draft-feature-spec
-description: 把产品想法或需求材料整理成可验收的功能规格，并按需拆成纵向交付切片。触发：起草功能规格、把需求写成 PRD、拆分可验收功能
-version: 3.1.0
+description: 把产品想法或需求材料整理成可验收的功能规格，并按需拆成纵向交付切片。触发：起草功能规格、把需求写成 PRD、拆分可验收功能、按任务书写功能规格、补验收标准
+version: 3.2.0
 created_at: 2026-07-23 00:02:50
 updated_at: 2026-09-12 12:00:00
 created_by: gpt-5

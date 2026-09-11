@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.4.0 — 2026-09-11
+
+P1 批：8 份结构性 references + UI 阈值一致性校验器 + 指令 227 执行面板收敛纪律
+
+## 新增
+- feat(skills): P1 批 8 项 references + 列车小修 2 项 + UI 阈值校验器 + 指令 227 执行纪律 (#106)
+
+## 维护
+- chore(release): bump train to 2.4.0-SNAPSHOT (P1 batch adds 8 references + checker) (#107)
+- chore(release): open next train after v2.3.0 (#105)
+
 ## v2.3.0 — 2026-09-11
 
 P0 六项 references 补强（任务书模板/claim 两档协议/验收线 Closed-Open 契约/失效模式反例/UI 量化判据/正向表述准则）+dsh 证据字段升级

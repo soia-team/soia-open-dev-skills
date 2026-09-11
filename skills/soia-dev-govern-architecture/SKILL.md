@@ -26,7 +26,7 @@ updated_by: deepseek-flash
 
 跨边界变更要说清迁移次序、共存窗口、切换条件、回退与退役证据。涉及状态恢复时检查重试/重复、部分成功、失效 owner、取消与审计，按真实风险选择，不每次全套检查。
 
-长期漂移的指标与收口见[漂移核对](references/rot-audit.md)；进入漂移核对模式时按需一跳加载。
+长期漂移的指标与收口见[漂移核对](references/rot-audit.md)；权限与权威的维度模型见[权威模型](references/authority-model.md)；进入对应模式时按需一跳加载。
 
 ## 完成边界
 

@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.2.0 — 2026-09-11
+
+dispatch 技能登记 DeepSeek V4.1 Flash（deepseek-flash）并弃用 v4 旧名；路由/证据/文档同步
+
+## 新增
+- feat(dispatch): register DeepSeek V4.1 Flash, deprecate v4 names (#96)
+
+## 维护
+- chore(release): promote train to 2.2.0-SNAPSHOT (feat aboard)
+- chore(release): open next train after v2.1.0 (#95)
+
 ## v2.1.0 — 2026-09-08
 
 统一工程与 UI 技能真源；精简方法入口，图表与设计工具按需使用。

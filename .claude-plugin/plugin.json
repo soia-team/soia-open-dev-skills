@@ -1,6 +1,6 @@
 {
   "name": "soia-dev",
-  "version": "2.2.1-SNAPSHOT",
+  "version": "2.2.1",
   "description": "工程与 UI 技能：功能规格、架构、实现审查、UI 设计验收与按需工具",
   "author": {
     "name": "soia-team"

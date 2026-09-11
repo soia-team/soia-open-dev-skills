@@ -61,9 +61,32 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 
 ## Model Integrity 与用量证据
 
-- 验证 `actual_model` 的唯一可靠证据是模型服务器日志（如 `mlx_lm.server` 的请求日志）；web UI 标签与「已停止」状态都不算证据。
-- headless 输出只有最终 assistant 消息，CLI 侧不回显结构化 usage；tokens 分项按 `unavailable` 记录（不留空、不编数），实际 tokens 可从模型服务器侧日志采集。
-- `scripts/run_matrix.py` 未实现 dsh 的模型回显检测：经 dsh 的调用默认 `actual_model_unverified`，除非派发者补充模型服务器日志证据。
+- 验证 `actual_model` 的两条可靠路径：模型服务器日志（如 `mlx_lm.server` 的请求日志）与会话落盘文件
+  （`provider`/`model` 字段，见下方「模型证据提取」）；web UI 标签与「已停止」状态都不算证据。
+- headless 输出只有最终 assistant 消息，CLI 侧不回显结构化 usage；tokens 分项可直接从会话落盘文件提取（提取不当会把单轮上下文峰值误当累计消耗，见下方「模型证据提取」），也可从模型服务器侧日志采集。
+- `scripts/run_matrix.py` 未实现 dsh 的模型回显检测：经 dsh 的调用默认 `actual_model_unverified`，除非派发者补充模型服务器日志或会话落盘文件证据。
+
+## 模型证据提取（session 落盘取证法，2026-09-11 实测）
+
+dsh headless 的 stdout 无模型回显：它只打印最终 assistant 消息，既不带 `model`/`provider`，也不带结构化 usage。真实证据在会话落盘文件：
+
+```
+~/.dsh/sessions/<cwd-slug>/session-<id>/session.v3.jsonl.zstd
+```
+
+- **定位**：`<cwd-slug>` 是派发时 cwd 的路径转写——`/` 换成 `-`，空格等特殊字符转义（如 `~0020`）；目录下每个会话一个 `session-<id>/`。派发后按 cwd 取最新修改的那个即可。
+- **提取**：`zstd -dc <file>` 解压后，逐行 JSON 中即含 `"model"`（如 `deepseek-flash`）、
+  `"provider"`（如 `deepseek-official`）、`totalTokens` 字段；匹配时用带引号的精确键
+  （`"provider":`），避免误捕旁路的 `titleProvider`（会话标题等辅助调用，2026-09-11 实测存在）。
+  `model`/`provider` 是 `actual_model` 的直接证据，可与 `--dump-config` 的生效配置对照。
+- **核算**：只把与 assistant 请求同一条记录里的 `model`/`provider` 当身份证据；`titleProvider` 等辅助调用字段不代表本次任务的实际模型。
+- **警示（口径）**：session 文件的 totalTokens 峰值是**单轮上下文**大小，不是累计消耗——agent 每轮
+  重发全上下文，实测峰值与官方账单口径差百倍量级。不得把它当累计用量或费用依据；
+  **成本真源 = provider 官方控制台/余额 API**。
+- **派发纪律**：每次 dsh 派发后按 cwd 定位 session 文件，把提取到的 `actual_model`/`provider` 写入
+  验收回执，替代 `unavailable`/`actual_model_unverified` 的默认标注。
+- **证据边界**：落盘字段能证明框架实际请求的 provider/model，但不足以单独证明「某一条 assistant
+  回答确由该模型生成」；把成本数字与官方账单对账前，只能记为估算。
 
 ## 效率特征（2026-08-20 本地端点实测）
 
@@ -79,7 +102,7 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 
 SoiaDeck 项目中，协调者亲验 DSH + `deepseek-v4-flash-vision-exp` 完成首个**诊断 + 补丁草案**类试点，结果合格。任务范围限于只读仓库分析与临时目录实验：定位 macOS Python 3.14 pty 文件描述符竞争根因；修复前 40 次试验中稳定复现 26–33 次；随后给出语义零变化的 unified diff 补丁草案。协调者落库后独立复核，40 次连续运行零复现且全量回归通过。
 
-这项证据仅覆盖诊断和补丁草案产出；它不等同于 DSH 直接修改仓库文件的完整实现任务验证，也不覆盖大切片任务或图片输入。`routing_profile` 继续保持 `null`，不得据此开启自动路由；模型身份和用量证据仍按本文件前述 Model Integrity 门禁处理。
+这项证据仅覆盖诊断和补丁草案产出；它不等同于 DSH 直接修改仓库文件的完整实现任务验证，也不覆盖大切片任务或图片输入。`routing_profile` 继续保持 `null`，不得据此开启自动路由；模型身份和用量证据按本文件前述 Model Integrity 门禁与「模型证据提取」一节处理——`actual_model`/`provider` 可经 session 落盘文件验证（见取证法一节）。
 
 ## 关键约束
 

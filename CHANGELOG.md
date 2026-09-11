@@ -3,6 +3,14 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.2.1 — 2026-09-11
+
+dsh session 取证法入技能（model_integrity 可验证）+成本口径纠正为按量计费
+
+## 维护
+- docs(dispatch): dsh session 取证法入技能并纠正成本口径 (#99)
+- chore(release): open next train after v2.2.0 (#98)
+
 ## v2.2.0 — 2026-09-11
 
 dispatch 技能登记 DeepSeek V4.1 Flash（deepseek-flash）并弃用 v4 旧名；路由/证据/文档同步

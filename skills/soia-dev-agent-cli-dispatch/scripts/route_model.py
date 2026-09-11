@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
-# @modified_by anthropic/claude-opus-5
-# @modified_at 2026-09-02 00:00:00
-# @version 0.2.0
+# @modified_by dsh + deepseek-flash (actual model unverified)
+# @modified_at 2026-09-11 11:10:00
+# @version 0.2.1
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog Add dispatch_role and the reviewer Independence Gate over catalog provider/model_family.
+# @changelog Retarget the pi easy route to deepseek-flash and cover the retired deepseek ids in the selftest.
 """Mechanically route an executor family to a verified model/effort pair."""
 
 from __future__ import annotations
@@ -198,9 +198,23 @@ def run_selftest() -> int:
     checks.append(("codex medium -> terra medium", route_model(data, "codex", "medium")["selected_model"] == "gpt-5.6-terra" and route_model(data, "codex", "medium")["selected_reasoning_effort"] == "medium"))
     checks.append(("codex hard -> sol high", route_model(data, "codex", "hard")["selected_model"] == "gpt-5.6-sol" and route_model(data, "codex", "hard")["selected_reasoning_effort"] == "high"))
     pi_easy = route_model(data, "pi", "easy")
-    checks.append(("pi easy -> deepseek-v4-flash low", pi_easy["selected_model"] == "deepseek-v4-flash" and pi_easy["selected_reasoning_effort"] == "low" and pi_easy["selection_status"] == "verified_auto"))
+    checks.append(("pi easy -> deepseek-flash low", pi_easy["selected_model"] == "deepseek-flash" and pi_easy["selected_reasoning_effort"] == "low" and pi_easy["selection_status"] == "verified_auto"))
+    checks.append(("pi easy auto-route never selects a retired deepseek id", pi_easy["selected_model"] not in {"deepseek-v4-flash", "deepseek-v4-flash-vision-exp"}))
+    pi_flash_no_reasoning = route_model(data, "pi", "easy", "deepseek-flash")
+    checks.append((
+        "pi deepseek-flash explicit model without reasoning selects verified low",
+        pi_flash_no_reasoning["selected_model"] == "deepseek-flash"
+        and pi_flash_no_reasoning["selected_reasoning_effort"] == "low"
+        and pi_flash_no_reasoning["selection_status"] == "explicit",
+    ))
+    try:
+        route_model(data, "pi", "easy", "deepseek-flash", "medium")
+    except RouteError:
+        checks.append(("pi deepseek-flash medium (absent from provider level map) blocks", True))
+    else:
+        checks.append(("pi deepseek-flash medium (absent from provider level map) blocks", False))
     pi_explicit = route_model(data, "pi", "easy", "deepseek/deepseek-v4-flash", "low")
-    checks.append(("pi provider-qualified explicit model resolves", pi_explicit["selected_model"] == "deepseek-v4-flash" and pi_explicit["selection_status"] == "explicit"))
+    checks.append(("pi deprecated provider-qualified explicit model still resolves", pi_explicit["selected_model"] == "deepseek-v4-flash" and pi_explicit["selection_status"] == "explicit"))
     pi_vision_low = route_model(data, "pi", "easy", "deepseek-v4-flash-vision-exp", "low")
     checks.append((
         "pi vision-exp low is explicit with Pi JSONL smoke evidence",

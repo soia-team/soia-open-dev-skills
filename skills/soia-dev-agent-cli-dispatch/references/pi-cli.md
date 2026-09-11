@@ -73,7 +73,9 @@ cache-hit 0.006 / output 1.20、cache write 0。
 
 - 2026-09-10 的 SoiaDeck pi 会话在 `--thinking high` 下，每次 assistant `message_end`
   回显 `provider=deepseek`、`model=deepseek-flash`，结构化 usage 可解析（例：input 197 /
-  cacheRead 32256 / output 334 / reasoning 172 / total 32787），订阅口径 `cost.total=0`；
+  cacheRead 32256 / output 334 / reasoning 172 / total 32787）；回执 `cost.total=0` 只是
+  pi 未计价的零值字段，不构成免费证据——deepseek-flash 按量计费（低价），所记 token 数为
+  会话峰值口径，实际费用以 provider 官方账单为准，价格数字待与官方账单对账；
 - 2026-09-11 的 pi 最小验证同样回显 `actual_model=deepseek-flash`，该次档位未单独留档；
 - 同日 dsh headless 用 `deepseek-flash` 完成四个真实编码/文档任务（11 文件/1520 行、
   17 文件主机页、W-C.1 收尾、0.17.7 补测批），产物全部过门禁并入主干；dsh 没有模型回显

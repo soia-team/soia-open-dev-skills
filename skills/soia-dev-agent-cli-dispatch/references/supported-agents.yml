@@ -6,7 +6,7 @@ updated_at: "2026-09-11"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "1.6.4"
+  version: "1.6.6"
   purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
   triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
 usage:
@@ -101,8 +101,10 @@ agents:
     verification_status: real_task_tested_local_endpoint
     prompt_transport: argument
     structured_output: text
-    model_integrity: unimplemented
-    usage_evidence: unavailable
+    model_integrity: session_file_verified
+    # 取证法：references/dsh-cli.md「模型证据提取（session 落盘取证法）」一节；dsh stdout 无模型回显，证据在 session 落盘文件。
+    usage_evidence: session_file_available
+    # session 文件的 totalTokens 为单轮上下文峰值口径（非累计消耗）；成本真源为 provider 官方控制台/账单。
     auto_routing: []
     reference: references/dsh-cli.md
   agy:

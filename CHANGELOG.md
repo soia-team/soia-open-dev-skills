@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.5.0 — 2026-09-11
+
+自动独立评审上线 + 技能触达修复（适用技能字段、触发词书面语变体、失效模式回填）
+
+## 新增
+- feat(dev): 完成后自动发起独立评审 + 技能触达修复（A/B/C 三组） (#110)
+
+## 维护
+- chore(release): bump train to 2.5.0-SNAPSHOT (auto independent review is a behavior change) (#111)
+- chore(release): open next train after v2.4.0 (#109)
+
 ## v2.4.0 — 2026-09-11
 
 P1 批：8 份结构性 references + UI 阈值一致性校验器 + 指令 227 执行面板收敛纪律

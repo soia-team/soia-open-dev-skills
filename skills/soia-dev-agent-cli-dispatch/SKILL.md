@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.6.7
+version: 1.6.8
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-11 14:52:06
+updated_at: 2026-09-11 17:44:20
 created_by: claude opus 4.6
 updated_by: dsh + deepseek-flash (session-file verified)
 ---
@@ -245,7 +245,7 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | 路由判据与推荐组合 | `references/executor-routing.md` |
 | 统一调用字段、状态、派发纪律与恢复规则 | `references/dispatch-contract.md` |
 | 任务书 7 字段模板、四条写作原则、三段式契约与 check 0 | `references/task-brief.md` |
-| 认领字段、可抓取前沿与 `claim_cli` 三步实照 | `references/claim-protocol.md` |
+| 认领字段、可抓取前沿与带记账系统一档的参考实现示例 | `references/claim-protocol.md` |
 | 正向约束写法与禁止句改写实例 | `references/writing-positive-constraints.md` |
 | 单个执行器命令 | `references/supported-agents.yml` 中该 agent 的 `reference` |
 | 模型与价格运行时事实源 | `references/model-catalog.yml` |

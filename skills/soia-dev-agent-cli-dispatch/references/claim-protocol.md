@@ -1,6 +1,6 @@
 # 认领协议（claim protocol）
 
-派单制下，**认领是开工的前置动作**：执行者在动手前先把自己登记为任务的认领者。本文件定义任务书头部的 `claimed_by` 字段、可抓取前沿（frontier）判据、每会话上限，以及与 `dispatch-contract.md` 状态枚举的对齐方式，并给出本仓 `claim_cli` 的三步实照。
+派单制下，**认领是开工的前置动作**：执行者在动手前先把自己登记为任务的认领者。本文件定义认领的两档形态（记账系统档与字段档）、任务书头部的 `claimed_by` 字段、可抓取前沿（frontier）判据、每会话上限，以及与 `dispatch-contract.md` 状态枚举的对齐方式，并给出一份带记账系统一档的参考实现示例。
 
 主文件按需一跳加载本文件；任务书其余字段见 `task-brief.md`。
 
@@ -10,9 +10,16 @@
 - 可抓取前沿：open + unblocked + unclaimed
 - 每会话最多解一票
 - 与状态枚举对齐
-- `claim_cli` 三步实照
+- 带记账系统的一档：参考实现示例
 
 ## `claimed_by`：认领即一个字段
+
+认领形态分两档，按项目有没有自带运行时记账系统来选：
+
+- **记账系统档**：项目自带运行时记账系统时（例如带 Claim/Lease/fencing 的任务库），该系统即认领的唯一真源。任务书承载任务定义，认领状态、租约与资源范围都留在记账系统里，任务书头部不再重复登记认领字段——同一状态因此只存一份，不产生需要同步的第二份副本。
+- **字段档**：没有记账系统的轻量项目，用任务书头部的 `claimed_by` 字段承载认领，字段有值即已认领、无值即可抓取。
+
+本节以下内容描述字段档的具体形态；记账系统档的参考实现见下文「带记账系统的一档：参考实现示例」。
 
 任务书头部保留一个显式字段：
 
@@ -21,7 +28,7 @@ claimed_by: <executor-id>     # 留空 = 尚未被认领
 gate_tier: A | B | C          # 复审强度档，见 execution-policy §5.3
 ```
 
-**填写 `claimed_by` 这个动作本身就是认领。** 不需要额外的标签、状态库或第二套记账：字段有值即已认领，无值即可抓取。字段是任务书的一部分，与任务书同源、同生命周期，因此不引入需要单独同步的状态副本。
+**在字段档，填写 `claimed_by` 这个动作本身就是认领。** 字段有值即已认领，无值即可抓取；轻量项目因此不需要为认领新增标签体系、状态库或第二套记账。字段是任务书的一部分，与任务书同源、同生命周期，因此在字段档内部不引入需要单独同步的状态副本。
 
 同一任务同时只有一个 `claimed_by`。认领范围发生实质变化时，先更新该字段再写新增范围；权限、发布或破坏性动作另取明确授权，不由认领自动覆盖。
 
@@ -62,9 +69,9 @@ gate_tier: A | B | C          # 复审强度档，见 execution-policy §5.3
 | 缺少可信的实际模型证据 | `actual_model_unverified` | 不拿请求值填实际值 |
 | 从未派发 | `not_tested` | 与 `unsupported` 分开 |
 
-## `claim_cli` 三步实照
+## 带记账系统的一档：参考实现示例
 
-本仓协调器用 `plugins/ai-workbench/backend/ai_workbench/goals/claim_cli.py` 在 daemon 记账中登记 Claim。实施 worktree 在**第一次写入前**走完三步：
+以下取自一个真实项目的协调器实现（SoiaDeck），命令与路径为该项目专属，展示的是三步协议形态而非本技能的依赖。该项目用 `plugins/ai-workbench/backend/ai_workbench/goals/claim_cli.py` 在 daemon 记账中登记 Claim。实施 worktree 在**第一次写入前**走完三步：
 
 ```bash
 CLI=plugins/ai-workbench/backend/ai_workbench/goals/claim_cli.py
@@ -94,13 +101,13 @@ python3 "$CLI" complete \
   --fencing-token <FENCING-TOKEN>
 ```
 
-配套动作：`heartbeat` 续租；`release` 主动释放；`recover` 人工恢复 `recovery_required` 的 TaskRun；`checkpoint` 把生成区写回 `runtime-status.md`。Claim 的资源范围变化时先更新 Claim 再写新增范围。
+示例实现还提供这些配套动作：`heartbeat` 续租；`release` 主动释放；`recover` 人工恢复 `recovery_required` 的 TaskRun；`checkpoint` 把生成区写回 `runtime-status.md`。Claim 的资源范围变化时先更新 Claim 再写新增范围。
 
-**只有资源范围不相交、且各持有效 Claim/Lease/fencing 的写任务才并行。** 互不写文件的 reviewer/advisor 不占写入 Claim。Claim 超过 Host 的 `effective_capacity` 时直接失败，容量由协调者用 `capacity --set N --reason TEXT` 设置。
+**只有资源范围不相交、且各持有效 Claim/Lease/fencing 的写任务才并行。** 互不写文件的 reviewer/advisor 不占写入 Claim。在示例实现中，Claim 超过 Host 的 `effective_capacity` 时直接失败，容量由协调者用 `capacity --set N --reason TEXT` 设置。
 
 ## 来源与承接说明
 
 - **「assignee 即 claim」、frontier = open + unblocked + unclaimed、每会话最多解一票、按名字引用**：承接自 `mattpocock` 仓 `wayfinder` 技能的地图/票体例（外部概念）；原文依赖 issue tracker 的 assignee 字段与原生阻塞关系，本仓按「不建立第二套状态库」的边界改造为任务书头部一个显式 `claimed_by` 字段 + 「未填写即可抓取」的最简形态，不引入 tracker、标签体系或第二套依赖图。
 - **状态枚举对齐**：以本仓 `references/dispatch-contract.md` 的 15 状态全集为唯一真源，认领各阶段映射其上，不新增状态词——同一可变列表在全仓只保留一份机器可读真源。
-- **实战素材**：三步协议、`--resource` 一致性、`--scope` 人读说明、租约与 fencing 凭据、写任务并行条件、容量门，全部取自本仓 `soiadeck` 仓 `docs/governance/goals/execution-policy.md` §4 与 `plugins/ai-workbench/backend/ai_workbench/goals/claim_cli.py` 的实际命令签名（`create-task` / `claim` / `complete` / `heartbeat` / `release` / `recover` / `checkpoint` / `capacity`）。
+- **实战素材**：三步协议、`--resource` 一致性、`--scope` 人读说明、租约与 fencing 凭据、写任务并行条件、容量门，全部取自 SoiaDeck 项目的 `soiadeck` 仓 `docs/governance/goals/execution-policy.md` §4 与 `plugins/ai-workbench/backend/ai_workbench/goals/claim_cli.py` 的实际命令签名（`create-task` / `claim` / `complete` / `heartbeat` / `release` / `recover` / `checkpoint` / `capacity`）。
 - **实战素材（指令号）**：`owner-directives` 指令 164（主控不生产、生产性动作派执行者、主控只裁决验收记账）为「先认领后开工」的分工依据；指令 219③（每单验收时未解决问题逐条定去向后才销账）为「完成必须交出可核回执」的依据；指令 222（图状态回写必须逐条附一手证据）为「`passed` 只表示调用成功、产物质量另由主控独立验收」的依据。

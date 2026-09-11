@@ -1,11 +1,11 @@
 ---
 name: soia-dev-govern-architecture
 description: 设计架构、审查给定方案或核对长期漂移，明确职责、契约、事实真源与迁移边界。触发：架构方案怎么选、审查架构边界、检查架构漂移
-version: 1.0.0
+version: 1.0.1
 created_at: 2026-09-08 17:24:05
-updated_at: 2026-09-08 17:24:05
+updated_at: 2026-09-11 14:52:06
 created_by: gpt-5
-updated_by: gpt-5
+updated_by: dsh + deepseek-flash (session-file verified)
 ---
 
 # soia-dev-govern-architecture
@@ -30,6 +30,8 @@ updated_by: gpt-5
 
 判断应落到具体边界、证据和下一步验证。仅在依赖或时序不易理解时画最小图。复用项目已有 ADR/契约；不默认新建治理目录、状态库、hook、tracker 或固定报告。
 
+每条规则在挡什么失效模式，见[规则依据索引](references/rule-rationale.md)；修改或审计本技能规则前按需加载。
+
 默认只读并在对话交付。用户要求形成设计文档时写批准位置；设计建议不是实施、发布或迁移授权。
 
 ## 使用边界
@@ -44,3 +46,5 @@ WorkBuddy 使用[专家安装说明](https://github.com/soia-team/soia-open-skil
 **私密信息与中间数据：** 只使用授权材料并对引用脱敏；不需要凭据、不默认建立配置/state/cache。要求保存的交付物写批准位置，临时数据用 OS 临时目录；不将客户原文写进技能仓库。
 
 **日志与完成回执：** 结果本身是主要交付；说明实际变更或未改动、关键依据与未验证部分，不强制额外报告。
+
+**验证：** 改动本技能后跑一次真实前向验收——对给定方案做一轮评审或一次漂移核对，核对输出是否带上来源、实际消费者和影响，未读到或无法运行的部分是否如实标为未验证。

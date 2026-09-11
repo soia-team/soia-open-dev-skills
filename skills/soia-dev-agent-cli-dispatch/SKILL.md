@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.6.6
+version: 1.6.8
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-11 12:52:18
+updated_at: 2026-09-11 17:44:20
 created_by: claude opus 4.6
 updated_by: dsh + deepseek-flash (session-file verified)
 ---
@@ -169,6 +169,8 @@ Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属�
 
 写清目标、输入、允许修改范围、禁区和验收命令。任务拆分按可独立验证的边界进行；每个子任务分配唯一 task ID。
 
+任务书按 `references/task-brief.md` 的 7 字段模板与四条写作原则书写；认领字段 `claimed_by` 与可抓取前沿见 `references/claim-protocol.md`，禁止句改写见 `references/writing-positive-constraints.md`。
+
 先读取目标仓适用的 `AGENTS.md`、贡献说明和测试约定。目标仓规则优先；不要把本技能自己的历史治理术语或无关文件塞进派发 prompt。
 
 ### 2. 选择执行器
@@ -242,6 +244,9 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | 支持哪些 AI Agent、用法和验证状态 | `references/supported-agents.yml` |
 | 路由判据与推荐组合 | `references/executor-routing.md` |
 | 统一调用字段、状态、派发纪律与恢复规则 | `references/dispatch-contract.md` |
+| 任务书 7 字段模板、四条写作原则、三段式契约与 check 0 | `references/task-brief.md` |
+| 认领字段、可抓取前沿与带记账系统一档的参考实现示例 | `references/claim-protocol.md` |
+| 正向约束写法与禁止句改写实例 | `references/writing-positive-constraints.md` |
 | 单个执行器命令 | `references/supported-agents.yml` 中该 agent 的 `reference` |
 | 模型与价格运行时事实源 | `references/model-catalog.yml` |
 | 价格目录的带日期来源快照 | `reports/model-pricing-2026-07-10.md` |

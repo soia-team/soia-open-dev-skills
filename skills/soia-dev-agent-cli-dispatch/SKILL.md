@@ -3,11 +3,11 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.6.3
+version: 1.6.4
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-07 09:45:00
+updated_at: 2026-09-11 10:48:41
 created_by: claude opus 4.6
-updated_by: Codex (actual model unverified)
+updated_by: dsh + deepseek-flash (actual model unverified)
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -246,7 +246,7 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | 模型与价格运行时事实源 | `references/model-catalog.yml` |
 | 价格目录的带日期来源快照 | `reports/model-pricing-2026-07-10.md` |
 | 历史证据边界 | `reports/benchmark-2026-07-10.md` |
-| Pi + DeepSeek V4 Flash 实例 | `examples/pi-deepseek-v4-flash-easy.md` |
+| Pi + DeepSeek V4 Flash 历史实例（id 已下线，新派发用 `deepseek-flash`） | `examples/pi-deepseek-v4-flash-easy.md` |
 | Claude 模型 ID 实测快照与 fallback/辅助模型现象 | `reports/claude-model-probe-2026-09-02.md` |
 | 重新探测 Claude 实际服务的模型 ID | `scripts/probe_claude_models.py --models <ids>`（真实调用，消耗额度；`--selftest` 只跑 fixture） |
 | 私有运行配置模板 | `assets/config.example.yml` |

@@ -2,11 +2,11 @@
 # This is not a credential file. Keep mutable support facts here; prose should link here instead of copying the matrix.
 schema_version: 1
 config_template: assets/config.example.yml
-updated_at: "2026-08-28"
+updated_at: "2026-09-11"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "1.5.0"
+  version: "1.6.4"
   purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
   triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
 usage:
@@ -17,7 +17,7 @@ usage:
   explicit_dispatch:
     rule: "显式 model/reasoning 优先；未验证组合必须标记 explicit_unverified。"
   verified_pi_example:
-    command: "pi -p --mode json --no-session --provider deepseek --model deepseek-v4-flash --thinking low '@<prompt-file>'"
+    command: "pi -p --mode json --no-session --provider deepseek --model deepseek-flash --thinking low '@<prompt-file>'"
     result: "从最终 assistant message_end 核对实际模型、input/cache/output/total tokens 和 cost。"
   receipt_fields: [requested_model, actual_model, requested_reasoning, actual_reasoning, usage, cost, validation_status, recovery_state]
 supported_workflows:
@@ -26,7 +26,7 @@ supported_workflows:
     complexity: easy
     dispatch_mode: automatic_or_explicit
     recommended_executors: [pi, codex, claude]
-    verified_auto_route: "pi/deepseek-v4-flash@low"
+    verified_auto_route: "pi/deepseek-flash@low"
     status: smoke_tested_for_pi
     suitable_for: [小范围 bug 修复, 简单脚本, 配置修改, 测试与 lint, 摘要, 分类, 提取, 翻译]
     avoid_for: [删除或覆盖, 安全边界变更, 复杂架构决策]

@@ -106,13 +106,13 @@
 
 ## 推荐组合（部分实证路由）
 
-Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10 smoke 聚合记录，但原始 manifest 未随交接提供，且未覆盖 catalog 中全部型号，因此标记 `partial_coverage`；Pi 的 easy 路由来自 2026-08-04 单模型 JSONL 实测。表内推荐只对已覆盖组合有效。Gemini 本轮为 `blocked_auth`，Antigravity 未获准运行付费/额度模型评测，Kimi/OpenCode/Qwen 仍是 `pending_benchmark`。不得把部分实证包装成全量完成，Codex/Claude 证据边界见 `reports/benchmark-2026-07-10.md`，Pi 边界见 `references/pi-cli.md`。
+Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10 smoke 聚合记录，但原始 manifest 未随交接提供，且未覆盖 catalog 中全部型号，因此标记 `partial_coverage`；Pi 的 easy 路由来自 2026-08-04 单模型 JSONL 实测，2026-09-11 起指向 `deepseek-flash`（同日旧 `deepseek-v4-flash` id 下线）。表内推荐只对已覆盖组合有效。Gemini 本轮为 `blocked_auth`，Antigravity 未获准运行付费/额度模型评测，Kimi/OpenCode/Qwen 仍是 `pending_benchmark`。不得把部分实证包装成全量完成，Codex/Claude 证据边界见 `reports/benchmark-2026-07-10.md`，Pi 边界见 `references/pi-cli.md`。
 
 | 执行器家族 | easy 候选 | medium 候选 | hard 候选 | 状态 |
 |---|---|---|---|---|
 | codex | `gpt-5.6-luna` @ low | `gpt-5.6-terra` @ medium（token 最省，已覆盖组合内实证） | `gpt-5.6-sol` @ high，穷尽才升到 xhigh（已覆盖组合内实证） | `partial_coverage` — 6 个型号有聚合记录，缺全 catalog 覆盖与原始 manifest |
 | claude | `claude-haiku-4-5`（比 opus 便宜约 18 倍；未按 effort 拆分数据） | `claude-sonnet-5` @ medium | *(暂无 hard 档实证推荐，见下方反模式警示)* | `partial_coverage` — 3 个型号有聚合记录，缺全 catalog 覆盖与原始 manifest |
-| pi | `deepseek-v4-flash` @ low | — | — | `smoke_tested` — Pi 0.83.0 以 `--mode json` 实测模型回显、usage 与 `@prompt-file`；只开放 easy 自动路由 |
+| pi | `deepseek-flash` @ low | — | — | `smoke_tested` — Pi 0.85.1 结构化回显（2026-09-10，thinking=high）+ provider 元数据声明 low/high/max；easy 自动路由只走已验证的 low。旧 `deepseek-v4-flash` id 已于 2026-09-11 下线（请求路由到 `deepseek-flash`），不再参与自动路由 |
 | agy | — | — | — | `availability_discovered`（`agy models` 已无 prompt 验证；账号级显示名见 `references/antigravity-cli.md`，但未做真实模型 benchmark，禁止自动路由） |
 | gemini | gemini-2.5-flash-lite | gemini-2.5-flash | gemini-2.5-pro / gemini-3.1-pro-preview | `blocked_auth`（2026-07-10 实测：消费者 OAuth 浏览器回调成功后被服务端以弃用策略拒绝；Standard/Enterprise、API Key、Vertex AI 仍是受支持的独立通道，本轮未测） |
 | kimi | kimi-k2.6（默认档） | kimi-k2.6 --thinking | kimi-k2.6 --thinking（更长上下文/更多轮次） | `pending_benchmark`（未测） |

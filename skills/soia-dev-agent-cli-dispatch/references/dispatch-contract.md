@@ -90,7 +90,7 @@
 2. 按对应执行器 reference 里的**官方只读状态命令**取。
 3. 两条路都取不到时，`live_quota_state` 记 `"unknown"` 且 `recommendation` 置 `hold`；不得拿 `last_known_quota_state` 或 `auth_status` 推一个值填进去。
 
-**先看执行器现有配置，再挑模型。** 派发前读目标 CLI 自己的配置（codex 见 `~/.codex/config.toml` 的 `model`），把值记进 `executor_config_model`；**机器上已经配好的模型优先于从 `references/model-catalog.yml` 目录里另挑一个**。目录给的是价格与能力事实，不是「这台机器此刻跑哪个」。跳过这一步的真实代价：2026-09-12 事故里本机 `~/.codex/config.toml` 配的正是当时唯一还有额度的桶，而派发方没读配置、直接从目录挑了已用尽的档位。
+**先看执行器现有配置，再挑模型。** 派发前读目标 CLI 自己的配置（codex 见 `~/.codex/config.toml` 的 `model`），把值记进 `executor_config_model`；**机器上已经配好的模型优先于从 `references/model-catalog.yml` 目录里另挑一个**。目录给的是价格与能力事实，不是「这台机器此刻跑哪个」。跳过这一步的真实代价：2026-09-12 事故里本机 `~/.codex/config.toml` 配的正是当次探测到的两个桶中唯一还有额度的那个，而派发方没读配置、直接从目录挑了已用尽的档位。
 
 `scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查，也不做实时额度探测**——它只在调用输出命中 `usage limit` / `quota` 类文本后把该 case 反应式地标成 `blocked_quota`（那一刻调用已经发生、额度已经消耗）。因此 `auth_status`、`live_quota_state`、`quota_reset_at` 与 `executor_config_model` 仍需派发者在预检报告里人工核实或另行探测；脚本本身不会为了验证登录态或额度而发起真实模型调用。
 

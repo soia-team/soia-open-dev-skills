@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by unknown
 # @created_at unknown
-# @modified_by anthropic/claude-opus-5
-# @modified_at 2026-09-02 00:00:00
-# @version 0.6.0
+# @modified_by dsh + deepseek-flash (actual model unverified)
+# @modified_at 2026-09-12 19:40:00
+# @version 0.7.0
 # @description Run resumable external AI dispatch matrices with usage, integrity evidence, and user-owned state storage.
-# @changelog Handle the 2026-09-02 claude shapes: stream-json fallback events, auxiliary-model exclusion in modelUsage, and unrecognized_model stderr.
+# @changelog Block quota by the real quota scope (declared bucket, else executor:model) instead of by provider, so an exhausted bucket no longer defers the same provider's other buckets.
 """Resumable, strictly-serial executor for a model/executor dispatch matrix.
 
 Phase 1 scope: this script is built and self-tested against mock commands
@@ -22,7 +22,14 @@ Usage:
 cases.json shape (array):
     [{"case_id": "c1", "provider": "openai", "executor": "codex",
       "model": "gpt-5.6-sol", "reasoning": "medium",
+      "quota_scope_key": "codex_bengalfox",
       "cmd_template": "codex exec ..."}, ...]
+
+`quota_scope_key` is optional and names the live quota bucket the case bills
+against (copy it from the precheck's `quota_observations[].bucket` /
+`quota_scope_key`). When omitted, the scope falls back to `executor:model`.
+Quota blocking is per scope -- never per provider -- so an exhausted bucket
+does not defer the same provider's other buckets.
 
 Manifest is written atomically to
     <state>/soia-skills/soia-dev-agent-cli-dispatch/runs/<run-id>/manifest.json
@@ -549,6 +556,30 @@ def build_resume_command(cases_path: Path, run_id: str, manifest_dir: Path) -> s
 
 
 # ---------------------------------------------------------------------------
+# Quota scope
+# ---------------------------------------------------------------------------
+
+
+def quota_scope_key(case: dict) -> str:
+    """Return the live quota scope a case is blocked by.
+
+    Prefer the bucket/model key the dispatcher declared (`quota_scope_key`,
+    copied from the precheck's quota observation, e.g. `codex_bengalfox`).
+    Otherwise fall back to `executor:model`. Provider is deliberately NOT the
+    scope: one exhausted bucket under a provider must not defer that provider's
+    other buckets (bucket facts: references/codex-cli.md 额度分桶).
+    """
+    explicit = case.get("quota_scope_key")
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+    executor = case.get("executor") or case.get("provider") or "unknown"
+    model = case.get("model")
+    if isinstance(model, str) and model.strip():
+        return f"{executor}:{model.strip()}"
+    return str(executor)
+
+
+# ---------------------------------------------------------------------------
 # Core execution
 # ---------------------------------------------------------------------------
 
@@ -809,6 +840,7 @@ def run_matrix(
         "completed_cases": 0,
         "remaining_cases": len(cases),
         "current_provider": None,
+        "blocked_quota_scopes": [],
         "status": "running",
         "stop_reason": None,
         "cases": [],
@@ -817,11 +849,12 @@ def run_matrix(
         "manifest_path": "<configured-run-directory>/manifest.json",
     }
 
-    # A fresh invocation starts with no provider blocked. On --resume this lets
-    # the previously blocked case retry immediately; if quota is still
-    # exhausted, that retry re-adds the provider below and safely defers the
-    # remaining same-provider cases.
-    blocked_providers: set[str] = set()
+    # A fresh invocation starts with no quota scope blocked. On --resume this
+    # lets the previously blocked case retry immediately; if that bucket is
+    # still exhausted, the retry re-adds the same scope and defers only the
+    # remaining cases that share that quota bucket -- cases on other buckets of
+    # the same provider keep running.
+    blocked_quota_scopes: set[str] = set()
 
     final_records: list[dict] = []
     stop_reason = None
@@ -829,6 +862,7 @@ def run_matrix(
     for case in cases:
         case_id = case["case_id"]
         provider = case.get("provider")
+        scope_key = quota_scope_key(case)
         prior = existing_cases_by_id.get(case_id)
 
         if prior and prior.get("status") in TERMINAL_ON_RESUME:
@@ -844,7 +878,7 @@ def run_matrix(
             # evidence is preserved on the fresh record (not discarded) so
             # the audit trail shows the crash instead of silently vanishing.
 
-        if provider in blocked_providers:
+        if scope_key in blocked_quota_scopes:
             record = {
                 "case_id": case_id,
                 "provider": provider,
@@ -854,6 +888,7 @@ def run_matrix(
                 "requested_reasoning_effort": case.get("reasoning"),
                 "actual_reasoning_effort": None,
                 "status": "pending_quota",
+                "quota_scope_key": scope_key,
                 "started_at": None,
                 "completed_at": None,
                 "duration_seconds": None,
@@ -873,7 +908,7 @@ def run_matrix(
                 "pricing_source": None,
                 "pricing_date": None,
                 "actual_model": None,
-                "notes": [f"skipped without executing: provider {provider!r} already blocked_quota this run"],
+                "notes": [f"skipped without executing: quota scope {scope_key!r} already blocked_quota this run"],
                 "previous_attempt": stale_running_evidence,
             }
             final_records.append(record)
@@ -881,31 +916,35 @@ def run_matrix(
             manifest["completed_cases"] = len(final_records)
             manifest["remaining_cases"] = len(cases) - _terminal_count(final_records)
             manifest["current_provider"] = provider
+            manifest["blocked_quota_scopes"] = sorted(blocked_quota_scopes)
             manifest["updated_at"] = now_iso()
             atomic_write_json(manifest_path, manifest)
             continue
 
         manifest["current_provider"] = provider
         record = run_one_case(case, catalog_data, timeout_seconds)
+        record["quota_scope_key"] = scope_key
         record["previous_attempt"] = stale_running_evidence
         final_records.append(record)
 
         if record["status"] == "blocked_quota":
-            blocked_providers.add(provider)
+            blocked_quota_scopes.add(scope_key)
 
         manifest["cases"] = final_records
         manifest["completed_cases"] = len(final_records)
         manifest["remaining_cases"] = len(cases) - _terminal_count(final_records)
+        manifest["blocked_quota_scopes"] = sorted(blocked_quota_scopes)
         manifest["updated_at"] = now_iso()
         atomic_write_json(manifest_path, manifest)
 
-    if blocked_providers:
-        stop_reason = "blocked_quota:" + ",".join(sorted(blocked_providers))
+    if blocked_quota_scopes:
+        stop_reason = "blocked_quota:" + ",".join(sorted(blocked_quota_scopes))
 
     manifest["cases"] = final_records
     manifest["completed_cases"] = len(final_records)
     manifest["remaining_cases"] = max(len(cases) - _terminal_count(final_records), 0)
     manifest["current_provider"] = None
+    manifest["blocked_quota_scopes"] = sorted(blocked_quota_scopes)
     manifest["status"] = "done" if manifest["remaining_cases"] == 0 else "incomplete"
     manifest["stop_reason"] = stop_reason
     manifest["updated_at"] = now_iso()
@@ -960,6 +999,16 @@ def run_selftest() -> int:
                 "reasoning": "medium",
                 "cmd_template": would_run_cmd,
             },
+            {
+                # Same provider and executor as case-2, different model/bucket.
+                # A provider-level quota block must not skip this case.
+                "case_id": "case-4-different-bucket",
+                "provider": "openai",
+                "executor": "codex",
+                "model": "gpt-5.3-codex-spark",
+                "reasoning": "medium",
+                "cmd_template": "printf 'model: gpt-5.3-codex-spark\\nran ok\\ntokens used\\n777\\n'",
+            },
         ]
         cases_path.write_text(json.dumps(cases), encoding="utf-8")
 
@@ -992,8 +1041,17 @@ def run_selftest() -> int:
             "case-3 notes explain it was not executed",
             any("without executing" in n for n in by_id["case-3-should-be-skipped"]["notes"]),
         )
-        check("manifest marked incomplete (provider blocked)", manifest1["status"] == "incomplete")
-        check("stop_reason names the blocked provider", manifest1["stop_reason"] == "blocked_quota:openai")
+        check("manifest marked incomplete (quota scope blocked)", manifest1["status"] == "incomplete")
+        check(
+            "stop_reason names the blocked quota scope, not the whole provider",
+            manifest1["stop_reason"] == "blocked_quota:codex:gpt-5.6-sol",
+            str(manifest1["stop_reason"]),
+        )
+        check(
+            "same provider, different bucket still runs after another bucket is exhausted",
+            by_id["case-4-different-bucket"]["status"] == "passed",
+            by_id["case-4-different-bucket"]["status"],
+        )
         check(
             "manifest.json exists on disk (atomic write)",
             (manifest_dir / "manifest.json").is_file(),
@@ -1037,6 +1095,75 @@ def run_selftest() -> int:
             manifest2["started_at"] == manifest1["started_at"],
         )
         check("resume_command field present and mentions --resume", "--resume" in manifest2["resume_command"])
+
+        # --- Quota scope keys (bucket-level): an exhausted bucket defers only
+        # that bucket. Two cases declare the same bucket `codex-default` with
+        # different models; a third case runs on the separate `codex_bengalfox`
+        # bucket that still has quota (bucket facts: references/codex-cli.md).
+        scope_dir = tmp_path / "manifest-quota-scope"
+        scope_cases_path = tmp_path / "cases-quota-scope.json"
+        scope_cases = [
+            {
+                "case_id": "scope-default-a",
+                "quota_scope_key": "codex-default",
+                "provider": "openai",
+                "executor": "codex",
+                "model": "gpt-5.6-terra",
+                "reasoning": "medium",
+                "cmd_template": quota_cmd,
+            },
+            {
+                "case_id": "scope-default-b",
+                "quota_scope_key": "codex-default",
+                "provider": "openai",
+                "executor": "codex",
+                "model": "gpt-5.6-sol",
+                "reasoning": "high",
+                "cmd_template": would_run_cmd,
+            },
+            {
+                "case_id": "scope-bengalfox",
+                "quota_scope_key": "codex_bengalfox",
+                "provider": "openai",
+                "executor": "codex",
+                "model": "gpt-5.3-codex-spark",
+                "reasoning": "medium",
+                "cmd_template": "printf 'model: gpt-5.3-codex-spark\\nspark ran\\ntokens used\\n42\\n'",
+            },
+        ]
+        scope_cases_path.write_text(json.dumps(scope_cases), encoding="utf-8")
+        manifest_scope = run_matrix(
+            cases=scope_cases,
+            run_id="selftest-quota-scope",
+            manifest_dir=scope_dir,
+            cases_path=scope_cases_path,
+            resume=False,
+            host_ai="selftest-host",
+            skill_source_path=str(Path(__file__).resolve().parents[1]),
+            timeout_seconds=30,
+            catalog_data=None,
+        )
+        scope_by_id = {c["case_id"]: c for c in manifest_scope["cases"]}
+        check(
+            "declared bucket case classified blocked_quota",
+            scope_by_id["scope-default-a"]["status"] == "blocked_quota",
+            scope_by_id["scope-default-a"]["status"],
+        )
+        check(
+            "same declared bucket, different model is deferred by the bucket key",
+            scope_by_id["scope-default-b"]["status"] == "pending_quota",
+            scope_by_id["scope-default-b"]["status"],
+        )
+        check(
+            "different bucket under the same provider still runs",
+            scope_by_id["scope-bengalfox"]["status"] == "passed",
+            scope_by_id["scope-bengalfox"]["status"],
+        )
+        check(
+            "stop_reason names the declared bucket",
+            manifest_scope["stop_reason"] == "blocked_quota:codex-default",
+            str(manifest_scope["stop_reason"]),
+        )
 
         # --- Timeout classification (mock a command that outlives the timeout).
         timeout_case = [

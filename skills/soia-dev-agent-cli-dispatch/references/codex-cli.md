@@ -131,7 +131,8 @@ HTTP 回环、端口监听或依赖起本地服务的验证任务在该沙箱中
 
 - 额度判断必须**按桶**做，并选一个**还有额度**的桶，不能拿一个桶的状态给整个 codex 下结论。
 - `codex login status` 返回 `Logged in using ChatGPT` 只证明凭据有效，**不提供任何额度信息**。用登录态推「codex 可用」是 2026-09-12 事故的直接成因。
-- 派发前先读 `~/.codex/config.toml` 的 `model`：这就是这台机器当前实际会用的桶，优先沿用它，不要绕过它从模型目录另挑。2026-09-12 事故中该配置为 `model = "gpt-5.3-codex-spark"`（本机实测）；在当次探测到的两个桶里，它是唯一还有额度的那个。
+- 派发前先读 `~/.codex/config.toml` 的 `model`，但它是**默认**模型、不是无条件的 effective model：官方配置优先级是 CLI 参数（`-m/--model`）→ 项目 `.codex/config.toml` → profile → 用户 `~/.codex/config.toml`，用户配置排第四。显式 `-m` 会覆盖它：2026-09-12 当天该配置写的是 `model = "gpt-5.3-codex-spark"`（本机实测），而主控派发本轮独立评审用的命令是 `codex exec -m gpt-5.6-sol ...`，实际执行的是 `gpt-5.6-sol`——把用户配置里的 `model` 记成 `executor_config_default_model`，把被覆盖后真正请求的模型记成 `selected_model`，不要把前者写成本次实际会用的桶。跳过配置读取的代价同样真实：当次探测到的两个桶里，该配置指向的 Spark 桶正是唯一还有额度的那个。
+- 探测结果要作为**选型的输入**，不是选完再复查：把观测为 `available` 的桶（模型 id、别名，或桶名如 `codex_bengalfox`）传给 `scripts/route_model.py --available-model`（`--quota-observations <预检报告.json>` 亦可），路由就只在可用桶里选；显式指定了一个不可用的桶时脚本拒绝并写明 `quota_unavailable`，不会静默换桶。完全不传可用桶时回执带 `quota_filter.applied=false`，即该回执不证明选中的桶有额度。
 
 **度量样本（2026-09-12，调用方只读额度探测器 `scripts/quota_probe.py --provider codex` 原样输出）：**
 
@@ -142,7 +143,7 @@ HTTP 回环、端口监听或依赖起本地服务的验证任务在该沙箱中
 
 同次探测附带的原样备注：`credits has_credits=False unlimited=False balance=0`；`rate_limit_reached_type=rate_limit_reached`。
 
-读法：默认档已用尽、要等到 2026-09-15 10:44 才重置；这类状态按 `references/dispatch-contract.md` 的预检字段表记 `live_quota_state=exhausted` 并把重置时间写进 `quota_reset_at`；等不起就换桶（如上面的 Spark 桶）或用 `recommendation=skip` 改派别的执行器，不要直接派默认档。探测器不可用时按契约记 `unknown` 并 `hold`，不得用登录态顶替。
+读法：默认档已用尽、要等到 2026-09-15 10:44 才重置。按 `references/dispatch-contract.md` 的预检字段表，这次探测要写成两条 `quota_observations[]`：默认档一条 `state=exhausted`、`reset_at=2026-09-15 10:44`；Spark 桶一条 `bucket=codex_bengalfox`、`model=gpt-5.3-codex-spark`、`state=available`。`selected_model` 必须绑定到 `available` 的那条 observation（`proceed` 的必要条件），等不起就换桶（如上面的 Spark 桶，`quota_scope_key=codex_bengalfox`）或用 `recommendation=skip` 改派别的执行器，不要直接派默认档。探测器不可用时按契约把对应 observation 记 `unknown` 并 `hold`，不得用登录态顶替；客户批准只能覆盖等待/费用偏好，不能把 `unknown` 或 `exhausted` 改写成「可用」。
 
 ## Prompt 注入防护
 

@@ -10,6 +10,11 @@
 #   - One inline flow list per line at most, e.g. aliases: [a, b].
 #   - No multi-line scalars; keep every value on one line.
 #   - Unknown/unconfirmed facts MUST be null, not a guessed number.
+#   - quota_scope_keys (optional) lists the executor quota bucket name(s) a
+#     model bills against when the bucket is not the model id itself (codex
+#     example: `codex_bengalfox`). route_model.py matches the live-quota
+#     precheck's available entries against model_id, aliases AND these keys, so
+#     a bucket-level observation binds to the model that actually uses it.
 #   - Re-run `python3 scripts/catalog_lib.py --selftest` after any edit.
 #
 # Known count discrepancy (reported, not silently corrected): the Phase 1 task
@@ -32,7 +37,7 @@
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-09-11"
+updated_at: "2026-09-12"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -58,6 +63,9 @@ sources:
   - id: deepseek-flash-verification-2026-09-11
     path: reports/deepseek-flash-verification-2026-09-11.md
     date: "2026-09-11"
+  - id: codex-quota-bucket-2026-09-12
+    path: references/codex-cli.md
+    date: "2026-09-12"
 providers:
   openai:
     executor_cli: codex
@@ -352,6 +360,31 @@ providers:
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
+      - model_id: gpt-5.3-codex-spark
+        display_name: "GPT-5.3 Codex Spark"
+        aliases: []
+        quota_scope_keys: [codex_bengalfox]
+        model_family: gpt-5.3
+        availability: available
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          pricing_source: unknown
+          billing_mode_notes: "No official price, context-window or reasoning-level source was available as of 2026-09-12, so every price/capability field here is deliberately null rather than guessed or inherited from gpt-5.3-codex. Registered only so the machine's own configured bucket can be named: the 2026-09-12 read-only probe reported the separate bucket `codex_bengalfox` (label `GPT-5.3-Codex-Spark`) with quota remaining while the default codex bucket was exhausted. This entry does NOT authorise auto-routing."
+          effective_date: "2026-09-12"
+          source_id: codex-quota-bucket-2026-09-12
+        routing_profile: []
+        discovered_at: "2026-09-12"
+        discovery_evidence: "Existence and bucket mapping only, zero dispatch evidence: (1) the dispatcher machine's `~/.codex/config.toml` carried model = gpt-5.3-codex-spark (read 2026-09-12); (2) the same day's read-only quota probe reported the separate bucket `codex_bengalfox` labelled `GPT-5.3-Codex-Spark` with quota remaining while the default bucket was exhausted. No model-echo, reasoning-level, pricing or task-quality evidence exists, so supported_reasoning_levels stays empty, reasoning_levels_confidence stays unverified and routing_profile stays [] -- auto-routing must not select it; only an explicit --model request may, and that is reported as explicit_unverified. Added 2026-09-12 because the precheck's own recommended bucket could not previously be named by route_model.py at all (rejected as not found in catalog). See references/codex-cli.md 额度分桶 section."
   anthropic:
     executor_cli: claude
     # auxiliary_models: model ids the Claude Code CLI bills for its own internal

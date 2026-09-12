@@ -2,11 +2,17 @@
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
 # @modified_by dsh + deepseek-flash (actual model unverified)
-# @modified_at 2026-09-11 11:10:00
-# @version 0.2.1
+# @modified_at 2026-09-12 19:40:00
+# @version 0.3.0
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog Retarget the pi easy route to deepseek-flash and cover the retired deepseek ids in the selftest.
-"""Mechanically route an executor family to a verified model/effort pair."""
+# @changelog Consume per-bucket live-quota availability (--available-model / --quota-observations) so an exhausted or unknown bucket can no longer be selected, and report quota_scope_keys/quota_filter in the receipt.
+"""Mechanically route an executor family to a verified model/effort pair.
+
+The live-quota precheck is an input, not a post-hoc check: pass the buckets it
+observed `available` (model id, alias, or bucket name) and selection is
+restricted to those. Explicit selections are refused rather than swapped when
+their bucket is not available.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +21,7 @@ import json
 import sys
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import catalog_lib  # noqa: E402
@@ -84,6 +90,81 @@ def _cost_range(model: dict[str, Any]) -> dict[str, str | None]:
     return {"basis": "1M input + 1M output, standard tier", "min_usd": value, "max_usd": value}
 
 
+def _quota_keys(model: dict[str, Any]) -> set[str]:
+    """Every identifier that names this model's quota bucket.
+
+    Model id and aliases come from the catalog entry; `quota_scope_keys` is the
+    bucket name a quota probe reports (e.g. codex `codex_bengalfox`), which is
+    not a model id but must still resolve to this entry.
+    """
+    keys = {str(model.get("model_id"))} if model.get("model_id") else set()
+    for field in ("aliases", "quota_scope_keys"):
+        values = model.get(field) or []
+        if isinstance(values, list):
+            keys.update(str(value) for value in values if value)
+    return {key for key in keys if key}
+
+
+def available_key_set(data: dict, entries: Iterable[str]) -> set[str]:
+    """Canonicalize dispatcher-supplied quota availability entries.
+
+    Entries may be catalog model ids, aliases, provider-qualified ids, or quota
+    bucket names. Entries that do not resolve to a catalog model are kept
+    verbatim, so a bucket name still matches the entry that declares it.
+    """
+    keys: set[str] = set()
+    for entry in entries:
+        text = str(entry).strip()
+        if not text:
+            continue
+        keys.add(text)
+        model = catalog_lib.find_model(data, text).get("model")
+        if isinstance(model, dict) and model.get("model_id"):
+            keys.add(str(model["model_id"]))
+    return keys
+
+
+def _model_is_available(model: dict[str, Any], available_keys: set[str]) -> bool:
+    """A model is usable only when its own bucket was observed available.
+
+    The intersection is deliberate: another bucket's `available` state must
+    never be promoted to this model just because they share a provider or CLI.
+    """
+    return bool(_quota_keys(model) & available_keys)
+
+
+def load_quota_observations(path: Path) -> dict[str, Any]:
+    """Extract available models from a precheck report's `quota_observations[]`.
+
+    Only items whose `state` is `available` and that carry a `model` field
+    contribute availability. An item marked available without a model cannot be
+    bound to a bucket, so it is reported as ignored instead of being counted.
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RouteError(f"cannot read quota observations from {path}: {exc}") from exc
+    items = payload.get("quota_observations") if isinstance(payload, dict) else payload
+    if not isinstance(items, list):
+        raise RouteError(
+            f"{path} must be a JSON list or an object with a 'quota_observations' list"
+        )
+    available: list[str] = []
+    ignored: list[str] = []
+    for item in items:
+        if not isinstance(item, dict):
+            ignored.append(str(item))
+            continue
+        if item.get("state") != "available":
+            continue
+        model = item.get("model")
+        if isinstance(model, str) and model.strip():
+            available.append(model.strip())
+        else:
+            ignored.append(str(item.get("bucket") or "<no bucket/model>"))
+    return {"available": available, "ignored": ignored}
+
+
 def _resolve_identity(data: dict, requested: str) -> tuple[str, str] | None:
     """Return (provider, model_family) for a catalog model, or None if unknown."""
     resolution = catalog_lib.find_model(data, requested)
@@ -146,9 +227,21 @@ def check_independence(data: dict, role: str | None, reviewer_model: str | None,
     }
 
 
-def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None) -> dict[str, Any]:
+def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None, available_models: Iterable[str] | None = None) -> dict[str, Any]:
+    """Select a model/effort pair, optionally constrained to observed-available buckets.
+
+    `available_models` is the live-quota precheck result: the model ids, aliases
+    or bucket names observed `available` in this run. Passing `None` means no
+    observation was supplied (the receipt then says so); passing any iterable --
+    including an empty one -- turns the filter on, so an exhausted or unknown
+    bucket can no longer be selected.
+    """
     if complexity not in PREFERRED_EFFORTS:
         raise RouteError(f"invalid complexity {complexity!r}")
+    quota_filter_applied = available_models is not None
+    availability_entries = [str(entry) for entry in available_models] if quota_filter_applied else []
+    available_keys = available_key_set(data, availability_entries) if quota_filter_applied else set()
+    excluded_models: list[str] = []
     if requested_model:
         resolution = catalog_lib.find_model(data, requested_model)
         model = resolution.get("model")
@@ -158,6 +251,13 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
         provider_block = (data.get("providers") or {}).get(provider) or {}
         if provider_block.get("executor_cli") != executor:
             raise RouteError(f"model {requested_model!r} does not belong to executor {executor!r}")
+        if quota_filter_applied and not _model_is_available(model, available_keys):
+            raise RouteError(
+                f"quota_unavailable: requested model {requested_model!r} "
+                f"(quota keys: {sorted(_quota_keys(model))}) has no bucket observed 'available' in this "
+                "precheck; explicit selections are never silently swapped. Wait for the reset, choose a "
+                "bucket observed 'available', or re-run with auto-routing."
+            )
         effort, effort_status = _choose_effort(model, complexity, requested_reasoning)
         selection_status = effort_status if effort_status == "explicit_unverified" else "explicit"
         reason = "explicit model/reasoning selection takes precedence"
@@ -171,10 +271,27 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
         ]
         if not candidates:
             raise RouteError(f"no verified {complexity!r} routing candidate for executor {executor!r}")
+        if quota_filter_applied:
+            verified_ids = sorted(str(model.get("model_id")) for model in candidates)
+            excluded_models = sorted(
+                str(model.get("model_id")) for model in candidates
+                if not _model_is_available(model, available_keys)
+            )
+            candidates = [model for model in candidates if _model_is_available(model, available_keys)]
+            if not candidates:
+                raise RouteError(
+                    f"quota_unavailable: no verified {complexity!r} routing candidate for executor "
+                    f"{executor!r} has a bucket observed 'available' in this precheck "
+                    f"(verified candidates: {verified_ids}); refusing to select a bucket that is exhausted "
+                    "or unknown. An available bucket without verified routing evidence must be requested "
+                    "explicitly with --model and is then reported as explicit_unverified."
+                )
         candidates.sort(key=lambda item: item.get("model_id", ""))
         model = candidates[0]
         effort, selection_status = _choose_effort(model, complexity, None)
         reason = f"catalog routing_profile={complexity}; discovery and reasoning evidence are present"
+        if quota_filter_applied:
+            reason += "; restricted to buckets observed 'available' in the live quota precheck"
     independence = check_independence(data, role, model.get("model_id"), executor_model)
     receipt_extra = {"independence_gate": independence} if independence else {}
     return {
@@ -188,6 +305,19 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
         "catalog_version": data.get("updated_at"),
         "selection_status": selection_status,
         "routing_evidence": model.get("discovery_evidence"),
+        "quota_scope_keys": [str(key) for key in (model.get("quota_scope_keys") or [])],
+        "quota_filter": {
+            "applied": quota_filter_applied,
+            "available_inputs": sorted({entry.strip() for entry in availability_entries if entry.strip()}),
+            "excluded_models": excluded_models,
+            "note": (
+                "only buckets observed 'available' in this precheck are eligible; exhausted or unknown "
+                "buckets are not selectable"
+                if quota_filter_applied
+                else "no live quota observation was supplied; this receipt does not prove the selected "
+                "bucket has quota"
+            ),
+        },
     }
 
 
@@ -195,7 +325,61 @@ def run_selftest() -> int:
     data = catalog_lib.load_catalog(Path(__file__).resolve().parents[1] / "references" / "model-catalog.yml")
     checks: list[tuple[str, bool]] = []
     checks.append(("codex easy -> luna low", route_model(data, "codex", "easy")["selected_model"] == "gpt-5.6-luna" and route_model(data, "codex", "easy")["selected_reasoning_effort"] == "low"))
-    checks.append(("codex medium -> terra medium", route_model(data, "codex", "medium")["selected_model"] == "gpt-5.6-terra" and route_model(data, "codex", "medium")["selected_reasoning_effort"] == "medium"))
+    def route_with_availability(*args: Any, **kwargs: Any) -> tuple[dict[str, Any] | None, str | None]:
+        """Route with a live-quota availability input, returning (receipt, error).
+
+        Before the per-bucket availability input existed these calls raised
+        TypeError; catching it keeps the missing capability visible as a FAIL
+        line instead of aborting the whole selftest.
+        """
+        try:
+            return route_model(data, *args, **kwargs), None
+        except RouteError as exc:
+            return None, str(exc)
+        except TypeError as exc:
+            return None, f"{type(exc).__name__}: {exc}"
+
+    medium_with_terra, _ = route_with_availability("codex", "medium", available_models=["gpt-5.6-terra"])
+    checks.append((
+        "codex medium with terra's bucket observed available -> terra medium",
+        medium_with_terra is not None
+        and medium_with_terra.get("selected_model") == "gpt-5.6-terra"
+        and medium_with_terra.get("selected_reasoning_effort") == "medium"
+        and (medium_with_terra.get("quota_filter") or {}).get("applied") is True,
+    ))
+    medium_spark_only, medium_spark_error = route_with_availability(
+        "codex", "medium", available_models=["gpt-5.3-codex-spark", "codex_bengalfox"]
+    )
+    checks.append((
+        "codex medium with terra's bucket unavailable never selects terra",
+        medium_spark_only is None and "quota_unavailable" in (medium_spark_error or ""),
+    ))
+    medium_none, medium_none_error = route_with_availability("codex", "medium", available_models=[])
+    checks.append((
+        "codex medium with every bucket unavailable blocks instead of force-picking",
+        medium_none is None and "quota_unavailable" in (medium_none_error or ""),
+    ))
+    explicit_unavailable, explicit_unavailable_error = route_with_availability(
+        "codex", "hard", "gpt-5.6-sol", available_models=["gpt-5.6-terra"]
+    )
+    checks.append((
+        "explicit model on an unavailable bucket is refused, not silently swapped",
+        explicit_unavailable is None and "quota_unavailable" in (explicit_unavailable_error or ""),
+    ))
+    spark_explicit, _ = route_with_availability(
+        "codex", "medium", "gpt-5.3-codex-spark", available_models=["codex_bengalfox"]
+    )
+    checks.append((
+        "spark is selectable when its bucket is observed available (explicit, unverified reasoning)",
+        spark_explicit is not None
+        and spark_explicit.get("selection_status") == "explicit_unverified"
+        and spark_explicit.get("quota_scope_keys") == ["codex_bengalfox"],
+    ))
+    no_quota_input = route_model(data, "codex", "medium")
+    checks.append((
+        "routing without quota input declares quota_filter.applied=false",
+        (no_quota_input.get("quota_filter") or {}).get("applied") is False,
+    ))
     checks.append(("codex hard -> sol high", route_model(data, "codex", "hard")["selected_model"] == "gpt-5.6-sol" and route_model(data, "codex", "hard")["selected_reasoning_effort"] == "high"))
     pi_easy = route_model(data, "pi", "easy")
     checks.append(("pi easy -> deepseek-flash low", pi_easy["selected_model"] == "deepseek-flash" and pi_easy["selected_reasoning_effort"] == "low" and pi_easy["selection_status"] == "verified_auto"))
@@ -340,6 +524,26 @@ def main() -> int:
     parser.add_argument("--reasoning")
     parser.add_argument("--role", choices=list(DISPATCH_ROLES), help="dispatch_role for this call; 'reviewer' activates the Independence Gate")
     parser.add_argument("--executor-model", dest="executor_model", help="model that produced the work under review; required when --role reviewer")
+    parser.add_argument(
+        "--available-model",
+        dest="available_model",
+        action="append",
+        default=None,
+        help=(
+            "model id, alias, or quota bucket name observed 'available' by the live quota precheck; "
+            "repeatable. Supplying this flag (or --quota-observations) turns the availability filter on: "
+            "exhausted/unknown buckets can no longer be selected."
+        ),
+    )
+    parser.add_argument(
+        "--quota-observations",
+        dest="quota_observations",
+        help=(
+            "path to a JSON quota precheck report (an object with 'quota_observations', or a bare list). "
+            "Items with state=available and a model contribute availability; items marked available "
+            "without a model id are reported as ignored."
+        ),
+    )
     parser.add_argument("--catalog")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
@@ -353,9 +557,21 @@ def main() -> int:
         validation = catalog_lib.validate_catalog(data)
         if validation["errors"]:
             raise RouteError("invalid catalog: " + "; ".join(validation["errors"][:5]))
+        available_models: list[str] | None = None
+        if args.available_model or args.quota_observations:
+            available_models = list(args.available_model or [])
+            if args.quota_observations:
+                observations = load_quota_observations(Path(args.quota_observations))
+                available_models.extend(observations["available"])
+                if observations["ignored"]:
+                    print(
+                        "WARN: quota observation(s) marked available carry no model id and were "
+                        "ignored: " + ", ".join(observations["ignored"]),
+                        file=sys.stderr,
+                    )
         result = route_model(
             data, args.executor, args.complexity, args.model, args.reasoning,
-            role=args.role, executor_model=args.executor_model,
+            role=args.role, executor_model=args.executor_model, available_models=available_models,
         )
     except (OSError, catalog_lib.CatalogError, RouteError) as exc:
         print(json.dumps({"selection_status": "blocked", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)

@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」、按任务书派发外部执行器、发起独立评审派发
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.9.0
+version: 1.10.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-12 14:28:00
+updated_at: 2026-09-12 19:40:00
 created_by: claude opus 4.6
 updated_by: deepseek-flash
 ---
@@ -21,7 +21,7 @@ updated_by: deepseek-flash
 | 客户想要 | 技能会做 | 客户能看到 |
 |---|---|---|
 | 派一个任务给指定 AI CLI | 检查 CLI、认证、工作目录和权限，按该执行器规范启动 | 执行器、请求/实际模型、状态与验证结果 |
-| 让系统自动选择模型档位 | 只从已有验证证据的候选中选择；无候选时阻断 | 选择理由、推理档、价格区间与证据状态 |
+| 让系统自动选择模型档位 | 只从已有验证证据、且实时额度观测为 `available` 的候选桶中选择；无候选时阻断 | 选择理由、推理档、可用桶与 `quota_scope_key`、价格区间与证据状态 |
 | 批量或断点执行 | 串行运行 case，逐项原子更新脱敏 manifest | 成功、失败、降级、超时、剩余任务与恢复状态 |
 | 查看支持哪些 AI Agent | 读取 `references/supported-agents.yml` | 支持状态、使用方式、自动路由范围和对应规范 |
 
@@ -176,30 +176,38 @@ Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属�
 
 先读取目标仓适用的 `AGENTS.md`、贡献说明和测试约定。目标仓规则优先；不要把本技能自己的历史治理术语或无关文件塞进派发 prompt。
 
-### 2. 选择执行器
+### 2. 选择执行器（只定 CLI 与任务档，不定模型）
 
 1. 读取 `references/supported-agents.yml`，确认 `dispatch_supported`、验证状态和对应 reference。
 2. 用户显式指定时按指定值执行，不做静默替换。
-3. 用户允许自动路由时，先判定 easy/medium/hard，再运行：
+3. 用户允许自动路由时，判定任务是 easy/medium/hard（判据见 `references/executor-routing.md`）。
+4. 确定执行器后只加载其 reference。**模型留到第 4 步再选**：本步不得先选出一个后面无法用实时额度验证的模型，预检结果必须成为选型的输入。
 
-```bash
-python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|hard>
-```
-
-4. 没有 verified candidate 时停止；不得从 `pending_benchmark` 或 `command_help_verified` 条目自动选模。
-5. 确定执行器后只加载其 reference；需要路由判据时再加载 `references/executor-routing.md`。
-
-### 3. 执行前预检
+### 3. 执行前预检（额度观测先于选型）
 
 - 运行 `command -v <cli>` 和 `<cli> --version`，记录实际版本。
-- 读取目标 CLI 自己的配置里已配的模型（codex 见 `~/.codex/config.toml` 的 `model`），**机器上已配好的模型优先于从目录另挑**。
+- 读取目标 CLI 自己的配置里配的**默认**模型（codex 见 `~/.codex/config.toml` 的 `model`），记进 `executor_config_default_model`。它只是默认值，不是本次实际执行模型：`-m/--model`、项目配置和 profile 都会覆盖它（2026-09-12 当天该配置的 `gpt-5.3-codex-spark` 就被 `-m gpt-5.6-sol` 覆盖）。被覆盖时按实际生效的模型记录，不得把默认值当成实际执行模型。
 - 使用官方只读状态检查认证/套餐；如果检查本身会调用付费模型，先取得客户确认。
-- **实时额度必须单独探测**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件；额度未知时不得 `proceed`。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。
+- **实时额度必须单独探测，逐桶观测并绑定到模型**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件。本步产出 `quota_observations[]`（每项含 `bucket`/`model`/`state`/`source`/`probed_at`/`reset_at`）；第 4 步选定模型后，把 `selected_model`、`quota_scope_key` 与 `recommendation` 回填进同一份预检报告。`proceed` 的必要条件：**认证可用，且最终选定模型对应的那条 observation 为 `available`**；三条禁止项逐条成立即不得 `proceed`——选定桶为 `exhausted`、为 `unknown`（含缺失）、`auth_status != ok`。客户明确批准只能覆盖费用与等待偏好，不能把 `unknown` 或 `exhausted` 改写成「可用」。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。
 - 检查 workdir 是否存在、是否是凭据/配置目录、是否有未提交改动以及是否与其他任务重叠。
 - 不可服务、认证阻断、额度不足或目录不安全时停止并给出明确状态。
 - Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道必须分开，禁止复制认证状态或静默 alias。
 
-### 4. 建立隔离与权限门
+### 4. 选择模型与推理档（消费第 3 步的可用桶）
+
+1. 用户显式指定模型/推理档时按指定值执行，不做静默替换；自动路由时运行：
+
+```bash
+python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|hard> \
+  --available-model <预检观测为 available 的模型 id/别名/桶名> [--available-model ...]
+# 也可直接消费预检报告：--quota-observations <预检报告.json>
+```
+
+2. 可用桶输入必须来自第 3 步的实时观测。脚本把它作为选型约束：只在观测为 `available` 的桶里选；选中的桶不可用（含显式指定）时拒绝并写明 `quota_unavailable`，不静默换桶。不传可用桶时回执带 `quota_filter.applied=false`，即该回执不证明选中的桶有额度。
+3. 没有 verified candidate、或没有任何 verified candidate 落在可用桶里时停止；不得从 `pending_benchmark` 或 `command_help_verified` 条目自动选模。可用但未验证的桶只能显式 `--model` 指定，并按「证据与状态规则」记 `explicit_unverified`。
+4. 把回执的 `selected_model`、`selected_reasoning_effort` 与 `quota_scope_keys` 写进调用契约；`quota_scope_keys` 同时是 `scripts/run_matrix.py` 的 `quota_scope_key`。
+
+### 5. 建立隔离与权限门
 
 - 每个写任务使用独立 workdir；多任务不得同时写同一文件。
 - 创建 `git worktree` 前展示目标路径、分支和用途，并等待客户明确批准；已在当前任务书中明确批准的目标不重复确认。新增、移动、删除或改变 Worktree/分支/目标路径仍须单独批准。
@@ -207,20 +215,20 @@ python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|h
 - 删除、覆盖、提交、push、发布、发送、授权变更及其他远端写入必须单独获得当前任务授权。
 - 工作区已有未知改动时不提交、不清理、不覆盖；把冲突范围回报给客户。
 
-### 5. 安全传递 prompt
+### 6. 安全传递 prompt
 
 prompt 必须先写入按 task-id 隔离的 UTF-8 临时文件。不要把不可信正文直接拼进 shell；优先 stdin 或执行器原生文件参数。具体命令、参数终止符和结构化输出方式以选中执行器的 reference 为准。
 
 prompt 只包含：任务目标、必要上下文、目标文件/范围、权限边界、验收命令和回执要求。排除无关仓库、私有路径、凭据和其他任务上下文。
 
-### 6. 派发与监控
+### 7. 派发与监控
 
 - 简短任务前台执行；长任务使用可观察的后台方式并定期检查退出状态、日志摘要和资源信号。
 - 多 case 使用 `scripts/run_matrix.py`；每个 case 完成后原子更新 manifest。
 - 失败后先分类原因再决定是否重试；同一命令、同一假设不得无变化重复运行。
 - 外部 Agent 自报“完成”只是待验证输入，不能直接作为主控结论。
 
-### 7. 验证与收口
+### 8. 验证与收口
 
 1. 比对 `requested_model` 与结构化或可信回显中的 `actual_model`。
 2. 缺少实际模型证据时写 `actual_model_unverified`；不以请求值填充实际值。

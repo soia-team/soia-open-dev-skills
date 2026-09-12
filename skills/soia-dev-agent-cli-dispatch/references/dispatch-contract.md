@@ -33,6 +33,7 @@
 | `reasoning` | 否 | `requested_reasoning_effort`；未指定时参考 catalog 的 `default_reasoning_level` |
 | `dispatch_role` | 否 | 本次调用在协作结构中的角色：`coordinator` \| `executor` \| `verifier` \| `reviewer` \| `adversary` \| `mechanical`。缺省表示未声明角色，不触发任何角色门禁；`reviewer` 触发下方 Independence Gate |
 | `executor_model` | 条件 | 被审实现者所用模型。`dispatch_role=reviewer` 时**必填**（见 Independence Gate）；其他角色不需要 |
+| `quota_scope_key` | 否 | case 级额度封锁键：预检 `quota_observations[].bucket` 对应的桶名（无桶名时用 `executor:model`）。`scripts/run_matrix.py` 用它做 `blocked_quota` 封锁，缺省回退 `executor:model`；填了它，同一 provider 下别的桶不会被连带跳过 |
 | `cmd_template` | 是 | 实际执行的 shell 命令（已按「Prompt 注入防护」写好 temp 文件引用） |
 | `timeout_seconds` | 否 | 默认 600 秒（见 `scripts/run_matrix.py --timeout-seconds`） |
 
@@ -66,33 +67,60 @@
 
 ## 额度预检 / Quota precheck
 
-对某个 executor 发起**第一次真实调用**之前（尤其是新会话、或距上次调用较久之后），先跑一次预检并向客户展示报告，字段固定：
+对某个 executor 发起**第一次真实调用**之前（尤其是新会话、或距上次调用较久之后），先跑一次预检并向客户展示报告。报告必须**把额度观测绑定到最终要执行的那个模型**：`quota_observations[]` 每项都带它对应的 `model`，`proceed` 只采信 `selected_model` 自己那条观测；不接受用执行器级的一个标量代表整个 CLI。探测可以先于选型（`SKILL.md` 第 3–4 步）：先逐桶观测，选定模型后把 `selected_model`、`quota_scope_key`、`recommendation` 回填进同一份报告。
 
 | 字段 | 说明 |
 |---|---|
 | `executor` | 目标执行器 |
 | `cli_installed` | `true` / `false`（`which <command>` 或等效检测） |
 | `cli_version` | 实际探测到的版本字符串，或 `"unavailable"` |
-| `executor_config_model` | 目标 CLI **自身配置**里已经配好的模型（如 codex `~/.codex/config.toml` 的 `model`），或 `"unknown"`。见下方「先看执行器现有配置，再挑模型」 |
+| `executor_config_default_model` | 目标 CLI **自身配置**里配好的**默认**模型（如 codex `~/.codex/config.toml` 的 `model`），或 `"unknown"`。它只是默认值，CLI 参数/项目配置/profile 都会覆盖它；不要写成本次实际执行的模型。见下方「先读执行器配置默认值，再确定实际模型」 |
 | `auth_status` | `ok` / `expired` / `unknown` / `blocked_user_action`；优先本地 auth-status。没有该命令时，不得未经确认用模型调用代替 |
-| `live_quota_state` | `available` / `exhausted` / `unknown`。**必须来自本次只读实时探测，不得用 `last_known_quota_state` 顶替**；探测来源与探测时间一并记录。按执行器的额度分桶逐个判（codex 分桶事实见 `references/codex-cli.md`），一个桶的状态不能代表整个 CLI |
-| `quota_reset_at` | 额度耗尽时的重置时间（执行器自报，如 `2026-09-15 10:44`）；取不到写 `"unknown"`。它决定该等还是该换：等得起用 `hold`，等不起或另有可用桶/执行器用 `skip` |
+| `selected_model` | **本次将执行的模型**（显式 `-m` 或调用契约的 `model`，或自动路由在可用桶内选出的模型）。额度观测必须绑定到它；为空或 `"unknown"` 时不得 `proceed` |
+| `quota_scope_key` | `selected_model` 对应的额度封锁键：优先用执行器的桶名（如 `codex_bengalfox`），没有桶名时用 `executor:model`。派发时写进 cases.json，`scripts/run_matrix.py` 用同一个键做封锁 |
+| `quota_observations[]` | **逐桶**实时观测数组，每项字段见下表。不得用别的桶的 `available` 代表 `selected_model` 的桶 |
 | `last_known_quota_state` | 上一次派发记录里的额度状态；没有记录就是 `"unknown"`。**仅作历史对照，不构成当前可用性证据** |
 | `recommendation` | `proceed` / `hold` / `skip`，附一句理由 |
 
-预检默认不消耗真实模型调用额度（只做版本探测与官方本地状态检查）。浏览器登录、账号选择或任何 `-p` 模型调用不属于默认预检；前者进入 `blocked_user_action`，后者必须先确认可能的额度/费用。`recommendation` 为 `hold` 或 `skip` 时，不得继续派发，除非客户明确批准。
+`quota_observations[]` 每项固定字段：
 
-**`auth_status=ok` 不构成 `recommendation=proceed` 的充分条件。** 登录态只回答「凭据还在不在」，不回答「现在还有没有额度」；`live_quota_state` 为 `unknown` 时 `recommendation` 不得为 `proceed`。2026-09-12 实测事故：主控跑 `codex login status` 得到 `Logged in using ChatGPT` 就判定 codex 可用并从模型目录里挑了 `terra`，而该模型所在档位当周额度余量已经是 0%；登录成功与有额度是两件事。度量见 `references/codex-cli.md` 的额度分桶一节。
+| 字段 | 说明 |
+|---|---|
+| `bucket` | 执行器的额度桶标识（如 `codex_bengalfox`、codex 默认档 `codex`）；取不到写 `"unknown"` |
+| `model` | 该桶对应、将要用它执行的模型 id（catalog `model_id`）。**没有 `model` 的观测不能用来支持 `proceed`**；bucket 名不是模型 id 时两者都要写 |
+| `state` | `available` / `exhausted` / `unknown`。**必须来自本次只读实时探测，不得用 `last_known_quota_state` 顶替** |
+| `source` | 本次探测的来源（只读探测工具或官方只读状态命令） |
+| `probed_at` | 本次探测时间 |
+| `reset_at` | 额度耗尽时的重置时间（执行器自报，如 `2026-09-15 10:44`）；取不到写 `"unknown"`。它决定该等还是该换 |
+
+`recommendation=proceed` 的必要条件（同时成立，缺一不可）：
+
+1. `auth_status=ok`；
+2. `selected_model` 对应的那条 observation 的 `state=available`——`available` 必须属于最终将执行的那个模型对应的桶，别的桶可用不算；
+3. 该 observation 来自本次只读实时探测（`source`、`probed_at` 齐全），不是历史值或推断值；
+4. 以下任一条成立即不得 `proceed`：`selected_model` 对应 observation 为 `exhausted`；为 `unknown`（含缺失）；`auth_status != ok`。这三条禁止项不接受任何批准豁免。
+
+预检默认不消耗真实模型调用额度（只做版本探测与官方本地状态检查）。浏览器登录、账号选择或任何 `-p` 模型调用不属于默认预检；前者进入 `blocked_user_action`，后者必须先确认可能的额度/费用。
+
+`recommendation` 为 `hold` 或 `skip` 时，不得继续派发，除非客户明确批准。**「客户明确批准」只覆盖费用与等待这类偏好**：客户可以决定「值得等」「这笔钱可以花」「换更贵的桶也行」，但批准**不能**把 `unknown` 或 `exhausted` 改写成「可用」这个事实，也不能让 `proceed` 成立。批准记录必须写明它覆盖的是哪一项偏好；写成「已批准，所以可用」按伪造额度观测处理。额度未知或耗尽时只有三条路：等重置、换一个已观测为 `available` 的桶/执行器、或按 `hold` / `skip` 阻断。
+
+**`auth_status=ok` 不构成 `recommendation=proceed` 的充分条件。** 登录态只回答「凭据还在不在」，不回答「现在还有没有额度」；`selected_model` 对应 observation 为 `unknown` 时 `recommendation` 不得为 `proceed`。2026-09-12 实测事故：主控跑 `codex login status` 得到 `Logged in using ChatGPT` 就判定 codex 可用并从模型目录里挑了 `terra`，而该模型所在档位当周额度余量已经是 0%；当次探测里 `available` 的那个桶属于 Spark，却被执行器级标量挪用给了 terra——观测没有绑定到对象，这一步就无法被机械发现。登录成功与有额度是两件事。度量见 `references/codex-cli.md` 的额度分桶一节。
 
 **实时额度的只读探测来源，按此顺序取：**
 
 1. 调用方项目若提供**只读**额度探测器，预检必须使用它（例如 SoiaDeck 的 `scripts/quota_probe.py`，支持 codex / deepseek / claude 三个 provider）。本技能不依赖任何特定项目的脚本路径，调用方没有该工具就进下一条。
 2. 按对应执行器 reference 里的**官方只读状态命令**取。
-3. 两条路都取不到时，`live_quota_state` 记 `"unknown"` 且 `recommendation` 置 `hold`；不得拿 `last_known_quota_state` 或 `auth_status` 推一个值填进去。
+3. 两条路都取不到时，把 `selected_model` 对应的那条 observation 的 `state` 记 `"unknown"` 且 `recommendation` 置 `hold`；不得拿 `last_known_quota_state` 或 `auth_status` 推一个值填进去。
 
-**先看执行器现有配置，再挑模型。** 派发前读目标 CLI 自己的配置（codex 见 `~/.codex/config.toml` 的 `model`），把值记进 `executor_config_model`；**机器上已经配好的模型优先于从 `references/model-catalog.yml` 目录里另挑一个**。目录给的是价格与能力事实，不是「这台机器此刻跑哪个」。跳过这一步的真实代价：2026-09-12 事故里本机 `~/.codex/config.toml` 配的正是当次探测到的两个桶中唯一还有额度的那个，而派发方没读配置、直接从目录挑了已用尽的档位。
+**先读执行器配置默认值，再确定实际模型。** 派发前读目标 CLI 自己的配置（codex 见 `~/.codex/config.toml` 的 `model`），把值记进 `executor_config_default_model`；**它是默认值，不是无条件的 effective model**：官方 codex 配置优先级是 CLI 参数（`-m/--model`）→ 项目 `.codex/config.toml` → profile → 用户 `~/.codex/config.toml`，用户配置排第四。因此：
 
-`scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查，也不做实时额度探测**——它只在调用输出命中 `usage limit` / `quota` 类文本后把该 case 反应式地标成 `blocked_quota`（那一刻调用已经发生、额度已经消耗）。因此 `auth_status`、`live_quota_state`、`quota_reset_at` 与 `executor_config_model` 仍需派发者在预检报告里人工核实或另行探测；脚本本身不会为了验证登录态或额度而发起真实模型调用。
+- 本次显式传了 `-m`（或调用契约里显式 `model`）时，它就是 `selected_model`，配置默认值只是被覆盖的底值；
+- 未显式指定时才沿用配置里的默认值，并写明它来自哪一层；
+- 被覆盖时不得把配置默认值写成、或暗示成本次实际执行的模型。
+
+这不是措辞问题：2026-09-12 当天同一台机器上 `~/.codex/config.toml` 写着 `model = "gpt-5.3-codex-spark"`，而派发本轮独立评审用的命令行是 `codex exec -m gpt-5.6-sol ...`，实际执行的是 `gpt-5.6-sol`——把用户配置里的 `model` 说成「这台机器当前实际会用的桶」，当天就被同一条命令行证伪。跳过配置读取的代价同样真实：同一次事故里该配置指向的 Spark 桶是当次探测到的两个桶中唯一还有额度的那个，而派发方没读配置、直接从目录挑了已用尽的档位。
+
+`scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查，也不做实时额度探测**——它只在调用输出命中 `usage limit` / `quota` 类文本后把该 case 反应式地标成 `blocked_quota`（那一刻调用已经发生、额度已经消耗），并按该 case 的 quota scope（`case.quota_scope_key`，缺省 `executor:model`）只封锁同一个桶的剩余 case，**不再按 provider 封锁**；manifest 的 `blocked_quota_scopes` 与 `stop_reason` 都按 scope 记录。因此 `auth_status`、`quota_observations[]`、`quota_scope_key`、`executor_config_default_model` 与 `selected_model` 仍需派发者在预检报告里人工核实或另行探测；脚本本身不会为了验证登录态或额度而发起真实模型调用。
 
 ## Independence Gate
 
@@ -171,7 +199,7 @@ python3 scripts/run_matrix.py --cases <cases.json> --run-id <run_id> --resume
 - 每个 case 跑完后立即原子写 manifest（临时文件 + `os.replace`），中途被杀不会破坏 manifest 文件本身。
 - `run_id` 只允许字母、数字、点、下划线和连字符，防止路径穿越。
 - 默认最多保留 50 个 run；达到上限时阻断新 run，不自动删除。客户检查并授权清理后才能释放名额。
-- 某个 provider 的某个 case 命中 `blocked_quota` 后，同一 provider 剩余的 case 立即标记 `pending_quota`（不再实际执行子进程），其他 provider 的 case 不受影响、按串行顺序继续跑。
+- 某个 case 命中 `blocked_quota` 后，只有**同一 quota scope** 的剩余 case 标记 `pending_quota`（不再实际执行子进程）：scope 取 `case.quota_scope_key`（来自预检的桶名），缺省回退 `executor:model`。同一 provider 下别的桶照常执行——一个桶耗尽不等于整个 CLI 不可用。manifest 的 `blocked_quota_scopes` 与 `stop_reason` 都按 scope 记录。
 - `--resume` 时，已是终态（`passed` / `unsupported` / `blocked_paid_api` / `fallback_or_downgrade` / `actual_model_unverified`）的 case 直接跳过；残留 `running`（上次进程被杀留下的）会先标记 `interrupted`（证据保留在该 case 记录的 `previous_attempt` 字段里，不丢弃），再重新尝试一次。
 - `--resume` 时会重新探测本批次涉及执行器的 CLI 版本，和上次 manifest 里记录的版本不一致会打印警告（结果可能不可比较，但不会阻止运行）。
 

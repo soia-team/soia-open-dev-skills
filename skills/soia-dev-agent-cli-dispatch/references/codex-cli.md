@@ -125,6 +125,25 @@ HTTP 回环、端口监听或依赖起本地服务的验证任务在该沙箱中
 内置 agent；不要在 `workspace-write` 沙箱内反复重试。无沙箱执行仍须遵守本次任务的权限、工作
 目录与高影响操作授权，不能因为此限制自动启用绕过模式。
 
+## 额度分桶与实时探测（2026-09-12 实测）
+
+**codex 的额度是分桶的，不是 CLI 级的一个数。** 默认档与 `codex_bengalfox`（`GPT-5.3-Codex-Spark`）各自持有独立窗口；**一个桶耗尽不等于整个 CLI 不可用**。因此：
+
+- 额度判断必须**按桶**做，并选一个**还有额度**的桶，不能拿一个桶的状态给整个 codex 下结论。
+- `codex login status` 返回 `Logged in using ChatGPT` 只证明凭据有效，**不提供任何额度信息**。用登录态推「codex 可用」是 2026-09-12 事故的直接成因。
+- 派发前先读 `~/.codex/config.toml` 的 `model`：这就是这台机器当前实际会用的桶，优先沿用它，不要绕过它从模型目录另挑。2026-09-12 事故中该配置为 `model = "gpt-5.3-codex-spark"`（本机实测），正是当时唯一还有额度的桶。
+
+**度量样本（2026-09-12，调用方只读额度探测器 `scripts/quota_probe.py --provider codex` 原样输出）：**
+
+| 桶 | 窗口与余量 | 重置 | 判定 |
+|---|---|---|---|
+| codex（默认档） | 周窗 已用 100% · 余量 0% | 2026-09-15 10:44 | 已用尽 |
+| `codex_bengalfox`（`GPT-5.3-Codex-Spark`） | 5h 余量 100%；周窗 余量 98% | — | 可用 |
+
+同次探测附带的原样备注：`credits has_credits=False unlimited=False balance=0`；`rate_limit_reached_type=rate_limit_reached`。
+
+读法：默认档已用尽、要等到 2026-09-15 10:44 才重置；这类状态按 `references/dispatch-contract.md` 的预检字段表记 `live_quota_state=exhausted` 并把重置时间写进 `quota_reset_at`；等不起就换桶（如上面的 Spark 桶）或用 `recommendation=skip` 改派别的执行器，不要直接派默认档。探测器不可用时按契约记 `unknown` 并 `hold`，不得用登录态顶替。
+
 ## Prompt 注入防护
 
 含单引号、特殊字符的 prompt **不能**直接嵌入 `bash -c "..."` 或 `"..."` 参数，否则 shell 解析会崩溃。

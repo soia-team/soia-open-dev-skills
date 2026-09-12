@@ -1,9 +1,9 @@
 ---
 name: soia-dev-enforce-coding-protocol
 description: 用短协议约束工程改动的范围、权限与验证，不另起流程。触发：执行编码协议、约束本次改动、检查修复是否有证据、按任务书约束改动范围、核对改动是否越界、检查验证证据
-version: 1.2.0
+version: 1.2.1
 created_at: 2026-09-08 16:25:00
-updated_at: 2026-09-12 12:00:00
+updated_at: 2026-09-12 14:28:00
 created_by: gpt-5
 updated_by: deepseek-flash
 ---

@@ -73,13 +73,26 @@
 | `executor` | 目标执行器 |
 | `cli_installed` | `true` / `false`（`which <command>` 或等效检测） |
 | `cli_version` | 实际探测到的版本字符串，或 `"unavailable"` |
+| `executor_config_model` | 目标 CLI **自身配置**里已经配好的模型（如 codex `~/.codex/config.toml` 的 `model`），或 `"unknown"`。见下方「先看执行器现有配置，再挑模型」 |
 | `auth_status` | `ok` / `expired` / `unknown` / `blocked_user_action`；优先本地 auth-status。没有该命令时，不得未经确认用模型调用代替 |
-| `last_known_quota_state` | 上一次派发记录里的额度状态；没有记录就是 `"unknown"` |
+| `live_quota_state` | `available` / `exhausted` / `unknown`。**必须来自本次只读实时探测，不得用 `last_known_quota_state` 顶替**；探测来源与探测时间一并记录。按执行器的额度分桶逐个判（codex 分桶事实见 `references/codex-cli.md`），一个桶的状态不能代表整个 CLI |
+| `quota_reset_at` | 额度耗尽时的重置时间（执行器自报，如 `2026-09-15 10:44`）；取不到写 `"unknown"`。它决定该等还是该换：等得起用 `hold`，等不起或另有可用桶/执行器用 `skip` |
+| `last_known_quota_state` | 上一次派发记录里的额度状态；没有记录就是 `"unknown"`。**仅作历史对照，不构成当前可用性证据** |
 | `recommendation` | `proceed` / `hold` / `skip`，附一句理由 |
 
 预检默认不消耗真实模型调用额度（只做版本探测与官方本地状态检查）。浏览器登录、账号选择或任何 `-p` 模型调用不属于默认预检；前者进入 `blocked_user_action`，后者必须先确认可能的额度/费用。`recommendation` 为 `hold` 或 `skip` 时，不得继续派发，除非客户明确批准。
 
-`scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查**——`auth_status` 仍需派发者在预检报告里人工核实或另行探测，脚本本身不会为了验证登录态而发起真实模型调用。
+**`auth_status=ok` 不构成 `recommendation=proceed` 的充分条件。** 登录态只回答「凭据还在不在」，不回答「现在还有没有额度」；`live_quota_state` 为 `unknown` 时 `recommendation` 不得为 `proceed`。2026-09-12 实测事故：主控跑 `codex login status` 得到 `Logged in using ChatGPT` 就判定 codex 可用并从模型目录里挑了 `terra`，而该模型所在档位当周额度余量已经是 0%；登录成功与有额度是两件事。度量见 `references/codex-cli.md` 的额度分桶一节。
+
+**实时额度的只读探测来源，按此顺序取：**
+
+1. 调用方项目若提供**只读**额度探测器，预检必须使用它（例如 SoiaDeck 的 `scripts/quota_probe.py`，支持 codex / deepseek / claude 三个 provider）。本技能不依赖任何特定项目的脚本路径，调用方没有该工具就进下一条。
+2. 按对应执行器 reference 里的**官方只读状态命令**取。
+3. 两条路都取不到时，`live_quota_state` 记 `"unknown"` 且 `recommendation` 置 `hold`；不得拿 `last_known_quota_state` 或 `auth_status` 推一个值填进去。
+
+**先看执行器现有配置，再挑模型。** 派发前读目标 CLI 自己的配置（codex 见 `~/.codex/config.toml` 的 `model`），把值记进 `executor_config_model`；**机器上已经配好的模型优先于从 `references/model-catalog.yml` 目录里另挑一个**。目录给的是价格与能力事实，不是「这台机器此刻跑哪个」。跳过这一步的真实代价：2026-09-12 事故里本机 `~/.codex/config.toml` 配的正是当时唯一还有额度的桶，而派发方没读配置、直接从目录挑了已用尽的档位。
+
+`scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查，也不做实时额度探测**——它只在调用输出命中 `usage limit` / `quota` 类文本后把该 case 反应式地标成 `blocked_quota`（那一刻调用已经发生、额度已经消耗）。因此 `auth_status`、`live_quota_state`、`quota_reset_at` 与 `executor_config_model` 仍需派发者在预检报告里人工核实或另行探测；脚本本身不会为了验证登录态或额度而发起真实模型调用。
 
 ## Independence Gate
 
@@ -210,7 +223,7 @@ Token 与费用：
 2. **pi×本地端点的工具任务限制（2026-08-21 二分细化）**：中文×工具任务稳定死循环（高频短请求打转超时零产物）；长 prompt×工具曾零请求挂死（2026-08-20 两次）。英文短任务×工具实测 7s 可过、中文纯问答可过。纪律：pi 派本地端点只给英文任务或纯问答，中文工具任务改派 dsh（细节见 `references/pi-cli.md` 已知限制节）。
 3. **派发到本地/自建端点必须验证请求真到目标端点**：对照目标与非目标端点服务日志的请求计数确认新增请求落点——配置叠加层可能被持久层静默压制（dsh `--patch` 被 `~/.dsh/settings.yaml` 压制的假对照实例见 `references/dsh-cli.md`），执行器"跑成功了"不等于"目标模型跑的"。
 4. **自指危险（服务生命周期类任务）**：派发「管理服务启停脚本」类任务时，agent 超范围自验 `start` 命令会先杀掉旧服务——而那可能正是它自己赖以对话的模型端点，导致 TRANSPORT 断连（产物其实已完成但会话死亡）。对策：此类任务的验收命令显式禁止真实执行 start/stop（用 status/dry-run 验收），或给 agent 配独立端点。
-5. **派单必须填「适用技能」（2026-09-12 增补）**：任务书字段表的「适用技能」是派发方的义务字段，按本单实际要用的技能逐个列名（字段格式与示例见 `task-brief.md`）；**留空视为任务书缺陷**，主控不得就这样发出。自动发起的独立评审同样是一张任务书，派发时要填 `soia-dev-review-code`。执行者侧对应两条：开工前先加载这些技能全文，回报第一节写明实际加载项与未加载原因。理由是「技能在清单里可见」不等于「技能已生效」——2026-09-11 取证，执行端可见技能从 1 项（项目技能 0）升到 16 项（含 10 个 soia-dev 技能、描述为 v2.4.0 新版）后，Skill 调用数仍为 0（3 个会话，各 238–298 次工具调用）。判据与一手数据见 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的「技能送达≠技能生效」。
+5. **派单必须填「适用技能」（2026-09-12 增补，同日实测补强）**：任务书字段表的「适用技能」是派发方的义务字段，也是本技能「输入契约」里的必填项 `applicable_skills`，按本单实际要用的技能逐个列名（字段格式与示例见 `task-brief.md`）；**留空视为任务书缺陷**，主控不得就这样发出。自动发起的独立评审同样是一张任务书，派发时要填 `soia-dev-review-code`。执行者侧对应两条：开工前先加载这些技能全文，回报第一节写明实际加载项与未加载原因。理由是「技能在清单里可见」不等于「技能已生效」——2026-09-11 取证，执行端可见技能从 1 项（项目技能 0）升到 16 项（含 10 个 soia-dev 技能、描述为 v2.4.0 新版）后，Skill 调用数仍为 0（3 个会话，各 238–298 次工具调用）。**触发词不能当主要机制，只是兜底**：2026-09-12 三臂对照（同一份薄任务书，唯一变量是本字段）技能可见但不带字段时加载数为 0、技能可见且多这一行时加载 6 次；触发词是动作措辞、真实任务书是问题措辞，实测零重叠。判据与一手数据见 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的「技能送达≠技能生效」与其后的「触发词在真实任务书措辞下的命中情况」两节。
 
 ## 危险目录 / Dangerous directories
 

@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」、按任务书派发外部执行器、发起独立评审派发
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.8.0
+version: 1.9.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-12 12:00:00
+updated_at: 2026-09-12 14:28:00
 created_by: claude opus 4.6
 updated_by: deepseek-flash
 ---
@@ -148,6 +148,7 @@ task:
   title: <short-title>
   objective: <observable-result>
   acceptance: [<evidence>]
+  applicable_skills: [<skill-name>, ...]   # 派发方必填，留空即任务书缺陷
 executor: <agent-id-or-auto>
 model: <model-id-or-auto>
 reasoning: <level-or-auto>
@@ -162,6 +163,8 @@ permissions:
 
 未明确授权的权限保持 `false`。显式指定的执行器、模型和推理档优先；但未验证组合必须标记 `explicit_unverified`，不能包装为自动推荐。
 Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属于调用方项目/用户策略，不由本通用技能写死；派发者必须把该策略作为本次输入，未提供时才按任务复杂度和现有验证证据给出候选。
+
+**`applicable_skills` 由派发方填写，是必填项**：逐个列出本单应当加载的技能名（技能仓里的 `name`，不带路径）。**技能 frontmatter 的触发词只是兜底，不是本字段的替代品**——触发词写的是动作措辞（「实现这个任务」「修复这个 bug」），真实任务书写的是问题措辞（如「把这份『哪些旧地址归到哪个 rail』的知识改成数据驱动」），2026-09-12 实测两者零重叠；同一份薄任务书的三臂对照里，技能可见但不带本字段时技能加载数为 0，技能可见且只多这一行时才实际加载。字段格式与示例见 `references/task-brief.md`，一手数据与判据见 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的「技能送达≠技能生效」与「触发词在真实任务书措辞下的命中情况」两节。
 
 ## 核心流程
 
@@ -189,7 +192,9 @@ python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|h
 ### 3. 执行前预检
 
 - 运行 `command -v <cli>` 和 `<cli> --version`，记录实际版本。
+- 读取目标 CLI 自己的配置里已配的模型（codex 见 `~/.codex/config.toml` 的 `model`），**机器上已配好的模型优先于从目录另挑**。
 - 使用官方只读状态检查认证/套餐；如果检查本身会调用付费模型，先取得客户确认。
+- **实时额度必须单独探测**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件；额度未知时不得 `proceed`。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。
 - 检查 workdir 是否存在、是否是凭据/配置目录、是否有未提交改动以及是否与其他任务重叠。
 - 不可服务、认证阻断、额度不足或目录不安全时停止并给出明确状态。
 - Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道必须分开，禁止复制认证状态或静默 alias。

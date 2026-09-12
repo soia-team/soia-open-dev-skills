@@ -3,6 +3,18 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.6.0 — 2026-09-12
+
+额度预检改读实时额度（新增 live_quota_state/quota_reset_at/executor_config_model）+ applicable_skills 升为输入契约必填、触发词降为兜底
+
+## 修复
+- fix(dispatch): 额度「唯一可用桶」表述收窄到当次探测范围
+- fix(dispatch): 额度预检改读实时额度 + 「适用技能」升为输入契约必填
+
+## 维护
+- chore(release): bump train to 2.6.0-SNAPSHOT (behavior change: 额度预检改读实时额度 + applicable_skills 升为必填)
+- chore(release): open next train after v2.5.0 (#113)
+
 ## v2.5.0 — 2026-09-11
 
 自动独立评审上线 + 技能触达修复（适用技能字段、触发词书面语变体、失效模式回填）

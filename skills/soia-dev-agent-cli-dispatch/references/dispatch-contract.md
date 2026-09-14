@@ -145,7 +145,7 @@ python3 scripts/route_model.py --executor codex --complexity medium \
 
 ## Independence Gate
 
-保证"审的人"和"做的人"不是同一个模型血统。Model Integrity Gate 管的是"用的模型
+按已选独立性政策核对"审的人"和"做的人"。Model Integrity Gate 管的是"用的模型
 对不对"，本门禁管的是"这个模型有没有资格审这份产物"。
 
 触发条件：`dispatch_role=reviewer`。其余角色（`coordinator` / `executor` /
@@ -155,15 +155,14 @@ python3 scripts/route_model.py --executor codex --complexity medium \
 
 1. `dispatch_role=reviewer` 时必须提供 `executor_model`（被审实现者所用模型）。
    缺失即 `blocked_independence`——没有对照对象就无法证明独立性，不得默认放行。
-2. 比较 catalog 中两个模型的 `provider` 与 `model_family`（`references/model-catalog.yml`
-   的字段，不另建映射）。**同 provider 且同 model_family** 即判 `blocked_independence`，
-   不得执行。
-3. `executor_model` 不在 catalog 中时同样 `blocked_independence`：无法比对家族就
+2. `--independence-policy` 由用户/项目政策决定。默认 `different_family` 比较 catalog 的 `provider` 与 `model_family`；显式 `different_model` 比较解析 alias 后的规范 `model_id`。同一规范模型在两种政策下均阻断，未知对照模型仍阻断；记录采用的政策，执行后的 actual_model 仍需核验。
+
+3. `executor_model` 不在 catalog 中时同样 `blocked_independence`：无法比对模型身份就
    不能宣称独立，应先登记该模型。
 4. reviewer 模型不在 catalog 中时不阻断，但独立性标记为 `unverified`，回执必须写明
    这一点，不能写成"已独立复核"。
 5. 跨代同厂（如 `claude-opus-5` 审 `claude-opus-4-8`）在 catalog 中是不同
-   `model_family`，因此**放行**。这是刻意的取舍：门禁只机械拦截同族自审，
+   `model_family`，因此**放行**。这是刻意的取舍：默认政策机械拦截同族自审；显式不同模型政策则拦截同一规范模型，
    跨代是否足够独立由派发者按任务风险自行判断，脚本不替你下这个结论。
 
 机械判定：
@@ -171,6 +170,7 @@ python3 scripts/route_model.py --executor codex --complexity medium \
 ```bash
 python3 scripts/route_model.py --executor <executor> --complexity <level> \
   --role reviewer --executor-model <被审模型> [--model <reviewer 模型>] \
+  [--independence-policy different_family|different_model] \
   --quota-observations <预检报告.json>
 ```
 
@@ -275,7 +275,7 @@ Token 与费用：
 2. **pi×本地端点的工具任务限制（2026-08-21 二分细化）**：中文×工具任务稳定死循环（高频短请求打转超时零产物）；长 prompt×工具曾零请求挂死（2026-08-20 两次）。英文短任务×工具实测 7s 可过、中文纯问答可过。纪律：pi 派本地端点只给英文任务或纯问答，中文工具任务改派 dsh（细节见 `references/pi-cli.md` 已知限制节）。
 3. **派发到本地/自建端点必须验证请求真到目标端点**：对照目标与非目标端点服务日志的请求计数确认新增请求落点——配置叠加层可能被持久层静默压制（dsh `--patch` 被 `~/.dsh/settings.yaml` 压制的假对照实例见 `references/dsh-cli.md`），执行器"跑成功了"不等于"目标模型跑的"。
 4. **自指危险（服务生命周期类任务）**：派发「管理服务启停脚本」类任务时，agent 超范围自验 `start` 命令会先杀掉旧服务——而那可能正是它自己赖以对话的模型端点，导致 TRANSPORT 断连（产物其实已完成但会话死亡）。对策：此类任务的验收命令显式禁止真实执行 start/stop（用 status/dry-run 验收），或给 agent 配独立端点。
-5. **派单必须填「适用技能」（2026-09-12 增补，同日实测补强）**：任务书字段表的「适用技能」是派发方的义务字段，也是本技能「输入契约」里的必填项 `applicable_skills`，按本单实际要用的技能逐个列名（字段格式与示例见 `task-brief.md`）；**留空视为任务书缺陷**，主控不得就这样发出。自动发起的独立评审同样是一张任务书，派发时要填 `soia-dev-review-code`。执行者侧对应两条：开工前先加载这些技能全文，回报第一节写明实际加载项与未加载原因。理由是「技能在清单里可见」不等于「技能已生效」——2026-09-11 取证，执行端可见技能从 1 项（项目技能 0）升到 16 项（含 10 个 soia-dev 技能、描述为 v2.4.0 新版）后，Skill 调用数仍为 0（3 个会话，各 238–298 次工具调用）。**触发词不能当主要机制，只是兜底**：2026-09-12 三臂对照（同一份薄任务书，唯一变量是本字段）技能可见但不带字段时加载数为 0、技能可见且多这一行时加载 6 次；触发词是动作措辞、真实任务书是问题措辞，实测零重叠。判据与一手数据见 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的「技能送达≠技能生效」与其后的「触发词在真实任务书措辞下的命中情况」两节。
+5. **适用技能按需声明**：保留 `applicable_skills` 字段；无匹配技能可写 `[]`，不阻断普通任务。列出的必要技能必须实际加载，回执说明未加载项及其影响；不得为满足字段而扩大工作流。
 
 ## 危险目录 / Dangerous directories
 

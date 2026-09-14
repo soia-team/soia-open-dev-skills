@@ -1,11 +1,11 @@
 ---
 name: soia-dev-audit-ui
 description: 只读验收界面，将布局、键盘等技术证据与 UX、视觉判断分开报告。触发：验收这个界面、检查键盘和布局、评审视觉与体验、界面验收、按验收标准核对界面
-version: 1.2.0
+version: 1.2.1
 created_at: 2026-09-08 17:24:05
-updated_at: 2026-09-12 12:00:00
+updated_at: 2026-09-14 14:10:23
 created_by: gpt-5
-updated_by: deepseek-flash
+updated_by: gpt-6-astra
 ---
 
 # soia-dev-audit-ui
@@ -27,7 +27,7 @@ updated_by: deepseek-flash
 
 只有截图时只判断截图可见内容，键盘、状态和实际交互标为未验证；不据此断言可访问性通过。
 
-各项下限、WCAG 条款、证据来源标注与严重度判据见[技术验收判据](references/technical-checks.md)；按需加载，不必每次验收全量读取。阈值行带 `ui-threshold` 标记，与 `soia-dev-design-ui` 的 `craft-floor.md` 由 `soia-dev-design-ui` 的 `scripts/check_ui_thresholds.py` 机械核对；验收涉及共享阈值时先确认该检查为绿。
+各项下限、WCAG 条款、证据来源标注与严重度判据见[技术验收判据](references/technical-checks.md)；按需加载，不必每次验收全量读取。阈值行带 `ui-threshold` 标记，与 `soia-dev-design-ui` 的 `craft-floor.md` 由 `soia-dev-design-ui` 的 `scripts/check_ui_thresholds.py` 机械核对；仅维护技能自身的共享阈值定义时运行该检查；普通目标页面验收直接使用适用判据，不因未安装设计技能而阻断。
 
 ## UX / 视觉判断
 

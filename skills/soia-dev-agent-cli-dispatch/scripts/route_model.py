@@ -43,9 +43,9 @@ class IndependenceGateError(RouteError):
 
 
 # dispatch_role values recognized by the Independence Gate. Only `reviewer`
-# is gated here: a reviewer that shares the executor's provider AND
-# model_family cannot supply independent judgement about that executor's own
-# output. The other roles are accepted and recorded, but not constrained.
+# is gated here. The default policy compares provider/model_family; an explicit
+# different_model policy compares canonical model IDs. Neither permits the
+# same model. Other roles are accepted and recorded, but not constrained.
 DISPATCH_ROLES = ("coordinator", "executor", "verifier", "reviewer", "adversary", "mechanical")
 GATED_ROLES = ("reviewer",)
 
@@ -363,16 +363,18 @@ def _resolve_identity(data: dict, requested: str) -> tuple[str, str] | None:
     return (str(provider), str(family) if family else "")
 
 
-def check_independence(data: dict, role: str | None, reviewer_model: str | None, executor_model: str | None) -> dict[str, Any] | None:
+def check_independence(data: dict, role: str | None, reviewer_model: str | None, executor_model: str | None, policy: str = "different_family") -> dict[str, Any] | None:
     """Independence Gate. Returns an evidence dict, or raises for a conflict.
 
     Only applies to gated roles (currently `reviewer`). A reviewer must be
     told which model produced the work under review (`executor_model`);
     without it there is no way to prove independence, so the gate blocks
-    rather than assuming. Same provider AND same model_family means the
-    reviewer is the same generation of the same model line as the
-    implementer -- that is not an independent second opinion.
+    rather than assuming. The default policy rejects the same provider/family;
+    an explicit different_model policy permits distinct canonical model IDs.
+    Both policies reject the same canonical model.
     """
+    if policy not in ("different_family", "different_model"):
+        raise IndependenceGateError(f"independence_gate: unknown independence policy {policy!r}")
     if not role:
         return None
     if role not in DISPATCH_ROLES:
@@ -399,15 +401,19 @@ def check_independence(data: dict, role: str | None, reviewer_model: str | None,
             "executor_model_family": executor_identity[1],
             "note": "reviewer model is not resolvable in the catalog; independence is unverified, not proven",
         }
-    if reviewer_identity == executor_identity:
+    reviewer_entry, _ = _resolve_model(data, reviewer_model)
+    executor_entry, _ = _resolve_model(data, executor_model)
+    same_model = reviewer_entry.get("model_id") == executor_entry.get("model_id")
+    if same_model or (policy == "different_family" and reviewer_identity == executor_identity):
         raise IndependenceGateError(
             f"independence_gate: reviewer model {reviewer_model!r} and executor model "
             f"{executor_model!r} share provider={reviewer_identity[0]!r} and "
-            f"model_family={reviewer_identity[1]!r}; a same-family reviewer is not independent"
+            f"model_family={reviewer_identity[1]!r}; reviewer conflicts with policy={policy!r}"
         )
     return {
         "dispatch_role": role,
         "independence": "independent",
+        "policy": policy,
         "executor_model": executor_model,
         "executor_model_family": executor_identity[1],
         "reviewer_model_family": reviewer_identity[1],
@@ -502,7 +508,7 @@ def _scope_keys_for(executor: str, model: dict[str, Any], authorizing: list[dict
     return sorted(keys)
 
 
-def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None, quota_evidence: dict[str, Any] | None = None) -> dict[str, Any]:
+def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None, quota_evidence: dict[str, Any] | None = None, independence_policy: str = "different_family") -> dict[str, Any]:
     """Select a model/effort pair authorized by a validated live-quota precheck.
 
     `quota_evidence` must come from `load_quota_observations()` /
@@ -655,7 +661,7 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
     selected_observation = next(
         (obs for obs in authorizing if obs["scope_key"] == selected_scope), None
     )
-    independence = check_independence(data, role, model.get("model_id"), executor_model)
+    independence = check_independence(data, role, model.get("model_id"), executor_model, independence_policy)
     receipt_extra = {"independence_gate": independence} if independence else {}
     return {
         **receipt_extra,
@@ -1318,6 +1324,14 @@ def run_selftest() -> int:
     ))
 
     # --- Independence Gate (dispatch_role) ---
+    distinct, distinct_error = route("codex", "medium", "gpt-5.6-terra", role="reviewer", executor_model="gpt-5.6-luna", quota_evidence=codex_terra, independence_policy="different_model")
+    checks.append(("project different_model policy accepts Luna to Terra", distinct_error is None and distinct["independence_gate"]["policy"] == "different_model"))
+    _, same_policy_error = route("codex", "medium", "gpt-5.6-terra", role="reviewer", executor_model="gpt-5.6-terra", quota_evidence=codex_terra, independence_policy="different_model")
+    checks.append(("different_model policy still rejects identical models", same_policy_error is not None))
+    _, default_family_error = route("codex", "medium", "gpt-5.6-terra", role="reviewer", executor_model="gpt-5.6-luna", quota_evidence=codex_terra)
+    checks.append(("default policy preserves same-family rejection", default_family_error is not None))
+    _, missing_quota_policy_error = route("codex", "medium", "gpt-5.6-terra", role="reviewer", executor_model="gpt-5.6-luna", independence_policy="different_model")
+    checks.append(("different_model policy never bypasses quota evidence", missing_quota_policy_error is not None))
     _, same_model_error = route("claude", "medium", "claude-sonnet-5", role="reviewer", executor_model="claude-sonnet-5", quota_evidence=claude_sonnet)
     checks.append(("reviewer with the same model as the executor blocks", same_model_error is not None))
     _, same_family_error = route("claude", "medium", "claude-opus-4-8", role="reviewer", executor_model="claude-opus-4-7", quota_evidence=claude_opus_4_8)
@@ -1374,6 +1388,7 @@ def main() -> int:
     parser.add_argument("--reasoning")
     parser.add_argument("--role", choices=list(DISPATCH_ROLES), help="dispatch_role for this call; 'reviewer' activates the Independence Gate")
     parser.add_argument("--executor-model", dest="executor_model", help="model that produced the work under review; required when --role reviewer")
+    parser.add_argument("--independence-policy", choices=["different_family", "different_model"], default="different_family", help="user/project review policy; never bypasses same-model or quota gates")
     parser.add_argument(
         "--quota-observations",
         dest="quota_observations",
@@ -1412,7 +1427,7 @@ def main() -> int:
         evidence = load_quota_observations(Path(args.quota_observations), data)
         result = route_model(
             data, args.executor, args.complexity, args.model, args.reasoning,
-            role=args.role, executor_model=args.executor_model, quota_evidence=evidence,
+            role=args.role, executor_model=args.executor_model, quota_evidence=evidence, independence_policy=args.independence_policy,
         )
     except (OSError, catalog_lib.CatalogError, RouteError) as exc:
         print(json.dumps({"selection_status": "blocked", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)

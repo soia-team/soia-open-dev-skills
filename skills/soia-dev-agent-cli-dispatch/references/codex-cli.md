@@ -132,7 +132,7 @@ HTTP 回环、端口监听或依赖起本地服务的验证任务在该沙箱中
 - 额度判断必须**按桶**做，并选一个**还有额度**的桶，不能拿一个桶的状态给整个 codex 下结论。
 - `codex login status` 返回 `Logged in using ChatGPT` 只证明凭据有效，**不提供任何额度信息**。用登录态推「codex 可用」是 2026-09-12 事故的直接成因。
 - 派发前先读 `~/.codex/config.toml` 的 `model`，但它是**默认**模型、不是无条件的 effective model：官方配置优先级是 CLI 参数（`-m/--model`）→ 项目 `.codex/config.toml` → profile → 用户 `~/.codex/config.toml`，用户配置排第四。显式 `-m` 会覆盖它：2026-09-12 当天该配置写的是 `model = "gpt-5.3-codex-spark"`（本机实测），而主控派发本轮独立评审用的命令是 `codex exec -m gpt-5.6-sol ...`，实际执行的是 `gpt-5.6-sol`——把用户配置里的 `model` 记成 `executor_config_default_model`，把被覆盖后真正请求的模型记成 `selected_model`，不要把前者写成本次实际会用的桶。跳过配置读取的代价同样真实：当次探测到的两个桶里，该配置指向的 Spark 桶正是唯一还有额度的那个。
-- 探测结果要作为**选型的输入**，不是选完再复查：把观测为 `available` 的桶（模型 id、别名，或桶名如 `codex_bengalfox`）传给 `scripts/route_model.py --available-model`（`--quota-observations <预检报告.json>` 亦可），路由就只在可用桶里选；显式指定了一个不可用的桶时脚本拒绝并写明 `quota_unavailable`，不会静默换桶。完全不传可用桶时回执带 `quota_filter.applied=false`，即该回执不证明选中的桶有额度。
+- 探测结果要作为**选型的输入**，不是选完再复查：把这次探测写成预检报告（`auth_status=ok`；默认档一条 observation、Spark 桶一条，每条都带非空 `bucket`/`model`/`state`/`source`/`probed_at`），用 `scripts/route_model.py --quota-observations <预检报告.json>` 交给路由。路由只在报告中 `state=available` 且绑定到候选模型自己那个桶的条目里选；显式指定或报告绑定的桶不可用时脚本拒绝并写明 `quota_unavailable`，不会静默换桶。裸模型名入口 `--available-model` 自 2.0.0 起移除——单个模型名没有 auth_status、桶、source、probed_at，不构成预检证据，旧命令以 `quota_evidence_missing` 和非 0 退出。
 
 **度量样本（2026-09-12，调用方只读额度探测器 `scripts/quota_probe.py --provider codex` 原样输出）：**
 

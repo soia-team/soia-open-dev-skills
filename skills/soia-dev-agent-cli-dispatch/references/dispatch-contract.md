@@ -104,6 +104,27 @@
 
 `recommendation` 为 `hold` 或 `skip` 时，不得继续派发，除非客户明确批准。**「客户明确批准」只覆盖费用与等待这类偏好**：客户可以决定「值得等」「这笔钱可以花」「换更贵的桶也行」，但批准**不能**把 `unknown` 或 `exhausted` 改写成「可用」这个事实，也不能让 `proceed` 成立。批准记录必须写明它覆盖的是哪一项偏好；写成「已批准，所以可用」按伪造额度观测处理。额度未知或耗尽时只有三条路：等重置、换一个已观测为 `available` 的桶/执行器、或按 `hold` / `skip` 阻断。
 
+**机械入口：`scripts/route_model.py` 只认这份报告的 JSON 形式。** 自动路由与显式选型都必须带 `--quota-observations <预检报告.json>`：
+
+```bash
+python3 scripts/route_model.py --executor codex --complexity medium \
+  --quota-observations precheck.json [--model <显式模型>] [--reasoning <档位>]
+```
+
+下列校验逐条机械执行，任一条不成立即向 stderr 输出 `{"selection_status": "blocked", "error": "..."}` 并以非 0 退出：
+
+| 检查 | 失败前缀 |
+|---|---|
+| 提供了报告，且 `auth_status=ok` | `quota_evidence_missing` / `auth_not_ok` |
+| 报告是 JSON 对象（不是裸列表），`quota_observations[]` 非空，每条 observation 带非空 `bucket`/`model`/`state`/`source`/`probed_at` | `quota_evidence_malformed` / `quota_evidence_incomplete` |
+| observation 的 `model` 能在 catalog 中解析，且该 `bucket` 属于这个模型（其 `quota_scope_keys`，catalog 未声明时按实际桶名）；别名、大小写或空白归一不得把冲突洗成合法 | `quota_binding_conflict` |
+| 报告的 `selected_model` 与 `quota_scope_key` 必须成对出现，并与授权该模型的 observation 的 model/bucket 一致；冲突时不改选、不归一。报告已绑定模型时按绑定确认（能力未验证则记 `explicit_unverified`），自动路由不会改选别的可用桶 | `quota_binding_conflict` / `explicit_required` |
+| 报告的 `executor` 与本次 `--executor` 一致 | `quota_binding_conflict` |
+| `recommendation` 为 `hold`/`skip` 时不得继续 | `recommendation_blocked` |
+| 选中的模型必须有一条 `state=available` 且绑定到它自己那个桶的 observation | `quota_unavailable` |
+
+客户批准（`customer_approval` 或任何等价字段）不是上述任何一条的输入：它不能把 `unknown`/`exhausted` 变成 `available`，也不能让 `auth_status != ok` 通过。裸模型名入口 `--available-model` 自 2.0.0 起移除——单个模型名既没有 `auth_status`、桶、`source` 也没有 `probed_at`，构不成预检证据；旧命令以 `quota_evidence_missing` 和非 0 退出。回执的 `quota_scope_keys` 取授权该模型的 observation 桶（桶名为 `unknown` 时回退 `executor:model`），`quota_filter.selected_observation` 保留该观测的 bucket/model/source/probed_at，供写进 cases.json 与事后核对；`quota_filter.applied` 恒为 `true`，因为不存在无预检证据的成功回执。
+
 **`auth_status=ok` 不构成 `recommendation=proceed` 的充分条件。** 登录态只回答「凭据还在不在」，不回答「现在还有没有额度」；`selected_model` 对应 observation 为 `unknown` 时 `recommendation` 不得为 `proceed`。2026-09-12 实测事故：主控跑 `codex login status` 得到 `Logged in using ChatGPT` 就判定 codex 可用并从模型目录里挑了 `terra`，而该模型所在档位当周额度余量已经是 0%；当次探测里 `available` 的那个桶属于 Spark，却被执行器级标量挪用给了 terra——观测没有绑定到对象，这一步就无法被机械发现。登录成功与有额度是两件事。度量见 `references/codex-cli.md` 的额度分桶一节。
 
 **实时额度的只读探测来源，按此顺序取：**
@@ -149,8 +170,11 @@
 
 ```bash
 python3 scripts/route_model.py --executor <executor> --complexity <level> \
-  --role reviewer --executor-model <被审模型> [--model <reviewer 模型>]
+  --role reviewer --executor-model <被审模型> [--model <reviewer 模型>] \
+  --quota-observations <预检报告.json>
 ```
+
+reviewer 派发同样受额度预检约束：报告必须授权 reviewer 模型自己的桶；`blocked_independence` 与 `quota_evidence_missing` 都表示调用没有发生，不得改写成「已审、未发现问题」。
 
 冲突时脚本向 stderr 输出 `{"selection_status": "blocked", "error": "independence_gate: ..."}`
 并以非 0 退出；放行时回执带 `independence_gate` 字段。

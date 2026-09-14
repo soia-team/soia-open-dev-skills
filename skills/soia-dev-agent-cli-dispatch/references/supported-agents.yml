@@ -2,20 +2,20 @@
 # This is not a credential file. Keep mutable support facts here; prose should link here instead of copying the matrix.
 schema_version: 1
 config_template: assets/config.example.yml
-updated_at: "2026-09-11"
+updated_at: "2026-09-14"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "1.6.6"
+  version: "2.0.0"
   purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
   triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
 usage:
-  prerequisites: [目标工作目录, 已安装的目标 CLI, provider 自己的登录态]
+  prerequisites: [目标工作目录, 已安装的目标 CLI, provider 自己的登录态, 本次实时额度预检报告]
   auto_route:
-    command: "python3 scripts/route_model.py --executor <executor> --complexity <easy|medium|hard>"
-    rule: "只从 verified candidate 自动选择；没有证据时返回阻断。"
+    command: "python3 scripts/route_model.py --executor <executor> --complexity <easy|medium|hard> --quota-observations <precheck-report.json>"
+    rule: "预检报告是选型的必要输入：auth_status=ok，每条 observation 非空带 bucket/model/state/source/probed_at，且与最终模型的桶绑定一致；自动路由只从 state=available 且属于 verified candidate 的桶里选。缺失、错绑、畸形输入或 auth 非 ok 一律阻断（非 0）；客户批准不能把 unknown/exhausted 改写成可用。"
   explicit_dispatch:
-    rule: "显式 model/reasoning 优先；未验证组合必须标记 explicit_unverified。"
+    rule: "显式 model/reasoning 优先且不静默换桶，但仍须由同一份预检报告中该模型自己的 available observation 授权；未验证组合必须标记 explicit_unverified。"
   verified_pi_example:
     command: "pi -p --mode json --no-session --provider deepseek --model deepseek-flash --thinking low '@<prompt-file>'"
     result: "从最终 assistant message_end 核对实际模型、input/cache/output/total tokens 和 cost。"

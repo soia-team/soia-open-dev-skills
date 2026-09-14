@@ -163,16 +163,18 @@ Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10
 
 确定 easy/medium/hard 后调用 `scripts/route_model.py`；自动路由只选择同时具备 `routing_profile`、`discovered_at`、`discovery_evidence` 和已验证 reasoning levels 的模型。显式指定模型/档位始终优先，但未验证组合必须标记 `explicit_unverified`。
 
-**额度预检是选型的输入，不是选完的复查**：把预检观测为 `available` 的桶（模型 id、别名或桶名，如 `codex_bengalfox`）用 `--available-model` 传入，或直接把预检报告交给 `--quota-observations`。路由只在可用桶里选；显式选中的桶不可用时拒绝并写明 `quota_unavailable`，不静默换桶。
+**额度预检是选型的必要输入，不是选完的复查**：把预检报告交给 `--quota-observations`（见 `references/dispatch-contract.md` 的「机械入口」）。脚本要求 `auth_status=ok`、每条 observation 带非空 `bucket`/`model`/`state`/`source`/`probed_at`，且桶与模型、报告的 `selected_model`/`quota_scope_key` 三者绑定一致；缺失、错绑或畸形输入一律阻断并以非 0 退出。路由只在报告中 `state=available` 且绑定到候选模型自己那个桶的条目里选；显式选中或报告绑定的桶不可用时拒绝并写明 `quota_unavailable`，不静默换桶。裸模型名 `--available-model` 自 2.0.0 起移除，不再构成证据。
 
 ```bash
 python3 scripts/route_model.py --executor codex --complexity hard \
-  --available-model gpt-5.6-sol
-python3 scripts/route_model.py --executor claude --complexity medium --model claude-sonnet-5 --reasoning high
-python3 scripts/route_model.py --executor codex --complexity medium --quota-observations precheck.json
+  --quota-observations precheck.json
+python3 scripts/route_model.py --executor claude --complexity medium --model claude-sonnet-5 \
+  --reasoning high --quota-observations precheck-claude.json
+python3 scripts/route_model.py --executor codex --complexity medium \
+  --quota-observations precheck.json --model gpt-5.3-codex-spark
 ```
 
-每次路由必须输出 `selected_model`、`selected_reasoning_effort`、`task_complexity`、`selection_reason`、`estimated_cost_range`、`catalog_version`、`selection_status` 与 `quota_filter`（含 `applied`、`available_inputs`、`excluded_models`；`applied=false` 表示本次没有额度观测输入，回执不证明选中桶有额度），再把结果写入统一调用契约；`quota_scope_keys` 同时用于 cases.json 的 `quota_scope_key`。没有 verified candidate、或没有 verified candidate 落在可用桶时返回阻断状态，不得从 `pending_benchmark` 候选中静默挑一个，也不得把未验证的可用桶塞进自动路由结果（只能显式 `--model` 指定）。
+每次路由必须输出 `selected_model`、`selected_reasoning_effort`、`task_complexity`、`selection_reason`、`estimated_cost_range`、`catalog_version`、`selection_status` 与 `quota_filter`（含 `applied`、`report`、`auth_status`、`available_inputs`、`available_buckets`、`authorized_models`、`selected_observation`、`excluded_models`；`applied` 恒为 `true`，因为无预检证据的调用不会返回回执），再把结果写入统一调用契约；`quota_scope_keys` 取授权该模型的 observation 桶（桶名 `unknown` 时回退 `executor:model`），同时用于 cases.json 的 `quota_scope_key`。没有 verified candidate、或没有 verified candidate 落在可用桶时返回阻断状态，不得从 `pending_benchmark` 候选中静默挑一个，也不得把未验证的可用桶塞进自动路由结果（只能显式 `--model` 指定）。
 
 ### 与 model-catalog.yml 的关系
 

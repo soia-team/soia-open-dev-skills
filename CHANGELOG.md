@@ -3,6 +3,19 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.0 — 2026-09-14
+
+Improve external CLI progress visibility and effective-provider dispatch evidence.
+
+### Changed
+- Dispatch skill 2.2.1 adds real-time Claude stream-json forwarding while preserving complete output, failure exit codes and timeout handling; JSON output remains compatible.
+- Clarify actual-model evidence and DSH explicit dispatch: effective cloud providers retain verified availability gates; local-only endpoints do not claim verified automatic routing.
+- Preserve documented limitations: provider balance observations are caller-supplied; no universal balance probe is introduced.
+
+### Verification
+- Tooling tests: 63 passed; streaming wrapper selftest: 13 passed; strict audit, catalog, expert manifest and installation-section checks passed.
+- Existing implementation and incremental documentation review completed by Opus; no installation, cache cleanup or branch/worktree deletion.
+
 ## v2.7.1 — 2026-09-14
 
 Reduce unnecessary skill loading and repeated confirmations while preserving engineering safety.

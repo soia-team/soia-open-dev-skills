@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」、按任务书派发外部执行器、发起独立评审派发
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 1.10.0
+version: 2.0.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-12 19:40:00
+updated_at: 2026-09-14 10:35:00
 created_by: claude opus 4.6
 updated_by: deepseek-flash
 ---
@@ -21,7 +21,7 @@ updated_by: deepseek-flash
 | 客户想要 | 技能会做 | 客户能看到 |
 |---|---|---|
 | 派一个任务给指定 AI CLI | 检查 CLI、认证、工作目录和权限，按该执行器规范启动 | 执行器、请求/实际模型、状态与验证结果 |
-| 让系统自动选择模型档位 | 只从已有验证证据、且实时额度观测为 `available` 的候选桶中选择；无候选时阻断 | 选择理由、推理档、可用桶与 `quota_scope_key`、价格区间与证据状态 |
+| 让系统自动选择模型档位 | 只从已有验证证据、且本次预检报告里 `available` 的候选桶中选择；报告缺失、错绑或畸形时阻断 | 选择理由、推理档、可用桶与 `quota_scope_key`、价格区间与证据状态 |
 | 批量或断点执行 | 串行运行 case，逐项原子更新脱敏 manifest | 成功、失败、降级、超时、剩余任务与恢复状态 |
 | 查看支持哪些 AI Agent | 读取 `references/supported-agents.yml` | 支持状态、使用方式、自动路由范围和对应规范 |
 
@@ -188,24 +188,24 @@ Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属�
 - 运行 `command -v <cli>` 和 `<cli> --version`，记录实际版本。
 - 读取目标 CLI 自己的配置里配的**默认**模型（codex 见 `~/.codex/config.toml` 的 `model`），记进 `executor_config_default_model`。它只是默认值，不是本次实际执行模型：`-m/--model`、项目配置和 profile 都会覆盖它（2026-09-12 当天该配置的 `gpt-5.3-codex-spark` 就被 `-m gpt-5.6-sol` 覆盖）。被覆盖时按实际生效的模型记录，不得把默认值当成实际执行模型。
 - 使用官方只读状态检查认证/套餐；如果检查本身会调用付费模型，先取得客户确认。
-- **实时额度必须单独探测，逐桶观测并绑定到模型**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件。本步产出 `quota_observations[]`（每项含 `bucket`/`model`/`state`/`source`/`probed_at`/`reset_at`）；第 4 步选定模型后，把 `selected_model`、`quota_scope_key` 与 `recommendation` 回填进同一份预检报告。`proceed` 的必要条件：**认证可用，且最终选定模型对应的那条 observation 为 `available`**；三条禁止项逐条成立即不得 `proceed`——选定桶为 `exhausted`、为 `unknown`（含缺失）、`auth_status != ok`。客户明确批准只能覆盖费用与等待偏好，不能把 `unknown` 或 `exhausted` 改写成「可用」。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。
+- **实时额度必须单独探测，逐桶观测并绑定到模型**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件。本步产出 `quota_observations[]`（每项含 `bucket`/`model`/`state`/`source`/`probed_at`/`reset_at`）；第 4 步选定模型后，把 `selected_model`、`quota_scope_key` 与 `recommendation` 回填进同一份预检报告。`proceed` 的必要条件：**认证可用，且最终选定模型对应的那条 observation 为 `available`**；三条禁止项逐条成立即不得 `proceed`——选定桶为 `exhausted`、为 `unknown`（含缺失）、`auth_status != ok`。客户明确批准只能覆盖费用与等待偏好，不能把 `unknown` 或 `exhausted` 改写成「可用」。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。第 4 步的 `route_model.py` 只接受这份报告的 JSON 形式（`--quota-observations`）：`auth_status != ok`、缺 `source`/`probed_at`、桶/模型/scope 绑定互相冲突、或省略报告只传一个模型名，都会被拒绝并以非 0 退出。
 - 检查 workdir 是否存在、是否是凭据/配置目录、是否有未提交改动以及是否与其他任务重叠。
 - 不可服务、认证阻断、额度不足或目录不安全时停止并给出明确状态。
 - Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道必须分开，禁止复制认证状态或静默 alias。
 
 ### 4. 选择模型与推理档（消费第 3 步的可用桶）
 
-1. 用户显式指定模型/推理档时按指定值执行，不做静默替换；自动路由时运行：
+1. 用户显式指定模型/推理档时按指定值执行，不做静默替换；自动路由或确认报告里已绑定的选择都运行：
 
 ```bash
 python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|hard> \
-  --available-model <预检观测为 available 的模型 id/别名/桶名> [--available-model ...]
-# 也可直接消费预检报告：--quota-observations <预检报告.json>
+  --quota-observations <第 3 步预检报告.json> [--model <显式模型>] [--reasoning <档位>]
 ```
 
-2. 可用桶输入必须来自第 3 步的实时观测。脚本把它作为选型约束：只在观测为 `available` 的桶里选；选中的桶不可用（含显式指定）时拒绝并写明 `quota_unavailable`，不静默换桶。不传可用桶时回执带 `quota_filter.applied=false`，即该回执不证明选中的桶有额度。
-3. 没有 verified candidate、或没有任何 verified candidate 落在可用桶里时停止；不得从 `pending_benchmark` 或 `command_help_verified` 条目自动选模。可用但未验证的桶只能显式 `--model` 指定，并按「证据与状态规则」记 `explicit_unverified`。
-4. 把回执的 `selected_model`、`selected_reasoning_effort` 与 `quota_scope_keys` 写进调用契约；`quota_scope_keys` 同时是 `scripts/run_matrix.py` 的 `quota_scope_key`。
+2. **预检报告是选型的必要输入，也是唯一的可用性证据。** 脚本要求报告 `auth_status=ok`，每条 `quota_observations[]` 带非空 `bucket`/`model`/`state`/`source`/`probed_at`，且桶与模型的绑定和 catalog 的 `quota_scope_keys` 一致；报告已填 `selected_model`/`quota_scope_key` 时按该绑定确认，不会改选别的桶。缺失、错绑、畸形输入（包括旧式裸模型名 `--available-model`）一律阻断并写明 `quota_evidence_missing`、`quota_binding_conflict`、`auth_not_ok` 或 `quota_evidence_incomplete`，非 0 退出；客户批准不能把 `unknown`/`exhausted` 改写成可用。
+3. 只在报告中 `state=available`、且该观测绑定到候选模型自己那个桶的 verified candidate 里选；选中的桶不可用（含显式指定或报告绑定）时拒绝并写明 `quota_unavailable`，不静默换桶。
+4. 没有 verified candidate、或没有任何 verified candidate 落在可用桶里时停止；不得从 `pending_benchmark` 或 `command_help_verified` 条目自动选模。可用但未验证的桶只能显式 `--model` 指定，并按「证据与状态规则」记 `explicit_unverified`。
+5. 把回执的 `selected_model`、`selected_reasoning_effort` 与 `quota_scope_keys` 写进调用契约；`quota_scope_keys` 来自授权该模型的 observation 桶（桶名取不到时回退 `executor:model`），同时是 `scripts/run_matrix.py` 的 `quota_scope_key`。
 
 ### 5. 建立隔离与权限门
 

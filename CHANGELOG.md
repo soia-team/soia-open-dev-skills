@@ -3,6 +3,23 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.7.0 — 2026-09-14
+
+Simplify skill routing and review workflows while preserving authorization, quota and validation gates.
+
+### Added
+- Dispatch supports an explicit different-model independence policy; the default remains different-family, and the same actual model cannot review itself.
+
+### Changed
+- Scope skill loading, CLI dispatch references, UI threshold maintenance and task views to the actual task.
+- Use one authorized review pass; native subagents do not require the external CLI dispatch flow.
+- Allow an empty applicable-skills list when no installed skill fits, without inventing an unrelated dependency.
+- Skill versions: dispatch 2.1.0; audit-ui, implement-task and review-code 1.2.1; show-task-html 0.5.1.
+
+### Verification
+- Route selftests: 85/85; tooling unit tests: 63/63; strict skill audit and generated catalog checks passed.
+- Quota evidence binding, no-quota blocking and same-model independence checks remain enforced.
+
 ## v2.6.1 — 2026-09-14
 
 Enforce quota evidence binding at the routing boundary.

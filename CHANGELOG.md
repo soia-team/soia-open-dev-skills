@@ -3,6 +3,20 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.7.1 — 2026-09-14
+
+Reduce unnecessary skill loading and repeated confirmations while preserving engineering safety.
+
+### Changed
+- Narrow implementation and protocol triggers; ordinary wording fixes do not start engineering governance.
+- Make formal acceptance templates and maintenance selftests conditional; retain genuine behavior verification and model/quota evidence.
+- Split GitHub command patterns into an on-demand reference; reuse an unchanged approved workflow without automatic branch cleanup.
+- Simplify repository instructions; skill versions: dispatch 2.1.1, draft-feature-spec 3.2.1, enforce/implement/review 1.2.2, github-ops 2.3.1.
+
+### Verification
+- Tooling tests: 63 passed; quota/model route fixtures: 85/85; strict audit, catalog, expert manifest and host coverage checks passed.
+- No installation, cache cleanup, branch/worktree deletion or protection changes.
+
 ## v2.7.0 — 2026-09-14
 
 Simplify skill routing and review workflows while preserving authorization, quota and validation gates.

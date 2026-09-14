@@ -1,69 +1,24 @@
-# AGENTS.md — soia-open-dev-skills
+# soia-open-dev-skills
 
-本文件只定义本仓特有边界。通用技能契约见 `SKILL_SPEC.md`，数据落盘规则见
-`DATA_STORAGE_SPEC.md`，贡献步骤见 `CONTRIBUTING.md`；不要把这些长规范复制回本文件。
+公开技能仓：soia-dev-* 工程。客户不共享维护者的机器、账号和私有工作区；仓名不触发 SOIA 产品 proposal/board 流程。
 
-## 规则适用与任务完成
+## 边界
 
-- 宿主实际加载的全局规则、父目录规则与本文件共同适用；本文件补充本仓事实和边界，不把共享贡献手册的旧示例当作新的授权。遇到无法按层级消解的实质冲突，指出具体条款，仅暂停受影响动作。
-- 解释、诊断或审阅只读取相关规则与证据，不自动授权修复、安装或发布；明确要求实施且范围已清楚时，完成修改、适度验证和结果交付，不只返回计划。
-- 已批准范围内的常规补丁、相关只读检查和验证连续推进；只在缺少会实质改变结果的信息、重叠改动无法安全保留，或下一步超出授权时询问。已确认且目标与影响未变的计划不重复确认。
-- 未提交改动属于原作者；不清理、不混入提交、不覆盖。无关脏文件不阻断可隔离工作，真实重叠只暂停冲突部分。
-- 不因仓名或“完整交付”默认启动多模型、子 Agent、全生态扫描、全量安装或产品治理流程；仅在用户要求、适用项目角色规则或任务风险明确需要时采用对应流程。
-- 提交、远端写入、合并、部署、发布、发送消息、权限变更、凭据操作及重要数据删除仍遵守各自授权门；本地修改完成不代表这些后续动作已获授权。
-- 交付说明实际改动、验证结果、未验证项及阻塞。要求实施的任务应做到授权边界内可验证的完成；区分本次已请求但待批的剩余步骤与未请求的后续动作；未请求的发布/安装不属于本次未完成工作。
+- 不提交秘密、账号标识、私有 config/.env、机器绝对路径或家庭/健康/财务等上下文；示例用占位符。凭据留在官方登录态/密钥存储，不复制到普通日志。
+- 新配置写 `~/.config/soia-skills/<skill-name>/config.yml`（v2），客户差异经参数、环境变量或非秘密配置传入；v1 只读迁移输入，不自动搬移/删除用户配置。
+- 已授权局部修改与相关验证连续完成，保留他人改动；派发、提交/合并、发布、安装、权限与重要删除各守本次授权，不从完成自检推导后续授权。
 
-## 仓库定位
+## 按需入口
 
-本仓发布通用 `soia-dev-*` 工程技能。技能必须能被不了解维护者机器、账号、vault
-和内部 workspace 的客户独立安装与使用。SOIA 产品 proposal/board 治理不因仓名自动触发。
-
-## 开始前
-
-1. 检查当前分支与工作树，保留并隔离无关改动。
-2. 修改技能前读取该技能完整 `SKILL.md`；只按需读取它直接链接的 reference。
-3. 新增、拆分、改名或实质重构技能时读取 `SKILL_SPEC.md` 和模板。
-4. 涉及 config、state、cache、temp、凭据或交付物时读取 `DATA_STORAGE_SPEC.md`。
-
-## 本仓硬边界
-
-- 只接受 `soia-dev-*` 技能；域归属和 4–6 段命名由 `scripts/audit_skills.py` 校验。
-- 不提交真实 key、token、cookie、session、密码、账号标识、私有 `config.yml` 或 `.env`。
-- 不提交维护者绝对路径、私有目录结构、家庭/健康/财务等个人上下文。
-- 客户差异通过 CLI 参数、环境变量或 v2 私有配置处理：
-  `~/.config/soia-skills/<skill-name>/config.yml`。
-- provider 凭据留在官方登录态或系统凭据库，不复制进普通配置或日志。
-- 删除重要数据、覆盖未知内容或他人改动、发送、发布、权限变更、远端写入和创建 worktree 前必须获得明确授权。已授权文件集内的常规补丁编辑不属于这里的“覆盖”；已批准的同一 worktree 路径、分支和用途不重复确认，改变目标或影响时重新确认。
-- 不把外部 Agent 自报“完成”当作完成；主控必须独立验证真实产物。
-
-## 技能目录契约
-
-```text
-skills/<skill-name>/
-├── SKILL.md                    # 唯一跨宿主核心流程
-├── agents/openai.yaml          # 可选 UI 元数据，不承载必需流程
-├── references/                # 持久规范、机器可读能力事实
-├── assets/                    # 客户复制模板、静态输入资产
-├── examples/                  # 可复用且脱敏的实例
-├── reports/                   # 带日期的历史测试/调研报告，不作运行时真源
-└── scripts/                   # 可执行实现与校验器
-```
-
-技能根目录不要散放配置、报告或快速说明。禁止新增 per-skill README、INSTALL、
-CHANGELOG、QUICK_REFERENCE、ARCHITECTURE 或 `metadata.json`。
-
-## 真源与同步顺序
-
-- 可执行行为：代码、schema、机器可读配置、测试。
-- 稳定流程：`SKILL.md`。
-- 供应商差异和说明：`references/`。
-- 历史证据：`reports/`，必须标日期和证据边界。
-- `skills/README.md` 是生成物，只能运行生成器更新。
-- 同一可变列表只保留一份机器可读真源，Markdown 只链接和解释。
+- 修改技能时读目标完整 `SKILL.md`；创建/改名/拆分/实质重构才读 [技能规范](SKILL_SPEC.md) 和模板。
+- 改 config/state/cache/temp/凭据/落盘回执时读 [数据规范](DATA_STORAGE_SPEC.md)；普通文案不加载它。
+- 贡献或生命周期操作查 [CONTRIBUTING.md](CONTRIBUTING.md)对应章节；不批量读所有参考。
+- `skills/README.md` 是生成物；事实列表保持单一机器真源。技能正文承载跨宿主核心流程，供应商细节按需放 references。
+- 安装须明确 scope、宿主及技能/整域/全量；正式验收使用已发布远端，不将未发布 checkout 当正式安装。普通维护不安装。
 
 ## 验证
 
-日常修改按影响面验证；纯指令文档先核对 diff、链接和规则一致性，行为变化运行受影响测试。涉及技能行为、脚本、依赖或公共工具的提交前运行以下完整门禁；纯指令/说明文档提交不机械套用全仓测试，最终集成与 CI 必选门不因局部验证通过而省略：
+纯指令/文案检查差异、链接与条款一致性；行为变化运行受影响测试。技能行为、脚本、依赖或公共工具提交前执行下列门禁；正式集成/发布的 CI 必选项仍全部保留：
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py'
@@ -72,29 +27,13 @@ python3 scripts/audit_skills.py --strict
 git diff --check
 ```
 
-修改复杂技能的行为时还要运行其自检以及至少一个受影响的 fixture 或真实前向测试，核对输出内容而不只看退出码；真实前向测试的联网、付费和机器变更仍受授权约束，受限时报告未验证项。
-
-通用 `quick_validate.py` 只接受 skills.sh 标准 frontmatter，当前不识别本仓强制的
-`version`、时间、作者和依赖字段；它只能作辅助检查，不能替代本仓 audit，也不能为让它
-通过而删除本仓字段。
+缺依赖且环境安装已获准时才安装 requirements-dev；辅助 quick validator 不支持本仓扩展 frontmatter 时记录限制，不删除必需版本/作者/时间字段迁就它。
+复杂技能行为还需自检及受影响 fixture/真实前向测试，验证输出而不只看退出码；未获准的付费/联网/机器改动不借测试执行。
+只接受 `soia-dev-*`、4–6 段命名。技能根禁止新增 per-skill README/INSTALL/CHANGELOG/QUICK_REFERENCE/ARCHITECTURE/metadata.json；资源归 references/assets/examples/reports/scripts，reports 标日期且不作运行时真源。
 
 ## Git 与发布
 
-- `dev` 是集成分支；功能 PR 指向 `dev`，等待 `audit` 通过后再合并。
-- `main` 永远等于最新正式版，不接收 PR；定稿 PR 先进入 `dev`，之后仅由已授权的 `soia-meta-skill-release` 流程经 CI 与祖先关系校验快进到 `main`。
-- 普通开发不直接 push `dev`/`main`，不在 feature PR 修改插件 `-SNAPSHOT` 版本；正式发布的快进例外见下节。
-- 本地 checkout 安装只能称为“本地调试安装”；最终安装验收必须使用已推送远程仓。
-- 合并、发布和客户端更新是独立动作，不因代码检查通过而自动执行。
-
-## Git Workflow
-
-- **Branch off `main`** (the latest formal release), then open the PR against
-  `dev` and wait for the `audit` check. Verify the expected `main` → `dev`
-  ancestry and actual merge conflicts; ancestry alone is not proof of a clean merge. Branch off `dev` only when your change
-  genuinely builds on unreleased work, and say so in the PR body.
-- `main` never receives PRs. It moves only by **fast-forward from `dev`** during
-  a formal release driven by `soia-meta-skill-release`, so `main` and `dev` then
-  point at the same commit. 普通开发不直接 push `main` 或 `dev`；唯一例外是已获本次发布授权、通过 CI 且祖先关系校验成立后，由发布流程快进 `dev` → `main`。
-- Plugin manifests on `dev` carry a `-SNAPSHOT` version naming the next release
-  target. Do not change manifest versions in feature PRs; versions move only
-  during a release.
+- 新分支默认从正式 `main` 开，PR 显式指向 `dev`；确实依赖未发布内容才从 dev 开并说明。合并需 audit 通过与本次许可。
+- 普通开发不直接 push main/dev，feature PR 不改插件列车版本。dev 带 `-SNAPSHOT`；main 保持正式版。
+- 正式发布须当次明确授权：定稿 PR → dev/CI，核对 main 是 dev 祖先及实际合并冲突，再仅快进 main、tag/Release、重开 SNAPSHOT、完成 pin。一个已批准计划内不逐命令重问；夹带未批准内容时暂停。
+- main 不接收 PR；只有上述已授权、CI 与祖先检查通过的正式发布快进可推进 main。

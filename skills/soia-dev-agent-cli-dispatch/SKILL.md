@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.1.0
+version: 2.1.1
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-14 14:10:23
+updated_at: 2026-09-14 15:02:03
 created_by: claude opus 4.6
 updated_by: gpt-6-astra
 ---
@@ -186,7 +186,7 @@ Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属�
 ### 3. 执行前预检（额度观测先于选型）
 
 - 运行 `command -v <cli>` 和 `<cli> --version`，记录实际版本。
-- 读取目标 CLI 自己的配置里配的**默认**模型（codex 见 `~/.codex/config.toml` 的 `model`），记进 `executor_config_default_model`。它只是默认值，不是本次实际执行模型：`-m/--model`、项目配置和 profile 都会覆盖它（2026-09-12 当天该配置的 `gpt-5.3-codex-spark` 就被 `-m gpt-5.6-sol` 覆盖）。被覆盖时按实际生效的模型记录，不得把默认值当成实际执行模型。
+- 仅在采用 CLI 默认模型或排查配置覆盖时，读取其非秘密模型字段并记 `executor_config_default_model`；显式选模时不为填字段读取整份宿主配置，未读取记 `unknown`。默认值和请求参数都不是实际模型证据，实际值仍由执行回执核验。
 - 使用官方只读状态检查认证/套餐；如果检查本身会调用付费模型，先取得客户确认。
 - **实时额度必须单独探测，逐桶观测并绑定到模型**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件。本步产出 `quota_observations[]`（每项含 `bucket`/`model`/`state`/`source`/`probed_at`/`reset_at`）；第 4 步选定模型后，把 `selected_model`、`quota_scope_key` 与 `recommendation` 回填进同一份预检报告。`proceed` 的必要条件：**认证可用，且最终选定模型对应的那条 observation 为 `available`**；三条禁止项逐条成立即不得 `proceed`——选定桶为 `exhausted`、为 `unknown`（含缺失）、`auth_status != ok`。客户明确批准只能覆盖费用与等待偏好，不能把 `unknown` 或 `exhausted` 改写成「可用」。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。第 4 步的 `route_model.py` 只接受这份报告的 JSON 形式（`--quota-observations`）：`auth_status != ok`、缺 `source`/`probed_at`、桶/模型/scope 绑定互相冲突、或省略报告只传一个模型名，都会被拒绝并以非 0 退出。
 - 检查 workdir 是否存在、是否是凭据/配置目录、是否有未提交改动以及是否与其他任务重叠。
@@ -273,9 +273,11 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 
 加载原则：主文件 → 所选执行器 reference，最多一跳；不要一次性加载全部 references。
 
-## 验证
+## 维护本技能时的验证
 
-修改本技能后至少运行：
+普通派发按上述预检和产物验收执行，不运行下面的维护自检。修改脚本、路由或额度契约时选受影响的自检和对应失败夹具；仅正文组织变化核对链接、契约与相关行为，不机械跑全部命令。仓库 CI 与正式发布门禁仍按项目规则完整执行。
+
+可用自检：
 
 ```bash
 python3 scripts/resolve_storage.py --selftest

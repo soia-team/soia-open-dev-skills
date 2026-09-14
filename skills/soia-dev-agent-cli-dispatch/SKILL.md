@@ -3,11 +3,11 @@ name: soia-dev-agent-cli-dispatch
 description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.1.1
+version: 2.2.1
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-14 15:02:03
+updated_at: 2026-09-14 18:10:00
 created_by: claude opus 4.6
-updated_by: gpt-6-astra
+updated_by: claude sonnet 5
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -189,12 +189,15 @@ Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属�
 - 仅在采用 CLI 默认模型或排查配置覆盖时，读取其非秘密模型字段并记 `executor_config_default_model`；显式选模时不为填字段读取整份宿主配置，未读取记 `unknown`。默认值和请求参数都不是实际模型证据，实际值仍由执行回执核验。
 - 使用官方只读状态检查认证/套餐；如果检查本身会调用付费模型，先取得客户确认。
 - **实时额度必须单独探测，逐桶观测并绑定到模型**：`auth_status=ok` 只证明凭据有效，不构成 `proceed` 的充分条件。本步产出 `quota_observations[]`（每项含 `bucket`/`model`/`state`/`source`/`probed_at`/`reset_at`）；第 4 步选定模型后，把 `selected_model`、`quota_scope_key` 与 `recommendation` 回填进同一份预检报告。`proceed` 的必要条件：**认证可用，且最终选定模型对应的那条 observation 为 `available`**；三条禁止项逐条成立即不得 `proceed`——选定桶为 `exhausted`、为 `unknown`（含缺失）、`auth_status != ok`。客户明确批准只能覆盖费用与等待偏好，不能把 `unknown` 或 `exhausted` 改写成「可用」。字段、取值与探测来源顺序见 `references/dispatch-contract.md` 的「额度预检」；分桶执行的 CLI（如 codex）见其 `references/codex-cli.md` 的额度分桶一节。第 4 步的 `route_model.py` 只接受这份报告的 JSON 形式（`--quota-observations`）：`auth_status != ok`、缺 `source`/`probed_at`、桶/模型/scope 绑定互相冲突、或省略报告只传一个模型名，都会被拒绝并以非 0 退出。
+- **`availability: local_only` 的目录条目不进入这条额度流水线**：仅当执行器按其 reference 记录的接入方式显式指向本地 OpenAI 兼容端点时才适用（`references/model-catalog.yml` 里对应条目的 `availability: local_only`，没有真实配额、订阅或按次计费），`quota_observations[]`/`route_model.py --quota-observations` 是为有真实额度的云端桶设计的门禁，对它不适用——这不是放宽，而是该门禁本就没有对象可绑定。这类条目仍然只能显式派发（不产出 `verified_auto`，执行器 `auto_routing` 保持 `[]`），本步的 `command -v`/`--version`/工作目录检查照常执行，第 8 步的实际模型核验改用该执行器 reference 登记的证据法（本地 mlx 端点见 `references/dsh-cli.md`「模型证据提取」）。**不要把这条豁免泛化到某个执行器本身，也不要用是否传 `--patch` 判定云端/本地**：`--patch` 是否显式指向本地端点不是判据——`references/dsh-cli.md`「settings.yaml 持久化」一节已实测记录 `settings.yaml` 可覆盖 `--patch`。实际打到云端还是本地，只认派发前 `--dump-config` 解出的实际生效 provider/model/端点类型，核对时只取非秘密的 provider/model 字段，不得为核实这一点打印含密钥的整份配置。`deepseek-official`/`deepseek-flash` 只是已实测机器上的一次部署示例，不是所有机器的默认云端桶；`--dump-config` 解出的实际生效 provider 是真实计费/真实额度桶时，不落入这条豁免。
+- **dsh 云端路径不进入上一条豁免，但也不能走通用 `route_model.py --quota-observations`**：`route_model.py --executor` 的 `choices` 不含 `dsh`（结构性不支持，不区分本地/云端），所以 dsh 派发一律不经过第 4 步的通用路由，也一律不产出 `verified_auto`。区别在于额度门：经 `--dump-config` 确认生效端点为本地的没有对象可绑定，按上一条豁免；经 `--dump-config` 确认生效 provider 为云端时是真实额度桶，必须单独对该实际生效的 provider/选定模型取一条实时余额观测（字段比照 `quota_observations[]`：`state`/`source`/`probed_at`），且这条观测须由调用方提供已核实的官方来源（非模型自述、非「登录态/凭据可用」），只有 `state=available` 才可派，`unknown`（含缺失来源）或 `exhausted` 一律 `hold`。具体流程见 `references/dsh-cli.md` 新增的余额观测分支；该分支当前未收录一个已核实的只读余额查询命令，属未处理项——需要调用方提供已核实的 provider/model 余额观测（含 `source`/`probed_at`/`state`），缺失时记 `unknown` 并 `hold`，本技能不内置全 provider 余额探测器。
 - 检查 workdir 是否存在、是否是凭据/配置目录、是否有未提交改动以及是否与其他任务重叠。
 - 不可服务、认证阻断、额度不足或目录不安全时停止并给出明确状态。
 - Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道必须分开，禁止复制认证状态或静默 alias。
 
 ### 4. 选择模型与推理档（消费第 3 步的可用桶）
 
+0. 目标执行器是 dsh，或第 3 步标出 `availability: local_only` 条目时，跳过本步的 `route_model.py`（`dsh` 不在其 `--executor` 的 `choices` 内，结构性不支持）：直接按该执行器 reference 的显式派发流程执行——dsh 本地 mlx 端点与 dsh 默认云端路径分别见 `references/dsh-cli.md` 对应分支，两条路径都不产出 `verified_auto`。其余执行器不受影响，仍必须完成下列流程。
 1. 用户显式指定模型/推理档时按指定值执行，不做静默替换；自动路由或确认报告里已绑定的选择都运行：
 
 ```bash

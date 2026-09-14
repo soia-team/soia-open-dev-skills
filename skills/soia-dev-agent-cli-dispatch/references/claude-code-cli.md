@@ -9,9 +9,23 @@
 
 ## 已实测 ID 表（2026-09-02，CLI 2.1.257）
 
-> ⚠️ **以实时探测为准。** 下表是一次性快照，不是长期承诺：模型代号随时间变化，
-> 可用性还取决于你的账号与套餐。派发前用 `python3 scripts/probe_claude_models.py --models <ids>`
-> 重新确认，不要拿本表当运行时真源（运行时真源是 `references/model-catalog.yml`）。
+> ⚠️ **以实时探测为准，但不为每次真实任务单独加一次收费探测。** 下表是一次性快照，不是长期承诺：
+> 模型代号随时间变化，可用性还取决于你的账号与套餐；运行时真源是 `references/model-catalog.yml`。
+> 每次真实派发本身就产出模型身份证据，但读法有精确边界（见下节「fallback 与辅助模型」及
+> `references/dispatch-contract.md` 的 Model Integrity Gate，`scripts/run_matrix.py::detect_claude_model_evidence`
+> 是可核对的实现）：`--output-format json` 的 `modelUsage` 先排除 CLI 自身辅助模型
+> （`providers.anthropic.auxiliary_models` 前缀匹配），剩余**唯一**一个键才是 `actual_model`，
+> 剩 0 个或多于 1 个一律 `actual_model_unverified`；`stream-json` 下可信的事件只有两类——
+> `type=system`/`subtype=model_refusal_fallback` 的 `fallback_model`（出现即判
+> `fallback_or_downgrade`）与 `assistant.message.model`。同一条流起始的
+> `type=system`/`subtype=init` 事件里的 `model` 字段只是**本次请求值的回显**，不是实际身份
+> 证据，不得据此判定 `actual_model`（`detect_claude_model_evidence` 对 `type=system` 的事件
+> 显式跳过顶层 `model` 字段读取，正是为了避免误读这个字段）。不需要在它之前再调用一次
+> `python3 scripts/probe_claude_models.py --models <ids>` 来"预先回显"身份：那是另一次真实付费
+> 模型调用，本身不能替代第 3 步的额度门（`quota_observations[]` 仍必须逐桶探测并绑定到本次要用
+> 的模型）。识别不到或降级（`unrecognized_model` / `fallback_or_downgrade` /
+> `actual_model_unverified`）仍必须在回执里如实写出，不得因为省掉了预先探测就默认"就是请求的模型"。
+> `probe_claude_models.py` 留给排查目录是否过期、某个 id 是否仍可服务等场景，不是常规派发前置步骤。
 
 探测方式：`claude -p --model <id> --output-format json`，单轮、无工具、无 MCP、无 settings。
 

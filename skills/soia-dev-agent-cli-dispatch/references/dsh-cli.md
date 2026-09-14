@@ -2,6 +2,13 @@
 
 > 实际命令是 `dsh`，按 profile 启动（profile 位于 `$DSH_HOME/profiles`）。**没有 `dsh run` 子命令**：headless 一次性执行是 `dsh --profile headless "<task>"`，处理一个任务、打印最终 assistant 消息后退出。以下命令形态已对照 `dsh --help` 与各 profile `--help`（0.1.0-rc.7，2026-08-20）核实。
 
+> `route_model.py --executor` 的 `choices` 不含 `dsh`（结构性不支持），所以 dsh 派发一律不经过 `SKILL.md` 第 3–4 步的通用 `route_model.py --quota-observations` 流水线，也一律不产出 `verified_auto`——但云端/本地的判定不看是否传了 `--patch`，只看派发前 `--dump-config` 解出的实际生效 provider/model/端点类型（`--patch` 可能被 `settings.yaml` 覆盖，见下方「settings.yaml 持久化」一节的实测），核对时只取非秘密的 provider/model 字段，不打印含密钥的整份配置：
+>
+> - **`--dump-config` 解出生效 provider 为云端时**，是真实计费、真实额度的桶，**不是** `local_only`：本文件「模型证据提取」一节记录的 session 落盘证据（如某次实测的 `"provider":"deepseek-official"`、`"model":"deepseek-flash"`）是那次部署的真实观测，但 `deepseek-official`/`deepseek-flash` 只是已实测机器上的一个部署示例，不是所有机器的默认云端 provider——实际生效的 provider/model 以当次 `--dump-config` 为准。派发前必须对该实际生效的 provider/选定模型单独取一条实时余额观测（字段比照 `SKILL.md`「执行前预检」的 `quota_observations[]`：`state`/`source`/`probed_at`），且这条观测须由调用方提供已核实的官方来源，只有 `state=available` 才可派；`unknown`（含缺失来源）或 `exhausted` 一律 `hold`，不得用「有登录态/凭据」替代余额观测。本仓库当前未收录一个已核实的 DeepSeek 官方只读余额查询命令，这是未处理项——需要调用方提供已核实的 provider/model 余额观测（含 `source`/`probed_at`/`state`），缺失时记 `unknown` 并 `hold`，本技能不内置全 provider 余额探测器。
+> - **只有 `--dump-config` 确认生效端点确为下方「本地 OpenAI 兼容端点接入」所配置的本地 OpenAI 兼容端点时**，才落入 `references/model-catalog.yml` 里 `mlx` provider 下 `availability: local_only` 的条目（cost 恒为 0，没有真实配额/订阅）——这时才是 `SKILL.md`「执行前预检」里那条额度流水线豁免（门禁本身没有对象可绑定），才**始终显式指定模型**（`auto_routing: []`）。命令行里看到 `--patch` 或 `mlx` 字样不构成本地端点证据，仍须以 `--dump-config` 的生效配置核实。
+>
+> 两条路径共同、不能省的检查：派发前的 `command -v dsh`/`dsh --version`/`--dump-config`，以及本文件「模型证据提取」一节的 session 落盘取证（认 assistant 记录的 `provider`/`model` 字段，不认 `titleProvider`）——它们替代的是通用流水线里的额度绑定与模型回显核验，不是免检。
+
 ## 模式选择
 
 - **非交互单轮执行**：`dsh --profile headless "<task>"`；task 是位置参数，多个词按空格拼接。

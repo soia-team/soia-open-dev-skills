@@ -1,13 +1,13 @@
 ---
 name: soia-dev-agent-cli-dispatch
-description: 受控调度外部 AI Agent CLI，选择已验证模型、隔离工作目录并回传模型、用量、费用与验证证据。触发：「派活给外部 AI」「调用 DeepCode/Pi/agy」「多 CLI 派发」、按任务书派发外部执行器、发起独立评审派发
+description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.0.0
+version: 2.1.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-14 10:35:00
+updated_at: 2026-09-14 14:10:23
 created_by: claude opus 4.6
-updated_by: deepseek-flash
+updated_by: gpt-6-astra
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -148,7 +148,7 @@ task:
   title: <short-title>
   objective: <observable-result>
   acceptance: [<evidence>]
-  applicable_skills: [<skill-name>, ...]   # 派发方必填，留空即任务书缺陷
+  applicable_skills: []   # 无匹配技能时可为空；只列本任务确实需要的技能
 executor: <agent-id-or-auto>
 model: <model-id-or-auto>
 reasoning: <level-or-auto>
@@ -164,7 +164,7 @@ permissions:
 未明确授权的权限保持 `false`。显式指定的执行器、模型和推理档优先；但未验证组合必须标记 `explicit_unverified`，不能包装为自动推荐。
 Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属于调用方项目/用户策略，不由本通用技能写死；派发者必须把该策略作为本次输入，未提供时才按任务复杂度和现有验证证据给出候选。
 
-**`applicable_skills` 由派发方填写，是必填项**：逐个列出本单应当加载的技能名（技能仓里的 `name`，不带路径）。**技能 frontmatter 的触发词只是兜底，不是本字段的替代品**——触发词写的是动作措辞（「实现这个任务」「修复这个 bug」），真实任务书写的是问题措辞（如「把这份『哪些旧地址归到哪个 rail』的知识改成数据驱动」），2026-09-12 实测两者零重叠；同一份薄任务书的三臂对照里，技能可见但不带本字段时技能加载数为 0，技能可见且只多这一行时才实际加载。字段格式与示例见 `references/task-brief.md`，一手数据与判据见 `soia-dev-enforce-coding-protocol/references/failure-modes.md` 的「技能送达≠技能生效」与「触发词在真实任务书措辞下的命中情况」两节。
+`applicable_skills` 保留为可消费字段；没有匹配技能时允许 `[]`，不为凑字段加载无关技能。已点名的技能必须实际读取；缺失时只阻断依赖它的动作并说明影响。历史加载实验只说明当时的任务与模型，不把非空列表当作所有任务的合格线。
 
 ## 核心流程
 
@@ -172,9 +172,9 @@ Coordinator、Executor、Verifier、Reviewer、Advisor 的具体模型分工属�
 
 写清目标、输入、允许修改范围、禁区和验收命令。任务拆分按可独立验证的边界进行；每个子任务分配唯一 task ID。
 
-任务书按 `references/task-brief.md` 的 8 字段模板（含「适用技能」）与四条写作原则书写；认领字段 `claimed_by` 与可抓取前沿见 `references/claim-protocol.md`，禁止句改写见 `references/writing-positive-constraints.md`。
+复杂或批量派发按需读取 `references/task-brief.md`；只有接入任务认领系统时读取 `references/claim-protocol.md`。普通单次派发只保留目标、范围、权限和验收信息。
 
-先读取目标仓适用的 `AGENTS.md`、贡献说明和测试约定。目标仓规则优先；不要把本技能自己的历史治理术语或无关文件塞进派发 prompt。
+遵循目标仓适用的 `AGENTS.md`，按实际改动读取相关测试约定，准备贡献时才读贡献说明。目标仓规则优先；不要把本技能自己的历史治理术语或无关文件塞进派发 prompt。
 
 ### 2. 选择执行器（只定 CLI 与任务档，不定模型）
 
@@ -206,6 +206,8 @@ python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|h
 3. 只在报告中 `state=available`、且该观测绑定到候选模型自己那个桶的 verified candidate 里选；选中的桶不可用（含显式指定或报告绑定）时拒绝并写明 `quota_unavailable`，不静默换桶。
 4. 没有 verified candidate、或没有任何 verified candidate 落在可用桶里时停止；不得从 `pending_benchmark` 或 `command_help_verified` 条目自动选模。可用但未验证的桶只能显式 `--model` 指定，并按「证据与状态规则」记 `explicit_unverified`。
 5. 把回执的 `selected_model`、`selected_reasoning_effort` 与 `quota_scope_keys` 写进调用契约；`quota_scope_keys` 来自授权该模型的 observation 桶（桶名取不到时回退 `executor:model`），同时是 `scripts/run_matrix.py` 的 `quota_scope_key`。
+
+审核角色另传 `--role reviewer --executor-model <实现模型> --independence-policy <different_family|different_model>`。政策来自用户/项目；未指定保持 `different_family`，同一实际模型在两种政策下都不允许自审。路由仅验证候选，执行后仍须核验实际模型；切换政策不放宽额度、认证或权限门。
 
 ### 5. 建立隔离与权限门
 

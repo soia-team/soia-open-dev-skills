@@ -1,11 +1,11 @@
 ---
 name: soia-dev-show-task-html
-description: 用最小视图帮用户看懂当前话题；简单关系直接画，复杂关系才做聚焦 HTML。触发：show me、展示这个任务、给我画一下、输出任务视图、把进度画出来
-version: 0.5.0
+description: 展示任务进度、调用关系或数据流；用户要求任务视图或关系图时使用，复杂布局才生成 HTML。普通问答、单一状态和常规回执不自动触发。
+version: 0.5.1
 created_at: 2026-09-04 15:43:10
-updated_at: 2026-09-12 12:00:00
+updated_at: 2026-09-14 14:10:23
 created_by: gpt-5.6-luna
-updated_by: deepseek-flash
+updated_by: gpt-6-astra
 ---
 
 # soia-dev-show-task-html

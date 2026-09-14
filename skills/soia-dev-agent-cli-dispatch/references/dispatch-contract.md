@@ -74,7 +74,7 @@
 | `executor` | 目标执行器 |
 | `cli_installed` | `true` / `false`（`which <command>` 或等效检测） |
 | `cli_version` | 实际探测到的版本字符串，或 `"unavailable"` |
-| `executor_config_default_model` | 目标 CLI **自身配置**里配好的**默认**模型（如 codex `~/.codex/config.toml` 的 `model`），或 `"unknown"`。它只是默认值，CLI 参数/项目配置/profile 都会覆盖它；不要写成本次实际执行的模型。见下方「先读执行器配置默认值，再确定实际模型」 |
+| `executor_config_default_model` | 目标 CLI **自身配置**里配好的**默认**模型（如 codex `~/.codex/config.toml` 的 `model`），或 `"unknown"`。它只是默认值，CLI 参数/项目配置/profile 都会覆盖它；不要写成本次实际执行的模型。仅采用默认值或排查配置覆盖时读取，见下方「按需解析配置默认值」 |
 | `auth_status` | `ok` / `expired` / `unknown` / `blocked_user_action`；优先本地 auth-status。没有该命令时，不得未经确认用模型调用代替 |
 | `selected_model` | **本次将执行的模型**（显式 `-m` 或调用契约的 `model`，或自动路由在可用桶内选出的模型）。额度观测必须绑定到它；为空或 `"unknown"` 时不得 `proceed` |
 | `quota_scope_key` | `selected_model` 对应的额度封锁键：优先用执行器的桶名（如 `codex_bengalfox`），没有桶名时用 `executor:model`。派发时写进 cases.json，`scripts/run_matrix.py` 用同一个键做封锁 |
@@ -133,15 +133,11 @@ python3 scripts/route_model.py --executor codex --complexity medium \
 2. 按对应执行器 reference 里的**官方只读状态命令**取。
 3. 两条路都取不到时，把 `selected_model` 对应的那条 observation 的 `state` 记 `"unknown"` 且 `recommendation` 置 `hold`；不得拿 `last_known_quota_state` 或 `auth_status` 推一个值填进去。
 
-**先读执行器配置默认值，再确定实际模型。** 派发前读目标 CLI 自己的配置（codex 见 `~/.codex/config.toml` 的 `model`），把值记进 `executor_config_default_model`；**它是默认值，不是无条件的 effective model**：官方 codex 配置优先级是 CLI 参数（`-m/--model`）→ 项目 `.codex/config.toml` → profile → 用户 `~/.codex/config.toml`，用户配置排第四。因此：
+**按需解析配置默认值。** 显式指定模型时，将参数记为 `selected_model`，不为填回执读取用户配置；未读取的 `executor_config_default_model` 记 `unknown`。采用 CLI 默认值或排查覆盖冲突时，才沿对应执行器的配置优先级读取必要非秘密模型字段，注明来源层级。不要整份输出宿主配置。
 
-- 本次显式传了 `-m`（或调用契约里显式 `model`）时，它就是 `selected_model`，配置默认值只是被覆盖的底值；
-- 未显式指定时才沿用配置里的默认值，并写明它来自哪一层；
-- 被覆盖时不得把配置默认值写成、或暗示成本次实际执行的模型。
+显式参数、配置默认值和实际模型是三个不同证据：前两者用于解释选型，只有可信执行回显可填写 `actual_model`。无论是否读取默认配置，都必须把本次实时额度 observation 绑定到最终的 `selected_model` 与 `quota_scope_key`；默认值未知不代表额度可以未知，登录成功也不能替代额度观测。
 
-这不是措辞问题：2026-09-12 当天同一台机器上 `~/.codex/config.toml` 写着 `model = "gpt-5.3-codex-spark"`，而派发本轮独立评审用的命令行是 `codex exec -m gpt-5.6-sol ...`，实际执行的是 `gpt-5.6-sol`——把用户配置里的 `model` 说成「这台机器当前实际会用的桶」，当天就被同一条命令行证伪。跳过配置读取的代价同样真实：同一次事故里该配置指向的 Spark 桶是当次探测到的两个桶中唯一还有额度的那个，而派发方没读配置、直接从目录挑了已用尽的档位。
-
-`scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查，也不做实时额度探测**——它只在调用输出命中 `usage limit` / `quota` 类文本后把该 case 反应式地标成 `blocked_quota`（那一刻调用已经发生、额度已经消耗），并按该 case 的 quota scope（`case.quota_scope_key`，缺省 `executor:model`）只封锁同一个桶的剩余 case，**不再按 provider 封锁**；manifest 的 `blocked_quota_scopes` 与 `stop_reason` 都按 scope 记录。因此 `auth_status`、`quota_observations[]`、`quota_scope_key`、`executor_config_default_model` 与 `selected_model` 仍需派发者在预检报告里人工核实或另行探测；脚本本身不会为了验证登录态或额度而发起真实模型调用。
+`scripts/run_matrix.py` 在每次运行开始时会对本批次涉及的 executor 做只读版本探测（`<executor> --version`）并写入 manifest 的 `cli_versions` 字段；`--resume` 时会重新探测并在版本变化时打印警告。**当前脚本不做认证状态检查，也不做实时额度探测**——它只在调用输出命中 `usage limit` / `quota` 类文本后把该 case 反应式地标成 `blocked_quota`（那一刻调用已经发生、额度已经消耗），并按该 case 的 quota scope（`case.quota_scope_key`，缺省 `executor:model`）只封锁同一个桶的剩余 case，**不再按 provider 封锁**；manifest 的 `blocked_quota_scopes` 与 `stop_reason` 都按 scope 记录。因此 `auth_status`、`quota_observations[]`、`quota_scope_key` 与 `selected_model` 仍需派发者在预检报告里核实或另行探测；`executor_config_default_model` 按上述条件读取，否则记 `unknown`；脚本本身不会为了验证登录态或额度而发起真实模型调用。
 
 ## Independence Gate
 
@@ -271,7 +267,7 @@ Token 与费用：
 
 以下纪律来自 2026-08-20 本地端点（dsh + mlx OpenAI 兼容端点）真实派发暴露的失败模式；对云端执行器按同样条件适用。第 5 条来自 2026-09-11 项目技能交付通道修复前后的执行端会话取证。
 
-1. **探索型任务必须预填情报**：派发前把文件清单、关键 docstring/接口签名直接放进 prompt，不让执行器自己探索。上下文获取能力弱的模型（尤其本地模型）自行探索会烧掉大量轮次甚至挂死。
+1. **给必要线索，不代做全部探索**：通常只提供目标、已知入口、范围和约束，让执行器在授权范围内定位实现。只有目标模型已有探索失败证据或工具能力受限时，才补最小文件清单/接口片段；本地弱模型的历史失效不作为所有模型禁用探索的理由。
 2. **pi×本地端点的工具任务限制（2026-08-21 二分细化）**：中文×工具任务稳定死循环（高频短请求打转超时零产物）；长 prompt×工具曾零请求挂死（2026-08-20 两次）。英文短任务×工具实测 7s 可过、中文纯问答可过。纪律：pi 派本地端点只给英文任务或纯问答，中文工具任务改派 dsh（细节见 `references/pi-cli.md` 已知限制节）。
 3. **派发到本地/自建端点必须验证请求真到目标端点**：对照目标与非目标端点服务日志的请求计数确认新增请求落点——配置叠加层可能被持久层静默压制（dsh `--patch` 被 `~/.dsh/settings.yaml` 压制的假对照实例见 `references/dsh-cli.md`），执行器"跑成功了"不等于"目标模型跑的"。
 4. **自指危险（服务生命周期类任务）**：派发「管理服务启停脚本」类任务时，agent 超范围自验 `start` 命令会先杀掉旧服务——而那可能正是它自己赖以对话的模型端点，导致 TRANSPORT 断连（产物其实已完成但会话死亡）。对策：此类任务的验收命令显式禁止真实执行 start/stop（用 status/dry-run 验收），或给 agent 配独立端点。
@@ -297,8 +293,8 @@ Token 与费用：
 3. 只有发现不稳定迹象时才重复运行，并把 flaky 作为问题报告，不能标记忽略后继续宣布完成。
 4. 组合命令使用 fail-fast 或逐条核对退出码，防止最后一条成功掩盖前序失败。
 5. 测试通过后再从另一条路径复核最脆弱假设，例如检查下游消费者、边界输入或生成物内容。
-6. 核对执行者的任务面板/计划项完成度与其回报声明一致：回报含「执行面板已全部收敛」而面板仍有进行中项，或存在未完成项而回报未逐项说明原因时，按回报缺陷退回，不进入验收结论（回执硬要求见 `task-brief.md` 的执行面板收敛一节）。
-7. 核对回报第一节的技能加载清单与任务书「适用技能」字段是否对得上：少加载而没有原因、或声称加载了清单里没有的技能，按回报缺陷退回。自动发起的独立评审报告同样是待验证输入，不代替主控验收；评审结论与执行者自报冲突时，主控按两方证据自行裁决，两方说法都要留在验收记录里（口径见 `soia-dev-implement-task` 正文第 6 步）。
+6. 核对执行者的任务面板/计划项完成度与其回报声明一致：回报含「执行面板已全部收敛」而面板仍有进行中项，或存在未完成项而回报未逐项说明原因时，记录回报缺陷并核查实际状态；可验证的产物继续验收，未完成项不能标完成（回执硬要求见 `task-brief.md` 的执行面板收敛一节）。
+7. 核对回报第一节的技能加载清单与任务书「适用技能」字段是否对得上：少加载而没有原因、或声称加载了清单里没有的技能，记录回报缺陷并核查实际加载，不把字段缺项直接当成代码缺陷；缺失必要技能导致的行为未验证仍须说明。自动发起的独立评审报告同样是待验证输入，不代替主控验收；评审结论与执行者自报冲突时，主控按两方证据自行裁决，两方说法都要留在验收记录里（口径见 `soia-dev-implement-task` 正文第 6 步）。
 
 没有任务质量证据时，最多报告“外部调用完成”，不能报告“任务完成”。
 

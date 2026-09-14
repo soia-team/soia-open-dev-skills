@@ -1,11 +1,11 @@
 ---
 name: soia-dev-draft-feature-spec
 description: 把产品想法或需求材料整理成可验收的功能规格，并按需拆成纵向交付切片。触发：起草功能规格、把需求写成 PRD、拆分可验收功能、按任务书写功能规格、补验收标准
-version: 3.2.0
+version: 3.2.1
 created_at: 2026-07-23 00:02:50
-updated_at: 2026-09-12 12:00:00
+updated_at: 2026-09-14 15:02:03
 created_by: gpt-5
-updated_by: deepseek-flash
+updated_by: gpt-6-astra
 ---
 
 # soia-dev-draft-feature-spec
@@ -21,7 +21,7 @@ updated_by: deepseek-flash
 - 从问题与证据出发，明确目标用户、成功信号、包含与排除范围。没有研究或指标基线就写未知，不编造数值。
 - 描述主要场景、用户动作、系统反馈和状态/权限边界；异常、重试、取消和数据变化只覆盖真实相关路径。
 - 每项必需能力对应可观察验收：前置条件、动作、结果及关键失败/边界。功能说明不提前锁死技术实现。
-- 验收标准按[验收标准起草](references/acceptance-authoring.md)写：逐条可判定、独立可验证，并各配一条反例或负控说明。
+- 验收标准应可判定、独立可验证；权限、数据或失败路径补相关反例。用户/项目要求正式验收条目或需要设计守卫时，再读[验收标准起草](references/acceptance-authoring.md)；普通功能草稿不为每句话另造负控。
 - 标明依赖、风险、假设与待决事项；把用户明确要求和可选建议分开，保留已批准约束，不擅自删减全量要求。
 - 先核对产品已有功能和规范，复用真源；不另建一套 PRODUCT/DESIGN 文档或复制治理系统。
 

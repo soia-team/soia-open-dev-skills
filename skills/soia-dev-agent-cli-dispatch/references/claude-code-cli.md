@@ -46,6 +46,18 @@
 能力分级证据——prompt 是单词回显。因此不要据此排任务分级；分级仍需按任务类型
 单独取证。完整原始摘要见 `reports/claude-model-probe-2026-09-02.md`。
 
+### Claude Opus 5.5 模型证据与订阅成本口径
+
+调用示例：
+
+```bash
+claude -p --model claude-opus-5-5 --output-format json
+```
+
+2026-09-23 的 JSON 冒烟中，`modelUsage` 的业务模型键为 `claude-opus-5-5`，顶层 `canonicalModel` 也为 `claude-opus-5-5`；这两项是本次模型身份和可服务证据，不是任务质量证据。按 `modelUsage` 键读取模型身份，并继续应用下方辅助模型剔除规则。
+
+订阅登录下，JSON 中的 `costUSD` 或 `total_cost_usd` 若带 `costBasis: list`，表示按官网 API 价计算的等价值，不是订阅账户的实际扣费。回执只能写为“API 等价估算”；只有独立账单证据才能填写实际扣费。
+
 ## fallback 与辅助模型
 
 三个现象会让"退出码 0 + 有输出"仍然不等于"用了你要的模型"：

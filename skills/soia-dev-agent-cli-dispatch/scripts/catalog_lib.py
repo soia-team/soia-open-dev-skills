@@ -270,7 +270,7 @@ def validate_catalog(data: dict) -> dict[str, list[str]]:
         errors.append("providers must be a mapping")
         providers = {}
 
-    seen_model_ids: dict[str, str] = {}
+    seen_identifiers: dict[str, tuple[str, str, str]] = {}
     for provider_name, provider_block in providers.items():
         if not isinstance(provider_block, dict):
             errors.append(f"provider {provider_name!r} must be a mapping")
@@ -297,14 +297,6 @@ def validate_catalog(data: dict) -> dict[str, list[str]]:
                 if req_key in model and model[req_key] in (None, ""):
                     errors.append(f"provider {provider_name!r}.models[{idx}] key must not be null: {req_key}")
             model_id = model.get("model_id")
-            if isinstance(model_id, str) and model_id:
-                if model_id in seen_model_ids:
-                    errors.append(
-                        f"duplicate model_id {model_id!r} (providers: "
-                        f"{seen_model_ids[model_id]!r} and {provider_name!r})"
-                    )
-                else:
-                    seen_model_ids[model_id] = provider_name
 
             confidence = model.get("reasoning_levels_confidence")
             levels = model.get("supported_reasoning_levels")
@@ -336,6 +328,22 @@ def validate_catalog(data: dict) -> dict[str, list[str]]:
                 if not levels:
                     errors.append(f"model {model_id!r}: routed models require verified reasoning levels")
 
+            routing_priority = model.get("routing_priority")
+            if "routing_priority" in model and (type(routing_priority) is not int or routing_priority < 0):
+                errors.append(f"model {model_id!r}: routing_priority must be a non-negative integer")
+            routing_basis = model.get("routing_basis")
+            if routing_basis is not None and (
+                not isinstance(routing_basis, str) or routing_basis not in {"owner_policy", "measured"}
+            ):
+                errors.append(f"model {model_id!r}: routing_basis must be owner_policy or measured")
+            routing_basis_note = model.get("routing_basis_note")
+            if routing_basis_note is not None and (not isinstance(routing_basis_note, str) or not routing_basis_note.strip()):
+                errors.append(f"model {model_id!r}: routing_basis_note must be a non-empty string")
+            if routing_basis == "owner_policy" and (
+                not isinstance(routing_basis_note, str) or not routing_basis_note.strip()
+            ):
+                errors.append(f"model {model_id!r}: owner_policy routing_basis requires routing_basis_note")
+
             if confidence in {"smoke_tested", "verified", "forward_verified_single_run"} and (
                 not model.get("discovered_at") or not model.get("discovery_evidence")
             ):
@@ -345,6 +353,26 @@ def validate_catalog(data: dict) -> dict[str, list[str]]:
                 aliases = model.get(alias_key, [])
                 if not isinstance(aliases, list) or any(not isinstance(alias, str) or not alias for alias in aliases):
                     errors.append(f"model {model_id!r}: {alias_key} must be a list of non-empty strings")
+
+            identifiers: list[tuple[str, str]] = []
+            if isinstance(model_id, str) and model_id:
+                identifiers.append(("model_id", model_id))
+            for alias_key in ("aliases", "actual_model_aliases"):
+                aliases = model.get(alias_key, [])
+                if isinstance(aliases, list):
+                    identifiers.extend((alias_key, alias) for alias in aliases if isinstance(alias, str) and alias)
+            for identifier_kind, identifier in identifiers:
+                normalized = re.sub(r"[\s_]+", "-", identifier.strip().lower())
+                previous = seen_identifiers.get(normalized)
+                if previous is not None:
+                    previous_provider, previous_model_id, previous_kind = previous
+                    errors.append(
+                        f"duplicate model_id/alias identifier {identifier!r} after normalization "
+                        f"({previous_provider}.{previous_model_id}.{previous_kind} and "
+                        f"{provider_name}.{model_id}.{identifier_kind})"
+                    )
+                else:
+                    seen_identifiers[normalized] = (provider_name, str(model_id), identifier_kind)
 
             pricing = model.get("pricing")
             if isinstance(pricing, dict):
@@ -616,6 +644,44 @@ sources:
     check("validate: single forward run with evidence accepted",
           not validate_catalog(single_run)["errors"])
 
+    priority_catalog = copy.deepcopy(single_run)
+    priority_model = priority_catalog["providers"]["openai"]["models"][0]
+    priority_model.update({"routing_priority": 10, "routing_basis": "owner_policy", "routing_basis_note": "Owner-authorized fixture policy."})
+    check(
+        "validate: non-negative routing priority and owner policy basis accepted",
+        not validate_catalog(priority_catalog)["errors"],
+    )
+    invalid_priority_catalog = copy.deepcopy(priority_catalog)
+    invalid_priority_catalog["providers"]["openai"]["models"][0]["routing_priority"] = -1
+    check(
+        "validate: negative routing priority rejected",
+        any("routing_priority must be a non-negative integer" in error for error in validate_catalog(invalid_priority_catalog)["errors"]),
+    )
+    boolean_priority_catalog = copy.deepcopy(priority_catalog)
+    boolean_priority_catalog["providers"]["openai"]["models"][0]["routing_priority"] = True
+    check(
+        "validate: boolean routing priority rejected",
+        any("routing_priority must be a non-negative integer" in error for error in validate_catalog(boolean_priority_catalog)["errors"]),
+    )
+    null_priority_catalog = copy.deepcopy(priority_catalog)
+    null_priority_catalog["providers"]["openai"]["models"][0]["routing_priority"] = None
+    check(
+        "validate: explicit null routing priority rejected",
+        any("routing_priority must be a non-negative integer" in error for error in validate_catalog(null_priority_catalog)["errors"]),
+    )
+    invalid_basis_catalog = copy.deepcopy(priority_catalog)
+    invalid_basis_catalog["providers"]["openai"]["models"][0]["routing_basis"] = "guessed"
+    check(
+        "validate: unknown routing basis rejected",
+        any("routing_basis must be" in error for error in validate_catalog(invalid_basis_catalog)["errors"]),
+    )
+    missing_basis_note_catalog = copy.deepcopy(priority_catalog)
+    del missing_basis_note_catalog["providers"]["openai"]["models"][0]["routing_basis_note"]
+    check(
+        "validate: owner policy requires a routing basis note",
+        any("owner_policy routing_basis requires routing_basis_note" in error for error in validate_catalog(missing_basis_note_catalog)["errors"]),
+    )
+
     # 7. find_model: exact, alias, loose, and unknown resolution.
     catalog_path = _default_catalog_path()
     if catalog_path.is_file():
@@ -625,6 +691,19 @@ sources:
             f"real catalog ({catalog_path.name}): parses with 0 errors",
             not real_result["errors"],
             "; ".join(real_result["errors"][:5]),
+        )
+        check(
+            "real catalog model ids and aliases are globally unique",
+            not any("duplicate model_id/alias identifier" in error for error in real_result["errors"]),
+        )
+        conflicting_catalog = copy.deepcopy(real_data)
+        for model in conflicting_catalog["providers"]["openai"]["models"]:
+            if model.get("model_id") == "gpt-6-luna":
+                model["aliases"] = ["luna"]
+        conflict_result = validate_catalog(conflicting_catalog)
+        check(
+            "validate: model_id and alias collision is rejected",
+            any("duplicate model_id/alias identifier" in error for error in conflict_result["errors"]),
         )
         exact = find_model(real_data, "gpt-5.6-sol")
         check("find_model: exact model_id in real catalog", exact["match"] == "exact")

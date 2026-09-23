@@ -640,13 +640,24 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
                 "that is exhausted, unknown or bound to another model. An available bucket without verified routing evidence "
                 "must be requested explicitly with --model and is then reported as explicit_unverified." + _unknown_bucket_note(evidence)
             )
-        candidates.sort(key=lambda item: item.get("model_id", ""))
+        candidates.sort(key=lambda item: (item.get("routing_priority", 100), str(item.get("model_id", "")))
+        )
         model = candidates[0]
         effort, selection_status = _choose_effort(model, complexity, None)
-        reason = f"catalog routing_profile={complexity}; discovery and reasoning evidence are present"
+        selected_priority = model.get("routing_priority", 100)
+        reason = (
+            f"catalog routing_profile={complexity}; discovery and reasoning evidence are present; "
+            f"routing_priority={selected_priority} (lower first, default 100), then model_id"
+        )
         reason += "; restricted to the observation-bound bucket observed 'available' in the live quota precheck"
         if declared_id:
             reason += f"; restricted further by the report binding selected_model={declared_model!r}"
+
+    routing_basis = model.get("routing_basis") or "measured"
+    routing_basis_note = model.get("routing_basis_note")
+    reason += f"; routing_basis={routing_basis}"
+    if routing_basis_note:
+        reason += f"; {routing_basis_note}"
 
     authorizing = _authorizing_observations(available, str(model.get("model_id")))
     quota_scope_keys = _scope_keys_for(executor, model, authorizing)
@@ -670,6 +681,9 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
         "selected_reasoning_effort": effort,
         "task_complexity": complexity,
         "selection_reason": reason,
+        "routing_basis": routing_basis,
+        "routing_basis_note": routing_basis_note,
+        "routing_priority": model.get("routing_priority", 100),
         "estimated_cost_range": _cost_range(model),
         "catalog_version": data.get("updated_at"),
         "selection_status": selection_status,
@@ -740,6 +754,21 @@ def run_selftest() -> int:
     codex_luna = evidence("codex", [observation("gpt-5.6-luna", "codex")])
     codex_terra = evidence("codex", [observation("gpt-5.6-terra", "codex")])
     codex_sol = evidence("codex", [observation("gpt-5.6-sol", "codex")])
+    codex_gpt6_sol = evidence("codex", [observation("gpt-6-sol", "codex")])
+    codex_gpt6_luna = evidence("codex", [observation("gpt-6-luna", "codex")])
+    codex_gpt6_both = evidence("codex", [
+        observation("gpt-6-sol", "codex"),
+        observation("gpt-6-luna", "codex"),
+    ])
+    codex_gpt6_sol_unavailable_with_luna = evidence("codex", [
+        observation("gpt-6-sol", "codex", state="exhausted"),
+        observation("gpt-6-luna", "codex"),
+    ])
+    codex_gpt6_unavailable_with_terra = evidence("codex", [
+        observation("gpt-6-sol", "codex", state="exhausted"),
+        observation("gpt-6-luna", "codex", state="exhausted"),
+        observation("gpt-5.6-terra", "codex"),
+    ])
     codex_spark = evidence("codex", [observation("gpt-5.3-codex-spark", "codex_bengalfox")])
     codex_terra_and_spark = evidence("codex", [
         observation("gpt-5.6-terra", "codex"),
@@ -779,6 +808,68 @@ def run_selftest() -> int:
         "codex hard with sol's bucket observed available -> sol high",
         hard_sol is not None and hard_sol.get("selected_model") == "gpt-5.6-sol"
         and hard_sol.get("selected_reasoning_effort") == "high",
+    ))
+    gpt6_sol_hard, _ = route("codex", "hard", quota_evidence=codex_gpt6_sol)
+    checks.append((
+        "Owner policy: codex hard with GPT-6 Sol available selects Sol at high",
+        gpt6_sol_hard is not None
+        and gpt6_sol_hard.get("selected_model") == "gpt-6-sol"
+        and gpt6_sol_hard.get("selected_reasoning_effort") == "high"
+        and gpt6_sol_hard.get("routing_basis") == "owner_policy"
+        and gpt6_sol_hard.get("routing_basis_note"),
+    ))
+    gpt6_sol_medium, _ = route("codex", "medium", quota_evidence=codex_gpt6_sol)
+    checks.append((
+        "Owner policy: codex medium with only GPT-6 Sol available selects Sol at high",
+        gpt6_sol_medium is not None
+        and gpt6_sol_medium.get("selected_model") == "gpt-6-sol"
+        and gpt6_sol_medium.get("selected_reasoning_effort") == "high"
+        and gpt6_sol_medium.get("routing_basis") == "owner_policy",
+    ))
+    gpt6_luna_easy, _ = route("codex", "easy", quota_evidence=codex_gpt6_luna)
+    checks.append((
+        "Owner policy: codex easy with only GPT-6 Luna available selects Luna at xhigh",
+        gpt6_luna_easy is not None
+        and gpt6_luna_easy.get("selected_model") == "gpt-6-luna"
+        and gpt6_luna_easy.get("selected_reasoning_effort") == "xhigh"
+        and gpt6_luna_easy.get("routing_basis") == "owner_policy",
+    ))
+    gpt6_luna_medium, _ = route("codex", "medium", quota_evidence=codex_gpt6_luna)
+    checks.append((
+        "Owner policy: codex medium with only GPT-6 Luna available selects Luna at xhigh",
+        gpt6_luna_medium is not None
+        and gpt6_luna_medium.get("selected_model") == "gpt-6-luna"
+        and gpt6_luna_medium.get("selected_reasoning_effort") == "xhigh"
+        and gpt6_luna_medium.get("routing_basis") == "owner_policy",
+    ))
+    gpt6_medium_priority, _ = route("codex", "medium", quota_evidence=codex_gpt6_both)
+    checks.append((
+        "GPT-6 medium priority: Sol 10 precedes Luna 20, selecting gpt-6-sol at high",
+        gpt6_medium_priority is not None
+        and gpt6_medium_priority.get("selected_model") == "gpt-6-sol"
+        and gpt6_medium_priority.get("selected_reasoning_effort") == "high"
+        and gpt6_medium_priority.get("routing_priority") == 10
+        and gpt6_medium_priority.get("routing_basis") == "owner_policy",
+    ))
+    gpt6_medium_luna_fallback, _ = route(
+        "codex", "medium", quota_evidence=codex_gpt6_sol_unavailable_with_luna
+    )
+    checks.append((
+        "GPT-6 medium with Sol unavailable selects Luna priority 20 before legacy candidates",
+        gpt6_medium_luna_fallback is not None
+        and gpt6_medium_luna_fallback.get("selected_model") == "gpt-6-luna"
+        and gpt6_medium_luna_fallback.get("selected_reasoning_effort") == "xhigh"
+        and gpt6_medium_luna_fallback.get("routing_priority") == 20
+        and gpt6_medium_luna_fallback.get("routing_basis") == "owner_policy",
+    ))
+    gpt6_fallback, _ = route("codex", "medium", quota_evidence=codex_gpt6_unavailable_with_terra)
+    checks.append((
+        "GPT-6 quota unavailable falls back to available legacy gpt-5.6-terra",
+        gpt6_fallback is not None
+        and gpt6_fallback.get("selected_model") == "gpt-5.6-terra"
+        and gpt6_fallback.get("selected_reasoning_effort") == "medium"
+        and gpt6_fallback.get("routing_basis") == "measured"
+        and gpt6_fallback.get("routing_priority") == 100,
     ))
     medium_spark_only, medium_spark_error = route("codex", "medium", quota_evidence=codex_spark)
     checks.append((
@@ -1365,7 +1456,7 @@ def run_selftest() -> int:
     checks.append(("unknown dispatch_role blocks", unknown_role_error is not None))
 
     receipt = medium_with_terra
-    checks.append(("route receipt has fixed fields", receipt is not None and all(key in receipt for key in ("selected_model", "selected_reasoning_effort", "task_complexity", "selection_reason", "estimated_cost_range", "catalog_version", "selection_status"))))
+    checks.append(("route receipt has fixed fields", receipt is not None and all(key in receipt for key in ("selected_model", "selected_reasoning_effort", "task_complexity", "selection_reason", "routing_basis", "routing_priority", "estimated_cost_range", "catalog_version", "selection_status"))))
     checks.append((
         "route receipt records the quota evidence it consumed",
         receipt is not None and (receipt.get("quota_filter") or {}).get("applied") is True

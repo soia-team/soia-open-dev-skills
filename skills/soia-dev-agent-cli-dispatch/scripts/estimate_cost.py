@@ -60,7 +60,9 @@ def _legacy_float(value: Decimal | None) -> float | None:
 def _decimal_text(value: Decimal | None) -> str | None:
     if value is None:
         return None
-    text = format(value, "f").rstrip("0").rstrip(".")
+    text = format(value, "f")
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
     return text or "0"
 
 
@@ -97,6 +99,7 @@ def estimate(
             "breakdown": None,
             "total_cost": None,
             "total_cost_decimal": None,
+            "total_cost_unavailable_reason": "model not found in catalog; no price estimate is available",
             "notes": [
                 "unknown_pricing: model not found in catalog",
             ],
@@ -150,6 +153,11 @@ def estimate(
             if tier_used == "batch":
                 input_rate = _num(batch_pricing.get("input_per_1m"))
                 output_rate = _num(batch_pricing.get("output_per_1m"))
+                if "cached_input_per_1m" in batch_pricing:
+                    cached_rate = _num(batch_pricing.get("cached_input_per_1m"))
+                # Batch schedules often omit a distinct cache-hit rate. In that
+                # case retain the standard cached-input rate, matching the
+                # historical estimator contract instead of treating cache as free.
             else:
                 notes.append("batch requested but long_context tier took precedence; batch pricing for long-context rows is not modeled separately")
         else:
@@ -186,7 +194,11 @@ def estimate(
         notes.append("cached_tokens is treated as a subset of input_tokens (billed at the cached rate instead of the standard input rate)")
 
     input_cost = (Decimal(ordinary_input_tokens) / MILLION) * input_rate if input_rate is not None else None
-    cached_cost = (Decimal(cached_tokens) / MILLION) * cached_rate if cached_tokens and cached_rate is not None else Decimal("0")
+    cached_cost = (
+        (Decimal(cached_tokens) / MILLION) * cached_rate
+        if cached_tokens and cached_rate is not None
+        else None if cached_tokens else Decimal("0")
+    )
     cache_write_cost = (
         (Decimal(cache_write_tokens) / MILLION) * cache_write_rate
         if cache_write_tokens and cache_write_rate is not None
@@ -195,8 +207,16 @@ def estimate(
     output_cost = (Decimal(output_tokens) / MILLION) * output_rate if output_rate is not None else None
 
     total = None
-    if input_cost is not None and output_cost is not None:
+    if input_cost is not None and cached_cost is not None and output_cost is not None:
         total = input_cost + cached_cost + cache_write_cost + output_cost
+
+    unavailable_reasons: list[str] = []
+    if input_cost is None:
+        unavailable_reasons.append("input price is unavailable")
+    if cached_tokens and cached_rate is None:
+        unavailable_reasons.append("cached-input tokens were supplied but no cached_input_per_1m price exists")
+    if output_cost is None:
+        unavailable_reasons.append("output price is unavailable")
 
     return {
         "requested_model": model,
@@ -225,6 +245,7 @@ def estimate(
         },
         "total_cost": _legacy_float(total),
         "total_cost_decimal": _decimal_text(total),
+        "total_cost_unavailable_reason": "; ".join(unavailable_reasons) if total is None else None,
         "notes": notes,
         "near_candidates": [],
         "subscription_disclaimer": SUBSCRIPTION_DISCLAIMER,
@@ -248,6 +269,8 @@ def _print_text(result: dict[str, Any]) -> None:
         print(f"  output:      {breakdown['output_tokens_billed']} tok -> {breakdown['output_cost']}")
     print(f"total_cost: {result['total_cost']}")
     print(f"total_cost_decimal: {result.get('total_cost_decimal')}")
+    if result.get("total_cost_unavailable_reason"):
+        print(f"total_cost_unavailable_reason: {result['total_cost_unavailable_reason']}")
     if result["near_candidates"]:
         print(f"near_candidates: {', '.join(result['near_candidates'])}")
     for note in result["notes"]:
@@ -267,31 +290,28 @@ def run_selftest() -> int:
         return 1
     data = catalog_lib.load_catalog(catalog_path)
 
-    # 1. Sonnet-5 promotional price, exact 1M in + 1M out (matches the
-    #    source's own "1M input + 1M output" column: $2 + $10 = $12).
-    r = estimate(data, "claude-sonnet-5", 1_000_000, 1_000_000, as_of_date="2026-08-31")
+    # 1. Sonnet-5 current standard price, 1M in + 1M out = $12.
+    r = estimate(data, "claude-sonnet-5", 1_000_000, 1_000_000, as_of_date="2026-09-23")
     check(
-        "sonnet-5 promo: 1M in + 1M out == $12.00",
+        "sonnet-5 standard: 1M in + 1M out == $12.00",
         r["confidence"] == "exact" and r["total_cost_decimal"] == "12",
         f"got {r['total_cost']}",
     )
 
-    # 2. Same alias resolved after promo window via the distinct catalog row:
-    #    standard price 1M in + 1M out = $3 + $15 = $18.
-    r_future = estimate(data, "claude-sonnet-5", 1_000_000, 1_000_000, as_of_date="2026-09-01")
+    # 2. The former planned 2026-09-01 price period is no longer present.
+    r_future = estimate(data, "claude-sonnet-5", 1_000_000, 1_000_000, as_of_date="2026-10-01")
     check(
-        "sonnet-5 standard (post 2026-09-01): 1M in + 1M out == $18.00",
-        r_future["confidence"] == "exact" and r_future["total_cost_decimal"] == "18",
+        "sonnet-5 planned future price removed: $12 remains the catalog rate",
+        r_future["confidence"] == "exact" and r_future["total_cost_decimal"] == "12",
         f"got {r_future['total_cost']}",
     )
 
-    # 3. Long-context auto-detection: gpt-5.6-sol above the 272K threshold
-    #    should bill at $10/$45 per 1M instead of $5/$30.
+    # 3. Current GPT-5.6 Sol standard pricing; no unsupported old long tier.
     r_lc = estimate(data, "gpt-5.6-sol", 300_000, 1_000_000)
-    expected_lc = (300_000 / 1_000_000) * 10 + (1_000_000 / 1_000_000) * 45
+    expected_lc = (300_000 / 1_000_000) * 4 + (1_000_000 / 1_000_000) * 20
     check(
-        "gpt-5.6-sol auto long_context above 272K threshold",
-        r_lc["tier_used"] == "long_context" and abs(r_lc["total_cost"] - expected_lc) < 1e-9,
+        "gpt-5.6-sol uses current standard price without an unconfirmed long tier",
+        r_lc["tier_used"] == "standard" and abs(r_lc["total_cost"] - expected_lc) < 1e-9,
         f"got tier={r_lc['tier_used']} total={r_lc['total_cost']}",
     )
     r_short = estimate(data, "gpt-5.6-sol", 100_000, 1_000_000)
@@ -319,13 +339,11 @@ def run_selftest() -> int:
         f"got confidence={r_unknown['confidence']} total={r_unknown['total_cost']}",
     )
 
-    # 6. Batch tier halves (roughly) the standard rate for a model that has one.
-    #    Token counts are kept below terra's 272K long-context threshold so the
-    #    batch tier isn't shadowed by auto long-context detection (check 3).
-    r_batch = estimate(data, "gpt-5.6-terra", 200_000, 200_000, batch=True)
-    expected_batch = 0.2 * 1.25 + 0.2 * 7.5
+    # 6. Batch cached-input pricing is read from a distinct rate when present.
+    r_batch = estimate(data, "mimo-v2.6-pro", 1_000_000, 1_000_000, cached_tokens=250_000, batch=True)
+    expected_batch = 0.75 * 0.2175 + 0.25 * 0.0018 + 0.435
     check(
-        "gpt-5.6-terra batch tier == $1.75 per 200K in + 200K out",
+        "mimo-v2.6-pro batch uses its input, cache-hit, and output rates",
         r_batch["tier_used"] == "batch" and abs(r_batch["total_cost"] - expected_batch) < 1e-9,
         f"got tier={r_batch['tier_used']} total={r_batch['total_cost']}",
     )
@@ -339,14 +357,61 @@ def run_selftest() -> int:
     )
 
     # 8. Cached input tokens are billed at the cached rate, not double-counted.
-    #    Kept below luna's 272K long-context threshold so this isolates the
-    #    cached-token subtraction logic from tier selection (check 3).
     r_cached = estimate(data, "gpt-5.6-luna", 100_000, 0, cached_tokens=40_000)
-    expected_cached = (60_000 / 1_000_000) * 1 + (40_000 / 1_000_000) * 0.1
+    expected_cached = (60_000 / 1_000_000) * 0.2 + (40_000 / 1_000_000) * 0.02
     check(
         "cached_tokens billed at cached rate, subtracted from standard input",
         abs(r_cached["total_cost"] - expected_cached) < 1e-9,
         f"got {r_cached['total_cost']}, expected {expected_cached}",
+    )
+
+    # 9. Older batch rows without a distinct cache-hit rate use the standard
+    #    cache rate; cached input must never be counted as free.
+    r_batch_cache = estimate(data, "gpt-5.4", 200_000, 0, cached_tokens=100_000, batch=True)
+    check(
+        "gpt-5.4 batch cached input uses standard cache rate: total == $0.15",
+        r_batch_cache["total_cost_decimal"] == "0.15"
+        and abs(r_batch_cache["total_cost"] - 0.15) < 1e-12,
+        f"got total={r_batch_cache['total_cost_decimal']} breakdown={r_batch_cache['breakdown']}",
+    )
+
+    # 10. Missing cache-hit prices are intentionally unavailable, not free.
+    missing_cache_price = [
+        estimate(data, model, 200_000, 100_000, cached_tokens=50_000)
+        for model in ("gpt-5.5-pro", "gpt-5.4-pro")
+    ]
+    presented = [json.loads(json.dumps(result, ensure_ascii=False)) for result in missing_cache_price]
+    check(
+        "gpt-5.5-pro and gpt-5.4-pro missing cache-hit prices expose null and a reason",
+        all(
+            result["total_cost"] is None
+            and result["total_cost_decimal"] is None
+            and "no cached_input_per_1m price exists" in result["total_cost_unavailable_reason"]
+            and item["total_cost"] is None
+            and item["total_cost_unavailable_reason"] == result["total_cost_unavailable_reason"]
+            for result, item in zip(missing_cache_price, presented)
+        ),
+        "JSON consumers receive null plus total_cost_unavailable_reason",
+    )
+
+    # 11. Machine decimal strings retain integer zeroes and match numeric cost.
+    decimal_cases = (
+        ("gpt-6-sol", 0, 1_000_000, Decimal("10")),
+        ("gpt-6-astra", 0, 2_000_000, Decimal("100")),
+        ("gpt-6-luna", 1_000_000, 0, Decimal("0.10")),
+        ("gpt-5.6-luna", 0, 1_250_000, Decimal("1.5")),
+    )
+    decimal_results = [estimate(data, model, inputs, outputs) for model, inputs, outputs, _ in decimal_cases]
+    check(
+        "total_cost and total_cost_decimal agree for 10, 100, 0.10, and 1.5",
+        all(
+            result["total_cost"] is not None
+            and Decimal(result["total_cost_decimal"]) == expected
+            and Decimal(str(result["total_cost"])) == expected
+            for result, (_, _, _, expected) in zip(decimal_results, decimal_cases)
+        )
+        and all(_decimal_text(value) == text for value, text in ((Decimal("10"), "10"), (Decimal("100"), "100"), (Decimal("0.10"), "0.1"), (Decimal("1.5"), "1.5"))),
+        "got " + ", ".join(str(result["total_cost_decimal"]) for result in decimal_results),
     )
 
     print("=== estimate_cost.py selftest ===")

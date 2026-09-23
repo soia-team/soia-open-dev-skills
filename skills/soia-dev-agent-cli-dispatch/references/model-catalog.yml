@@ -30,14 +30,13 @@
 # deepseek-flash (V4.1 Flash). Retired ids are kept in place, marked
 # availability: deprecated, and removed from auto-routing. These rows are not
 # part of the 2026-07-10 29-model count above.
-# Anthropic contributes 10 invocable model rows. Claude Sonnet 5's promotional
-# and standard prices are modeled as date-effective tiers inside the same row;
-# a price period must never masquerade as a second provider model_id.
+# Anthropic contributes 10 invocable model rows. Claude Sonnet 5's introductory
+# price is now standard; the planned 2026-09-01 increase will not happen.
 # Antigravity/agy is intentionally absent: its account-scoped Gemini/third-party
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-09-12"
+updated_at: "2026-09-23"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -66,6 +65,18 @@ sources:
   - id: codex-quota-bucket-2026-09-12
     path: references/codex-cli.md
     date: "2026-09-12"
+  - id: openai-pricing-2026-09-23
+    path: https://developers.openai.com/api/docs/pricing
+    date: "2026-09-23"
+  - id: anthropic-pricing-2026-09-23
+    path: https://platform.claude.com/docs/en/about-claude/pricing
+    date: "2026-09-23"
+  - id: xiaomi-pricing-2026-09-23
+    path: https://mimo.mi.com/docs/price/pay-as-you-go
+    date: "2026-09-23"
+  - id: deepseek-pricing-2026-09-23
+    path: https://api-docs.deepseek.com/quick_start/pricing/
+    date: "2026-09-23"
 providers:
   openai:
     executor_cli: codex
@@ -80,17 +91,71 @@ providers:
         reasoning_levels_confidence: forward_verified_single_run
         default_reasoning_level: medium
         pricing:
-          input_per_1m: null
-          cached_input_per_1m: null
+          input_per_1m: 10
+          cached_input_per_1m: 1
           cache_write_per_1m: null
-          output_per_1m: null
+          output_per_1m: 50
+          long_context: null
+          batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "API 价格未采集；订阅侧 Pro 5x 档 5 小时窗口本地消息估算 25-225 条（对照 Sol 50-500 / Terra 125-1,000 / Luna 1,250-10,000），为 codex 家族中最稀缺档位。"
-          effective_date: "2026-09-05"
-          source_id: astra-forward-2026-09-05
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23. No separate cache-write, long-context, or batch rate is encoded here."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
         routing_profile: [hard]
         discovered_at: "2026-09-05"
-        discovery_evidence: "2026-09-05 真实深审前向验证（SoiaDeck TASK-G0.0.4-067）：requested=actual=gpt-6-astra（会话头 model: 行核验），reasoning=medium，94,061 tokens，read-only 沙箱。9 项审查全部给出 file:line 证据，抓到 1 个实现层 REFUTED（存在性防线缺口：未知权威状态词可越权回落）+3 项可执行最小处方，复审后经返工全部证实有效；零幻觉引用。结论：审核/深审档 verified；执行档未测试。角色定位（Owner 2026-09-05 晚更新，废止早前限 1 次与仅审核限定）：high 推理解锁，承担文档、设计、审核三类工作；实现与自身审核不得同片（配对纪律）。"
+        discovery_evidence: "2026-09-05 真实深审前向验证（SoiaDeck TASK-G0.0.4-067）：requested=actual=gpt-6-astra（会话头 model: 行核验），reasoning=medium，read-only 沙箱。9 项审查全部给出 file:line 证据，抓到 1 个实现层 REFUTED（存在性防线缺口：未知权威状态词可越权回落）+3 项可执行最小处方，复审后经返工全部证实有效；零幻觉引用。结论：审核/深审档 verified；执行档未测试。角色定位（Owner 2026-09-05 晚更新，废止早前限 1 次与仅审核限定）：high 推理解锁，承担文档、设计、审核三类工作；实现与自身审核不得同片（配对纪律）。"
+      - model_id: gpt-6-sol
+        display_name: "GPT-6 Sol"
+        aliases: [sol6]
+        model_family: gpt-6
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [high]
+        reasoning_levels_confidence: smoke_tested
+        default_reasoning_level: high
+        pricing:
+          input_per_1m: 2
+          cached_input_per_1m: 0.2
+          cache_write_per_1m: null
+          output_per_1m: 10
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23; no separate cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
+        routing_profile: [hard, medium]
+        routing_basis: owner_policy
+        routing_basis_note: "Owner 2026-09-23 authorized routing based on caller-provided benchmark; this skill has only model-identity smoke evidence and no task-quality measurement."
+        routing_priority: 10
+        discovered_at: "2026-09-23"
+        discovery_evidence: "2026-09-23 Codex CLI 0.156.0 smoke: `codex exec -m gpt-6-sol -c model_reasoning_effort=\"high\"`; stderr session header showed `model: gpt-6-sol`, `provider: openai`, and `reasoning effort: high`. Model self-description was only GPT-6 and was not used as identity evidence. This establishes model identity and service for the tested reasoning level, not task quality."
+      - model_id: gpt-6-luna
+        display_name: "GPT-6 Luna"
+        aliases: [luna6]
+        model_family: gpt-6
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [xhigh]
+        reasoning_levels_confidence: smoke_tested
+        default_reasoning_level: xhigh
+        pricing:
+          input_per_1m: 0.1
+          cached_input_per_1m: 0.01
+          cache_write_per_1m: null
+          output_per_1m: 0.5
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23; no separate cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
+        routing_profile: [easy, medium]
+        routing_basis: owner_policy
+        routing_basis_note: "Owner 2026-09-23 authorized routing based on caller-provided benchmark; this skill has only model-identity smoke evidence and no task-quality measurement."
+        routing_priority: 20
+        discovered_at: "2026-09-23"
+        discovery_evidence: "2026-09-23 Codex CLI 0.156.0 smoke: `codex exec -m gpt-6-luna -c model_reasoning_effort=\"xhigh\"`; stderr session header showed `model: gpt-6-luna`, `provider: openai`, and `reasoning effort: xhigh`. Model self-description was only GPT-6 and was not used as identity evidence. This establishes model identity and service for the tested reasoning level, not task quality."
       - model_id: gpt-5.6-sol
         display_name: "GPT-5.6 Sol"
         aliases: [sol]
@@ -101,21 +166,16 @@ providers:
         reasoning_levels_confidence: smoke_tested
         default_reasoning_level: medium
         pricing:
-          input_per_1m: 5
-          cached_input_per_1m: 0.5
-          cache_write_per_1m: 6.25
-          output_per_1m: 30
-          long_context:
-            threshold_tokens: 272000
-            input_per_1m: 10
-            output_per_1m: 45
-          batch:
-            input_per_1m: 2.5
-            output_per_1m: 15
+          input_per_1m: 4
+          cached_input_per_1m: 0.4
+          cache_write_per_1m: null
+          output_per_1m: 20
+          long_context: null
+          batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "Priority tier per 1M: input $10 / cached $1 / write $12.50 / output $60. Long-context tier triggers above 272K input tokens per request (cached $1, write $12.50). Data-residency regional endpoints for models released on/after 2026-03-05 may add a 10% surcharge."
-          effective_date: "2026-07-10"
-          source_id: pricing-2026-07-10
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23. No separate cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
         routing_profile: [hard]
         discovered_at: "2026-07-10"
         discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710"
@@ -129,21 +189,16 @@ providers:
         reasoning_levels_confidence: smoke_tested
         default_reasoning_level: medium
         pricing:
-          input_per_1m: 2.5
-          cached_input_per_1m: 0.25
-          cache_write_per_1m: 3.125
-          output_per_1m: 15
-          long_context:
-            threshold_tokens: 272000
-            input_per_1m: 5
-            output_per_1m: 22.5
-          batch:
-            input_per_1m: 1.25
-            output_per_1m: 7.5
+          input_per_1m: 2
+          cached_input_per_1m: 0.2
+          cache_write_per_1m: null
+          output_per_1m: 12
+          long_context: null
+          batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "Priority tier per 1M: input $5 / cached $0.50 / write $6.25 / output $30. Long-context tier triggers above 272K input tokens per request (cached $0.50, write $6.25)."
-          effective_date: "2026-07-10"
-          source_id: pricing-2026-07-10
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23. No separate cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
         routing_profile: [medium]
         discovered_at: "2026-07-10"
         discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710"
@@ -157,21 +212,16 @@ providers:
         reasoning_levels_confidence: smoke_tested
         default_reasoning_level: medium
         pricing:
-          input_per_1m: 1
-          cached_input_per_1m: 0.1
-          cache_write_per_1m: 1.25
-          output_per_1m: 6
-          long_context:
-            threshold_tokens: 272000
-            input_per_1m: 2
-            output_per_1m: 9
-          batch:
-            input_per_1m: 0.5
-            output_per_1m: 3
+          input_per_1m: 0.2
+          cached_input_per_1m: 0.02
+          cache_write_per_1m: null
+          output_per_1m: 1.2
+          long_context: null
+          batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "Priority tier per 1M: input $2 / cached $0.20 / write $2.50 / output $12. Long-context tier triggers above 272K input tokens per request (cached $0.20, write $2.50). xhigh reasoning only produced a quality step-change for sol in the skill's own single-day 8-run comparison; for terra/luna it mainly increased token spend -- see the skill's codex-tiering note, itself an unverified single-sample observation. 2026-07-10 smoke matrix (run_id smoke-20260710) confirms low/medium/high/xhigh all pass (exit 0) for luna; recommended as the easy-tier default at --reasoning low, escalating to xhigh is not recommended given the cost-without-payoff finding above -- see reports/benchmark-2026-07-10.md."
-          effective_date: "2026-07-10"
-          source_id: pricing-2026-07-10
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23. No separate cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
         routing_profile: [easy]
         discovered_at: "2026-07-10"
         discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710"
@@ -189,17 +239,12 @@ providers:
           cached_input_per_1m: 0.5
           cache_write_per_1m: null
           output_per_1m: 30
-          long_context:
-            threshold_tokens: 272000
-            input_per_1m: 10
-            output_per_1m: 45
-          batch:
-            input_per_1m: 2.5
-            output_per_1m: 15
+          long_context: null
+          batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "Priority tier per 1M: input $12.50 / output $75, no separate cache-write price listed. Long-context tier triggers above 272K input tokens per request. 2026-07-10 smoke matrix (run_id smoke-20260710): reasoning=minimal failed (non-zero exit) on a fixed-arithmetic/model-echo fixture; low/medium/high/xhigh were not among the failing cases in that run but remain unconfirmed pending dedicated testing, not yet a positive 'supported' claim -- see reports/benchmark-2026-07-10.md. Separately, an older single-day 8-run deep-audit comparison found this model fastest (190s) with shallower findings than the sol/terra/luna 5.6 family -- see SKILL.md 'codex 5.6 系实测分级'."
-          effective_date: "2026-07-10"
-          source_id: pricing-2026-07-10
+          billing_mode_notes: "Standard USD per 1M tokens from OpenAI pricing, checked 2026-09-23. No separate cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: openai-pricing-2026-09-23
         routing_profile: []
         discovered_at: "2026-07-10"
         discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710"
@@ -398,6 +443,32 @@ providers:
     # model unusable as a dispatch target.
     auxiliary_models: [claude-haiku-4-5-20251001]
     models:
+      - model_id: claude-opus-5-5
+        display_name: "Claude Opus 5.5"
+        aliases: [opus-5.5, opus55]
+        model_family: claude-opus-5
+        availability: available
+        context_window: 1000000
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        max_output_tokens: 128000
+        pricing:
+          input_per_1m: 4
+          cached_input_per_1m: 0.2
+          cache_write_5m_per_1m: 5
+          cache_write_1h_per_1m: null
+          output_per_1m: 20
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "Standard USD per 1M tokens from Anthropic pricing, checked 2026-09-23. Cache-hit pricing is a 0.05x exception; no separate 1h cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: anthropic-pricing-2026-09-23
+        routing_profile: []
+        discovered_at: "2026-09-23"
+        discovery_evidence: "2026-09-23 Claude Code JSON smoke: `claude -p --model claude-opus-5-5 --output-format json`; `modelUsage` key and `canonicalModel` both equaled `claude-opus-5-5`. The response reported contextWindow 1000000 and maxOutputTokens 128000. This establishes model identity and service, not task quality; routing_profile stays empty."
+        notes: "Positioning is based on caller-provided benchmark information from the Owner (2026-09-23); this skill has no task-quality measurement for this model."
       - model_id: claude-fable-5-1
         display_name: "Claude Fable 5.1"
         aliases: [fable-5-1, fable-5.1]
@@ -408,18 +479,17 @@ providers:
         reasoning_levels_confidence: unverified
         default_reasoning_level: null
         pricing:
-          input_per_1m: null
-          cached_input_per_1m: null
-          cache_write_5m_per_1m: null
+          input_per_1m: 10
+          cached_input_per_1m: 0.25
+          cache_write_5m_per_1m: 12.5
           cache_write_1h_per_1m: null
-          output_per_1m: null
+          output_per_1m: 50
           long_context: null
           batch: null
           reasoning_billing_rule: counted_as_output
-          pricing_source: unknown
-          billing_mode_notes: "No pricing source exists for this model as of 2026-09-02. The 2026-09-02 probe ran under a subscription login and produced zero per-token price evidence, so every price field is null rather than inherited from claude-fable-5 or the opus rows. effective_date/source_id below point at the EXISTENCE evidence (the probe), not at a price quote."
-          effective_date: "2026-09-02"
-          source_id: claude-model-probe-2026-09-02
+          billing_mode_notes: "Standard USD per 1M tokens from Anthropic pricing, checked 2026-09-23. Cache-hit price is a 0.025x exception; no separate 1h cache-write or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: anthropic-pricing-2026-09-23
         routing_profile: []
         discovered_at: "2026-09-02"
         discovery_evidence: "2026-09-02 Claude Code 2.1.257 probe (`claude -p --model claude-fable-5-1 --output-format json`): rc=0, modelUsage business key claude-fable-5-1, stream-json assistant.message.model=claude-fable-5-1, no fallback event. Existence and exact model echo only; no pricing, context-window, reasoning-level or task-quality evidence. See reports/claude-model-probe-2026-09-02.md."
@@ -486,18 +556,17 @@ providers:
         reasoning_levels_confidence: unverified
         default_reasoning_level: null
         pricing:
-          input_per_1m: null
-          cached_input_per_1m: null
-          cache_write_5m_per_1m: null
+          input_per_1m: 5
+          cached_input_per_1m: 0.5
+          cache_write_5m_per_1m: 6.25
           cache_write_1h_per_1m: null
-          output_per_1m: null
+          output_per_1m: 25
           long_context: null
           batch: null
           reasoning_billing_rule: counted_as_output
-          pricing_source: unknown
-          billing_mode_notes: "No pricing source exists for this model as of 2026-09-02. The 2026-09-02 probe ran under a subscription login and produced zero per-token price evidence, so every price field is null rather than inherited from the claude-opus-4 rows. effective_date/source_id below point at the EXISTENCE evidence (the probe), not at a price quote."
-          effective_date: "2026-09-02"
-          source_id: claude-model-probe-2026-09-02
+          billing_mode_notes: "Standard USD per 1M tokens from Anthropic pricing, checked 2026-09-23; no separate 1h cache-write, long-context, or batch rate is encoded."
+          effective_date: "2026-09-23"
+          source_id: anthropic-pricing-2026-09-23
         routing_profile: []
         discovered_at: "2026-09-02"
         notes: "project policies may restrict this model from reviewer roles; the skill only enforces family independence"
@@ -607,8 +676,8 @@ providers:
         discovered_at: null
         discovery_evidence: null
       - model_id: claude-sonnet-5
-        display_name: "Claude Sonnet 5 (promotional, through 2026-08-31)"
-        aliases: [sonnet-5, claude-sonnet-5-promo]
+        display_name: "Claude Sonnet 5"
+        aliases: [sonnet-5]
         model_family: claude-sonnet-5
         availability: available
         context_window: 1000000
@@ -619,28 +688,14 @@ providers:
           input_per_1m: 2
           cached_input_per_1m: 0.2
           cache_write_5m_per_1m: 2.5
-          cache_write_1h_per_1m: 4
+          cache_write_1h_per_1m: null
           output_per_1m: 10
           long_context: null
-          batch:
-            input_per_1m: 1
-            output_per_1m: 5
+          batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "Promotional price active through 2026-08-31. The same provider model resumes standard pricing on 2026-09-01 through future_pricing below; this is one invocable model, not two model IDs. Full 1M context billed at standard rate. inference_geo=us multiplies input/output/cache-write/cache-read by 1.1x. New tokenizer vs Sonnet 4.6 and earlier may produce ~30% more tokens for the same text. 2026-07-10 smoke matrix (run_id smoke-claude-json-20260710, 15 cases via --output-format json, zero downgrades observed): output scaled with --effort from 22 tokens (low) to 410 tokens (max), cost $0.0445 to $0.0503 on a fixed-arithmetic fixture -- effort measurably bought more reasoning for this model, unlike claude-opus-4-8 in the same run. All 5 effort levels (low/medium/high/xhigh/max) were accepted (exit 0) -- see reports/benchmark-2026-07-10.md."
-          effective_date: "2026-07-10 through 2026-08-31 (promotional)"
-          source_id: pricing-2026-07-10
-          future_pricing:
-            effective_from: "2026-09-01"
-            input_per_1m: 3
-            cached_input_per_1m: 0.3
-            cache_write_5m_per_1m: 3.75
-            cache_write_1h_per_1m: 6
-            output_per_1m: 15
-            batch:
-              input_per_1m: 1.5
-              output_per_1m: 7.5
-            effective_date: "2026-09-01 onward"
-            source_id: pricing-2026-07-10
+          billing_mode_notes: "The $2/$10 introductory input/output price became the standard price; the planned 2026-09-01 increase to $3/$15 will not happen. Cache-hit is $0.20/1M and 5m cache-write is $2.50/1M. The provider source describes standard pricing; no separate 1h cache-write or batch rate is encoded. 2026-07-10 smoke matrix (run_id smoke-claude-json-20260710, 15 cases via --output-format json, zero downgrades observed): output scaled with --effort from 22 tokens (low) to 410 tokens (max), cost $0.0445 to $0.0503 on a fixed-arithmetic fixture -- effort measurably bought more reasoning for this model, unlike claude-opus-4-8 in the same run. All 5 effort levels (low/medium/high/xhigh/max) were accepted (exit 0) -- see reports/benchmark-2026-07-10.md."
+          effective_date: "2026-09-23"
+          source_id: anthropic-pricing-2026-09-23
         routing_profile: [medium]
         discovered_at: "2026-09-02"
         discovery_evidence: "2026-07-10 smoke matrix, run_id smoke-20260710 + smoke-claude-json-20260710. Re-confirmed 2026-09-02 on Claude Code 2.1.257 (`claude -p --model claude-sonnet-5 --output-format json`): rc=0, modelUsage business key claude-sonnet-5, exact match, no fallback. The 2026-09-02 probe adds existence/echo evidence only; the medium routing_profile still rests on the 2026-07-10 effort matrix. See reports/claude-model-probe-2026-09-02.md."
@@ -977,12 +1032,12 @@ providers:
           long_context: null
           batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "Provider-declared USD/1M list rates synced by pi 0.85.1 from api.deepseek.com on 2026-09-11: input_per_1m = cache-miss, cached_input_per_1m = cache-hit, output; cache-write is explicitly 0 (no separate charge). Context 1M, max output 384K, no separate Batch/Priority/long-context tier declared. Peak/off-peak: Beijing workdays 09:00-12:00 and 14:00-18:00 are peak and use these list rates; all other hours are half price (derived off-peak: input 0.15 / cached 0.003 / output 0.6). Input modalities per the same provider metadata: text + image (V4.1 Flash is natively multimodal), but no real image-input dispatch had been run as of 2026-09-11, so image support is a provider declaration, not a verified runtime fact. Billing is metered (pay-as-you-go) at a low unit price; pi receipts report cost 0 because pi zeroes the cost components, which is not free-tier evidence. Session-reported token totals are per-turn context peaks, not cumulative usage, and the actual cost is per the provider billing console, so every number here is an API-equivalent estimate. See reports/deepseek-flash-verification-2026-09-11.md."
-          effective_date: "2026-09-11"
-          source_id: deepseek-flash-verification-2026-09-11
+          billing_mode_notes: "Catalog scalar uses DeepSeek peak USD/1M rates: input (cache-miss) 0.30, cache hit 0.006, output 1.20. Peak hours are Beijing time 09:00-12:00 and 14:00-18:00; other hours use 0.15/0.003/0.60. Cache writes are not separately charged. Billing is metered pay-as-you-go, not a subscription. See reports/deepseek-flash-verification-2026-09-11.md for the existing model identity and service evidence."
+          effective_date: "2026-09-23"
+          source_id: deepseek-pricing-2026-09-23
         routing_profile: [easy]
         discovered_at: "2026-09-11"
-        discovery_evidence: "Provider metadata synced by pi 0.85.1 on 2026-09-11 (models-store, checked from api.deepseek.com): id deepseek-flash, name DeepSeek V4.1 Flash, context 1M, max output 384K, input [text, image], reasoning map low/high/max, cost 0.30/0.006/1.20 USD per 1M. Real pi JSONL evidence (SoiaDeck, 2026-09-10 14:32-14:43 +08): every assistant message_end echoed provider=deepseek model=deepseek-flash with structured usage (e.g. input 197 / cacheRead 32256 / output 334 / reasoning 172 / total 32787) at thinking=high after 3 tool calls, cost.total=0 (pi zeroes the cost components; billing is metered at a low unit price and the actual charge is per the provider billing console). Operator-reported pi minimal verification on 2026-09-11 also echoed actual_model=deepseek-flash (that run's thinking level was not logged separately). Four real coding/documentation tasks then ran on dsh headless with deepseek-flash at max effort (SoiaDeck W-B spike 11 files/1520 lines, M1 host page 17 files, W-C.1 rAF frame-coalescing closeout, 0.17.7 re-test batch); all artifacts passed project gates and merged. dsh has no model-echo implementation, so these four runs are task-outcome evidence, not model-identity evidence. Level coverage: high is instrumented-pi-verified; low/max are provider-declared (max additionally exercised on dsh); the catalog stores one scalar confidence, so smoke_tested marks the strongest per-level evidence class, not per-level coverage. model_family deliberately stays deepseek-v4 because requests to the retired v4 ids are routed to this same V4.1 Flash backend, so the reviewer Independence Gate must treat them as one line. Upgrading to verified needs per-level instrumented echoes plus a case manifest/aggregate report, and image-input remains untested. See reports/deepseek-flash-verification-2026-09-11.md."
+        discovery_evidence: "Provider metadata synced by pi 0.85.1 on 2026-09-11 (models-store, checked from api.deepseek.com): id deepseek-flash, name DeepSeek V4.1 Flash, context 1M, max output 384K, input [text, image], reasoning map low/high/max, cost 0.30/0.006/1.20 USD per 1M. Real pi JSONL evidence (SoiaDeck, 2026-09-10 14:32-14:43 +08): assistant message_end events echoed provider=deepseek model=deepseek-flash with structured usage at thinking=high. Operator-reported pi minimal verification on 2026-09-11 also echoed actual_model=deepseek-flash (that run's thinking level was not logged separately). Four real coding/documentation tasks then ran on dsh headless with deepseek-flash at max effort (SoiaDeck W-B spike 11 files/1520 lines, M1 host page 17 files, W-C.1 rAF frame-coalescing closeout, 0.17.7 re-test batch); all artifacts passed project gates and merged. dsh has no model-echo implementation, so these four runs are task-outcome evidence, not model-identity evidence. Level coverage: high is instrumented-pi-verified; low/max are provider-declared (max additionally exercised on dsh); the catalog stores one scalar confidence, so smoke_tested marks the strongest per-level evidence class, not per-level coverage. model_family deliberately stays deepseek-v4 because requests to the retired v4 ids are routed to this same V4.1 Flash backend, so the reviewer Independence Gate must treat them as one line. Upgrading to verified needs per-level instrumented echoes plus a case manifest/aggregate report, and image-input remains untested. See reports/deepseek-flash-verification-2026-09-11.md."
       - model_id: deepseek-v4-flash
         display_name: "DeepSeek V4 Flash"
         aliases: [deepseek/deepseek-v4-flash]
@@ -1016,16 +1071,16 @@ providers:
         reasoning_levels_confidence: official_docs
         default_reasoning_level: thinking
         pricing:
-          input_per_1m: 0.435
-          cached_input_per_1m: 0.003625
+          input_per_1m: 0.66
+          cached_input_per_1m: 0.022
           cache_write_per_1m: null
-          output_per_1m: 0.87
+          output_per_1m: 1.98
           long_context: null
           batch: null
           reasoning_billing_rule: counted_as_output
-          billing_mode_notes: "'input_per_1m' is the cache-miss (standard) price; cached_input_per_1m is the cache-hit price. Max output 384K tokens. No Batch/Priority/long-context pricing listed separately by source. Actual cost is deducted directly from prepaid/bonus balance, not a subscription. ROUTING NOTICE 2026-09-11: from 2026-09-14 12:00 Beijing time all deepseek-v4-pro requests are also routed to deepseek-flash (V4.1 Flash); the price row below is still the historical 2026-07-10 rate. Post-routing billing is expected to follow the V4.1 Flash schedule (0.30/0.006/1.20 per 1M) but no independent bill reconciliation exists, so it is deliberately not encoded as future_pricing."
-          effective_date: "2026-07-10"
-          source_id: pricing-2026-07-10
+          billing_mode_notes: "Catalog scalar uses the ordinary DeepSeek V4 Pro USD/1M list rates: input (cache-miss) 0.66, cache hit 0.022, output 1.98. Peak hours are Beijing time 09:00-12:00 and 14:00-18:00; peak rates are 1.32/0.044/3.96. Billing is metered pay-as-you-go, not a subscription. ROUTING NOTICE: from 2026-09-14 12:00 Beijing time deepseek-v4-pro requests are also routed to deepseek-flash (V4.1 Flash); this row records the V4 Pro list schedule, while routed requests are subject to the provider's routing and billing behavior."
+          effective_date: "2026-09-23"
+          source_id: deepseek-pricing-2026-09-23
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
@@ -1051,7 +1106,86 @@ providers:
           source_id: deepseek-vision-dsh-ui-2026-08-28
         routing_profile: null
         discovered_at: "2026-08-28"
-        discovery_evidence: "DSH UI observation, 2026-08-28: selectable with off/low/high/max, shown high session; Pi JSONL smoke, 2026-08-30: --thinking low text review message_end echoed provider=deepseek and model=deepseek-v4-flash-vision-exp with structured usage (about 80258 totalTokens, cost.total=0); and coordinator-verified DSH SoiaDeck trial, 2026-08-30: read-only repository plus temporary-directory diagnosis of macOS Python 3.14 pty fd contention (26-33/40 pre-fix reproductions), semantic-no-change unified-diff draft, then coordinator-applied 40-run zero-reproduction and full-regression pass. Only low is smoke-tested; off/high/max, image-input, direct repository-file implementation, and large slices remain unverified. routing_profile stays null. DEPRECATED 2026-09-11 (retired id; requests route to deepseek-flash, V4.1 Flash): kept for historical traceability. See references/dsh-cli.md, references/pi-cli.md, and reports/deepseek-v4-flash-vision-exp-2026-08-28.md."
+        discovery_evidence: "DSH UI observation, 2026-08-28: selectable with off/low/high/max, shown high session; Pi JSONL smoke, 2026-08-30: --thinking low text review message_end echoed provider=deepseek and model=deepseek-v4-flash-vision-exp with structured usage. The same period included a coordinator-verified DSH SoiaDeck trial: read-only repository plus temporary-directory diagnosis of macOS Python 3.14 pty fd contention, semantic-no-change unified-diff draft, then coordinator-applied remediation and regression verification. Only low is smoke-tested; off/high/max, image-input, direct repository-file implementation, and large slices remain unverified. routing_profile stays null. DEPRECATED 2026-09-11 (retired id; requests route to deepseek-flash, V4.1 Flash): kept for historical traceability. See references/dsh-cli.md, references/pi-cli.md, and reports/deepseek-v4-flash-vision-exp-2026-08-28.md."
+  xiaomi:
+    executor_cli: dsh
+    models:
+      - model_id: mimo-v2.6-pro
+        display_name: "MiMo-V2.6-Pro"
+        aliases: [mimo-v26-pro]
+        model_family: mimo-v2.6
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [high, xhigh, max]
+        reasoning_levels_confidence: smoke_tested
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: 0.435
+          cached_input_per_1m: 0.0036
+          cache_write_per_1m: 0
+          output_per_1m: 0.87
+          long_context: null
+          batch:
+            input_per_1m: 0.2175
+            cached_input_per_1m: 0.0018
+            output_per_1m: 0.435
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "MiMo pay-as-you-go USD/1M input/cache-hit/output: real-time 0.435/0.0036/0.87; batch 0.2175/0.0018/0.435. Cache writes are temporarily free. China domestic RMB/1M input/cache-hit/output: real-time Pro ¥3/¥0.025/¥6, Flash ¥1/¥0.02/¥2, Ultraspeed ¥30/¥0.25/¥60; batch Pro ¥1.5/¥0.0125/¥3, Flash ¥0.5/¥0.01/¥1. Models `mimo-v2.5-pro` and `mimo-v2.5` are scheduled to go offline at 2026-10-21 10:00 China time. No batch tier is listed for Ultraspeed. Metered API billing, not a subscription. Source page updated 2026-09-22; prices are overseas USD rates."
+          effective_date: "2026-09-22"
+          source_id: xiaomi-pricing-2026-09-23
+        routing_profile: []
+        discovered_at: "2026-09-23"
+        discovery_evidence: "Official Xiaomi API price page lists this model and its pay-as-you-go price. dsh real-use session evidence from 2026-09-22/23 records this model in `request/header` with reasoning efforts `high`, `xhigh` and `max`. This establishes the observed request configuration, not task quality; routing_profile remains empty."
+      - model_id: mimo-v2.6-flash
+        display_name: "MiMo-V2.6-Flash"
+        aliases: [mimo-v26-flash]
+        model_family: mimo-v2.6
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [high, max]
+        reasoning_levels_confidence: smoke_tested
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: 0.14
+          cached_input_per_1m: 0.0028
+          cache_write_per_1m: 0
+          output_per_1m: 0.28
+          long_context: null
+          batch:
+            input_per_1m: 0.07
+            cached_input_per_1m: 0.0014
+            output_per_1m: 0.14
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "MiMo pay-as-you-go USD/1M input/cache-hit/output: real-time 0.14/0.0028/0.28; batch 0.07/0.0014/0.14. Cache writes are temporarily free. China domestic RMB/1M input/cache-hit/output: real-time Pro ¥3/¥0.025/¥6, Flash ¥1/¥0.02/¥2, Ultraspeed ¥30/¥0.25/¥60; batch Pro ¥1.5/¥0.0125/¥3, Flash ¥0.5/¥0.01/¥1. Models `mimo-v2.5-pro` and `mimo-v2.5` are scheduled to go offline at 2026-10-21 10:00 China time. No batch tier is listed for Ultraspeed. Metered API billing, not a subscription. Source page updated 2026-09-22; prices are overseas USD rates. Reasoning-effort `max` and `high` observation is based on dsh session `request/header` evidence, not task-quality measurement."
+          effective_date: "2026-09-22"
+          source_id: xiaomi-pricing-2026-09-23
+        routing_profile: []
+        discovered_at: "2026-09-23"
+        discovery_evidence: "2026-09-23 dsh 0.1.6-alpha.2 headless smoke; the matching session file recorded `provider=xiaomi` and `model=mimo-v2.6-flash`. 2026-09-22/23 dsh real-task usage records (session `request/header` evidence; reasoning efforts `max` and `high` were observed). This establishes model identity and observed request configuration, not task quality. The record was located by the unique prompt marker, not by choosing the newest modified session. The caller currently prefers subscription channels, so `routing_profile` remains empty."
+      - model_id: mimo-v2.6-pro-ultraspeed
+        display_name: "MiMo-V2.6-Pro-Ultraspeed"
+        aliases: [mimo-v26-pro-ultraspeed]
+        model_family: mimo-v2.6
+        availability: available
+        context_window: null
+        supported_reasoning_levels: []
+        reasoning_levels_confidence: unverified
+        default_reasoning_level: null
+        pricing:
+          input_per_1m: 4.35
+          cached_input_per_1m: 0.036
+          cache_write_per_1m: 0
+          output_per_1m: 8.7
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "MiMo pay-as-you-go USD/1M input/cache-hit/output: real-time 4.35/0.036/8.70; this Ultraspeed tier is real-time only and has no batch rate. Cache writes are temporarily free. China domestic RMB/1M input/cache-hit/output: real-time Pro ¥3/¥0.025/¥6, Flash ¥1/¥0.02/¥2, Ultraspeed ¥30/¥0.25/¥60; batch Pro ¥1.5/¥0.0125/¥3, Flash ¥0.5/¥0.01/¥1. Models `mimo-v2.5-pro` and `mimo-v2.5` are scheduled to go offline at 2026-10-21 10:00 China time. Metered API billing, not a subscription. Source page updated 2026-09-22; prices are overseas USD rates."
+          effective_date: "2026-09-22"
+          source_id: xiaomi-pricing-2026-09-23
+        routing_profile: []
+        discovered_at: "2026-09-23"
+        discovery_evidence: "Official Xiaomi API price page lists this real-time-only model and its pay-as-you-go price. No forward call for this model is recorded here; it remains explicit-only."
+
   # -- Local models (OpenAI-compatible endpoints): TEMPLATE entry, not a billable cloud model --
   # 本地模型条目与上方云端条目的差异：
   #   - cost 全部为 0：本地推理没有按 token 计费；电力/硬件成本不在本 catalog 建模。

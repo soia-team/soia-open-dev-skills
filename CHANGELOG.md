@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.1 — 2026-09-23
+
+dispatch 技能 2.3.0：GPT-6 与 MiMo 模型目录、官网价格核验、GPT-6 自动选模、显式 Jev 调用与 dsh 会话取证脚本
+
+## 新增
+- feat(dispatch): GPT-6/MiMo catalog, verified pricing, opt-in Jev check, dsh session evidence (#128)
+
+## 维护
+- chore(release): open next train after v2.8.0 (#127)
+
 ## v2.8.0 — 2026-09-14
 
 Improve external CLI progress visibility and effective-provider dispatch evidence.

@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.2 — 2026-09-23
+
+review-code 1.3.0：回源「什么算验过」门禁一节（CI 配置为门清单权威、基线对拍、退出码取法、只读）
+
+## 修复
+- fix(review-code): upstream the 'what counts as verified' gate section (1.3.0) (#131)
+
+## 维护
+- chore(release): open next train after v2.8.1 (#130)
+
 ## v2.8.1 — 2026-09-23
 
 dispatch 技能 2.3.0：GPT-6 与 MiMo 模型目录、官网价格核验、GPT-6 自动选模、显式 Jev 调用与 dsh 会话取证脚本

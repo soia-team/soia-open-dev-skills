@@ -20,7 +20,7 @@
 | `actual_model` | 执行器实际使用的模型标识；只有执行器自己在输出里回显时才能拿到，拿不到就是 `null`，不得编造 |
 | `requested_reasoning_effort` | 请求的推理深度/强度参数（不同执行器命名不同） |
 | `actual_reasoning_effort` | 执行器实际回显的推理档位；无法可靠读取时为 `null`，不得用请求值冒充 |
-| `billing_mode` | `api`（按 token 计费）\| `subscription`（订阅额度）\| `unknown`。决定 `scripts/estimate_cost.py` 的输出是否等于真实扣费——订阅制下永远不等于 |
+| `billing_class` | `subscription` \| `metered_api` \| `local` \| `unknown`。记录本次调用通道的计费类别，不表达执行器优先级或调用方偏好 |
 
 **输入字段：**
 
@@ -30,6 +30,7 @@
 | `provider` | 是 | `openai` / `anthropic` / `google` / `deepseek` / `antigravity` / 其他；`agy` 使用 `antigravity`，不要按底层模型厂商套 API 价 |
 | `executor` | 是 | 见上文 `executor_cli` |
 | `model` | 是 | `requested_model`；未显式指定时按「自动路由」选型后再填入 |
+| `billing_class` | 否 | `subscription` / `metered_api` / `local` / `unknown`；按本次实际调用通道记录，无法确认时用 `unknown` |
 | `reasoning` | 否 | `requested_reasoning_effort`；未指定时参考 catalog 的 `default_reasoning_level` |
 | `dispatch_role` | 否 | 本次调用在协作结构中的角色：`coordinator` \| `executor` \| `verifier` \| `reviewer` \| `adversary` \| `mechanical`。缺省表示未声明角色，不触发任何角色门禁；`reviewer` 触发下方 Independence Gate |
 | `executor_model` | 条件 | 被审实现者所用模型。`dispatch_role=reviewer` 时**必填**（见 Independence Gate）；其他角色不需要 |
@@ -48,7 +49,9 @@
 | `usage_status` / `usage_source` | `measured` / `partial` / `unavailable`，以及数据来自哪个 CLI JSON/stdout |
 | `actual_model` | 见上文；解析不到为 `null` |
 | `requested_reasoning_effort` / `actual_reasoning_effort` | 请求档位与实际回显档位分开记录 |
+| `billing_class` | `subscription` / `metered_api` / `local` / `unknown`；见输入字段 |
 | `estimated_api_equivalent_usd` | 由结构化价格和分项 Token 计算；缺少 input/output 拆分时为 `null`，不能把总 Token 全算成 output |
+| `total_cost_unavailable_reason` | `estimate_cost.py` 的总价为 `null` 时说明缺少哪个必要价格；例如有缓存命中 Token、目录却没有缓存命中价 |
 | `provider_reported_cost_usd` | CLI JSON 自报成本，仅作观测值，不自动等同真实账单扣费 |
 | `actual_charge_usd` | 只有可靠账单证据时填写；订阅制通常为 `null` |
 | `pricing_source` / `pricing_date` | catalog 来源和生效日期 |
@@ -227,6 +230,12 @@ python3 scripts/run_matrix.py --cases <cases.json> --run-id <run_id> --resume
 
 每次调用（无论成功、失败、超时、额度不足还是降级）结束后，必须输出以下最低回执格式：
 
+回执或领单中的执行者标识应包含实际模型，采用 `<cli>-<model>` 形式，例如
+`dsh-mimo-v2.6-flash`。只写 `dsh` 无法追溯本次调用使用的模型。
+
+dsh 回执应分别记录主会话的实际模型与子代理的实际模型；两者可能不同。用量优先采用
+`scripts/dsh_session_usage.py` 的按模型拆分结果，并继续区分未命中输入、缓存命中、缓存写入和输出。
+
 ```text
 完成：<一句话说明本次调用做了什么>
 
@@ -236,6 +245,7 @@ python3 scripts/run_matrix.py --cases <cases.json> --run-id <run_id> --resume
 - actual_model: <actual_model，或 "unverified"，或 "unknown">
 - requested_reasoning_effort: <请求档位，或 "unknown">
 - actual_reasoning_effort: <实际回显档位，或 "unverified">
+- billing_class: <subscription | metered_api | local | unknown>
 
 Token 与费用：
 - input_tokens: <数字，或 "unknown">
@@ -262,6 +272,10 @@ Token 与费用：
 ```
 
 单次调用用这份回执；批量矩阵额外参考 manifest 的 `completed_cases` / `remaining_cases` / `stop_reason` 汇总整批状态。
+
+计费口径：`billing_class=subscription` 时，目录价格或 CLI 按官网价计算的 `costUSD` / `total_cost_usd` 只能写成 API 等价估算，不得写成实际扣费；只有可靠账单证据才能填 `actual_charge_usd`。`metered_api` 表示按量 API，`local` 表示本地推理，`unknown` 表示无法确认。选择“优先走订阅”之类的偏好属于调用方策略；本技能只提供计费类别与证据判据，不规定哪个执行器优先。
+
+`estimate_cost.py` 的缓存命中缺价行为：若提供了缓存命中 Token，但所选价格档没有 `cached_input_per_1m`，则 `total_cost` / `total_cost_decimal` 返回 `null`，并在 `total_cost_unavailable_reason` 给出原因；不得把缺失价格按零计入。这是有意的兼容性变更：基线估算器曾在缺价时返回遗漏缓存费用的数值总价。
 
 ## 派发纪律 / Dispatch disciplines
 

@@ -16,3 +16,11 @@ storage:
 retention:
   # A new run is blocked at this limit; cleanup is never automatic.
   max_runs: 50
+
+# Optional Jev integration settings. Credentials remain in a provider-owned
+# keychain or in the credential file named here; do not put key values in YAML.
+# jev:
+#   credential_file: "<credential-file-path>"
+#   keychain_service: typesafe
+#   keychain_account: api-key
+#   extra_block_patterns: ["<additional-regular-expression>"]

@@ -47,9 +47,7 @@ assistant、3 次工具调用）：
 - `model_change`：`provider=deepseek`、`modelId=deepseek-flash`；
   `thinking_level_change`：`thinkingLevel=high`。
 - 每次 assistant `message_end` 均回显 `provider=deepseek`、`model=deepseek-flash`，
-  并带结构化 usage，例如：input 197 / cacheRead 32256 / cacheWrite 0 / output 334 /
-  reasoning 172 / totalTokens 32787，`cost.total = 0`（按量计费（低价）；本报告所记 token 数为会话
-  峰值口径，实际费用以 provider 官方账单为准，价格数字待与官方账单对账）。
+  并带可解析的结构化 usage；实际费用以 provider 官方账单为准。
 
 这是本技能 Model Integrity Gate 认可的形态：请求 id 与最终 assistant `message_end`
 的 `message.model` 一致，且 usage 可解析。它证明 **pi + deepseek-flash 在 `high` 档真实
@@ -87,8 +85,7 @@ token 数为会话峰值口径，实际费用以 provider 官方账单为准，�
   半价。由此推算的 off-peak 价（input 0.15 / cache-hit 0.003 / output 0.6）是**算术推导**，
   已在该条目 `billing_mode_notes` 中标注 derived；catalog 结构化字段保持高峰/标准价，
   不新增第二套数值字段。
-- pi 回执的 `cost.total = 0` 不构成免费证据：deepseek-flash 按量计费（低价）；本报告所记 token 数
-  为会话峰值口径，实际费用以 provider 官方账单为准，价格数字待与官方账单对账。
+- pi 的结构化 usage 或客户端费用字段不代替 provider 账单；实际费用以 provider 官方账单为准。
   catalog 数字只能作为 API 等价估算（与文件头 `notes` 的既有口径一致）。
 
 ## 5. 与 catalog 字段的对应关系
@@ -123,8 +120,8 @@ token 数为会话峰值口径，实际费用以 provider 官方账单为准，�
   任务使用记录），没有各自的 JSONL `message_end` 存档。
 - **dsh 身份待补取**：第 3 节四任务未逐任务提取 session 落盘文件，不能包装成 `actual_model` 证据；
   session 文件取证法见 `references/dsh-cli.md`「模型证据提取」。
-- **账单未逐项对账**：0.30/1.20 未经官方账单或用量页对账，属 provider 元数据口径；按量计费（低价）
-  的实际扣费待与官方账单对账，本报告所记 token 数为会话峰值口径。
+- **账单未逐项对账**：0.30/1.20 未经官方账单或用量页对账，属 provider 元数据口径；按量计费的
+  实际扣费待与官方账单对账。
 - **单会话样本**：第 2 节只有一个 pi 会话，不能据此声称全任务类型质量基准。
 - **v4-pro 09-14 后计费口径未确认**：见第 5 节最后一条。
 

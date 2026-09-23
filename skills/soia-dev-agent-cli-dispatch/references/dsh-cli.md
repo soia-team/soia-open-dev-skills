@@ -13,7 +13,7 @@
 
 - **非交互单轮执行**：`dsh --profile headless "<task>"`；task 是位置参数，多个词按空格拼接。
 - **可视化观察台**：`dsh web`（等价 `dsh --profile web`），默认 `127.0.0.1:3080`（`--host`/`--port` 可覆盖），可查看会话轨迹、工具调用树和每轮 LLM 调用，是派活可观察性利器。
-- **注入 provider/模型配置**：`--patch <yaml>`（可重复），在 profile 层之后叠加 patch 覆盖层。
+- **注入 provider/模型配置**：`--patch <yaml>`（可重复），作为 profile 配置之后的候选覆盖层；`settings.yaml` 持久化值可能优先，最终只以 `--dump-config` 为准。
 - **核对生效配置**：`dsh --profile <name> --dump-config` 打印合成后的配置树；派发前用它确认 patch 已生效。
 - **恢复会话**：`dsh --profile tui --resume <session>`；launcher 自身选项之后的参数原样透传给被启动的 app。
 
@@ -42,6 +42,16 @@ patch 文件是顶层 YAML 数组，两个 patch 项按插件 id 定位：`llm-p
 - **`apiKeyEnv` 是唯一合法凭据字段**，值是环境变量名而不是 key 本体。在 patch 里写字面量 `apiKey` 不在 provider schema 内，实测导致 `PI_AI_ERROR` 秒败。
 - **环境变量必须显式传入且非空**（如 `OPENAI_API_KEY=mlx dsh ...`）：本地端点不校验 key，但 dsh 框架要求非空，headless 和 web 模式都需要。
 
+## 云端 provider：Xiaomi / MiMo
+
+- Xiaomi provider 使用 `api: openai-responses`，目录包含 `mimo-v2.6-pro`、`mimo-v2.6-flash` 和 `mimo-v2.6-pro-ultraspeed`。超高速档仅有实时价格，不支持批量；实时和批量价格见 `references/model-catalog.yml`。
+- 全局 `~/.dsh/settings.yaml` 的 `agent-default-model` 可以指向 `provider: xiaomi`、`model: mimo-v2.6-flash`。`headless`、`tui`、`web` profile 可能各自固定另一默认模型；本机检查到的 profile 默认是 `deepseek-flash`，这只描述 profile 默认值，不表示全局没有 MiMo provider。
+- 凭据留在 dsh 使用的凭据文件中。只核对该文件存在，不读取、复制或打印其内容。
+- 2026-09-23 曾以 `--profile headless --patch <mimo-patch>` 发起探测，唯一匹配的会话记录为 `provider=xiaomi`、`model=mimo-v2.6-flash`。当时全局 settings 默认模型也已经是该 MiMo 模型，所以探测不能区分这次结果来自 patch 还是 settings；这与 2026-08-21「settings 可压过 patch」的单变量观察不矛盾。不要据此宣称 `--patch` 可以切换到 MiMo；以 `--dump-config` 的非秘密 provider/model 字段和对应会话记录为准。
+- 2026-09-23 的另一项 headless 观察：`--patch` 请求 `reasoningEffort: low`，但会话 `request/header` 记录的实际档位为 `max`，与全局 settings 一致。这进一步表明 settings 优先于 patch；headless 模式下不能用 `--patch` 更改思考档位。要改档位，应更新 settings，或在 web/tui 界面中选择。
+- dsh 的 DeepSeek 与 Xiaomi 都是按量 API，不是订阅。DeepSeek 另有北京时区高峰和平时两档价格，具体数值以模型目录为准。
+- 本节的会话证据只证明当次模型身份及可服务，不证明任务质量，也不证明 patch 优先级。
+
 ## 推荐命令模板
 
 先把 prompt 写入按 task-id 隔离的 UTF-8 文件（同 Pi/OpenCode 约定）。
@@ -68,37 +78,37 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 
 ## Model Integrity 与用量证据
 
-- 验证 `actual_model` 的两条可靠路径：模型服务器日志（如 `mlx_lm.server` 的请求日志）与会话落盘文件
-  （`provider`/`model` 字段，见下方「模型证据提取」）；web UI 标签与「已停止」状态都不算证据。
-- headless 输出只有最终 assistant 消息，CLI 侧不回显结构化 usage；tokens 分项可直接从会话落盘文件提取（提取不当会把单轮上下文峰值误当累计消耗，见下方「模型证据提取」），也可从模型服务器侧日志采集。
+- 验证 `actual_model` 的可靠路径包括模型服务器日志（如 `mlx_lm.server` 请求日志）与会话落盘文件；web UI 标签与「已停止」状态都不算证据。
+- headless 输出只有最终 assistant 消息，CLI 侧不回显结构化 usage。模型与档位、token 分项、重试、审批和上下文压缩等记录可从会话文件提取，见下方「模型证据提取」。
 - `scripts/run_matrix.py` 未实现 dsh 的模型回显检测：经 dsh 的调用默认 `actual_model_unverified`，除非派发者补充模型服务器日志或会话落盘文件证据。
 
-## 模型证据提取（session 落盘取证法，2026-09-11 实测）
+## 模型证据提取（session v3 取证法，2026-09-23 核对）
 
 dsh headless 的 stdout 无模型回显：它只打印最终 assistant 消息，既不带 `model`/`provider`，也不带结构化 usage。真实证据在会话落盘文件：
 
 ```
-~/.dsh/sessions/<cwd-slug>/session-<id>/session.v3.jsonl.zstd
+~/.dsh/sessions/<项目>/session-<id>/session.v3.jsonl.zstd
 ```
 
-- **定位**：`<cwd-slug>` 是派发时 cwd 的路径转写——`/` 换成 `-`，空格等特殊字符转义（如 `~0020`）；目录下每个会话一个 `session-<id>/`。派发后按 cwd 取最新修改的那个即可。
-- **提取**：`zstd -dc <file>` 解压后，逐行 JSON 中即含 `"model"`（如 `deepseek-flash`）、
-  `"provider"`（如 `deepseek-official`）、`totalTokens` 字段；匹配时用带引号的精确键
-  （`"provider":`），避免误捕旁路的 `titleProvider`（会话标题等辅助调用，2026-09-11 实测存在）。
-  `model`/`provider` 是 `actual_model` 的直接证据，可与 `--dump-config` 的生效配置对照。
-- **核算**：只把与 assistant 请求同一条记录里的 `model`/`provider` 当身份证据；`titleProvider` 等辅助调用字段不代表本次任务的实际模型。
-- **警示（口径）**：session 文件的 totalTokens 峰值是**单轮上下文**大小，不是累计消耗——agent 每轮
-  重发全上下文，实测峰值与官方账单口径差百倍量级。不得把它当累计用量或费用依据；
-  **成本真源 = provider 官方控制台/余额 API**。
+`<项目>` 是 cwd 编码后的目录名，`<id>` 是会话 UUID。该文件是 zstd 压缩的 JSONL，每行一个事件，常见字段为 `type`、`seq`、毫秒时间 `time` 和 `data`。会话标题来自 `session/title`。
+
+- **定位**：`<cwd-encoded>` 是工作目录编码后的会话目录。用 prompt 中的唯一标记在 `user/message` 事件里找会话；不要按修改时间取最新文件。常驻的 `dsh web` 可能并发写入其他会话，按时间选择会取错。
+- **实际请求模型与档位**：以 `request/header.data.header.config` 的 `{provider, model, reasoningEffort, maxTokens}` 为准。这是该次请求实际发出的配置，证据强于界面选择。`model/selection.data` 记录 UI 选择，只作辅助；dsh web 切换一次模型可能连续落下多条选择事件（例如先记录 high、再记录 max），因此不能用最后一条 UI 选择替代请求头。
+- **用量归属**：每条 `assistant/message.data.usage` 的 `inputTokens` 是未命中缓存输入，另有 `outputTokens`、`cacheReadTokens`、`cacheWriteTokens`、可选 `reasoningTokens` 和 `totalTokens`。用量事件自身不提供模型字段，只按时间顺序归到最近一次 `request/header`；后续 `model/selection` 只进入 UI 选择时间线，不改变用量归属。只有还没有任何请求头时，才以最近的 UI 选择作兜底，并在输出标记 `attribution=ui_fallback`。用量估价要把缓存命中和缓存写入分项传入，不能把 `totalTokens` 全按普通输入或输出计费。若缓存计数缺失，脚本只有在 `totalTokens` 与已记录的输入、输出及缓存计数完全相符时才将缺项视为零；无法核实时成本为 `null`。
+- **按需提取**：运行 `python3 scripts/dsh_session_usage.py --session <uuid-or-prefix>`，或用 prompt 唯一标记定位：`python3 scripts/dsh_session_usage.py --marker <unique-prompt-marker>`。标题默认不输出；只有显式加 `--with-title` 才输出经过路径与 token 脱敏的标题。脚本需要系统 `zstd`，只读解压；不写入 dsh 目录，不输出对话、工具参数或结果正文。成本按本仓 `model-catalog.yml` 估算；无价格或必要用量字段时返回 `null` 并说明原因。DeepSeek 价格时段会在每个模型估算中注明使用的目录标量档位。
+- **子代理**：读取 `subagent/model-selection-policy.data.allowedModels` 作为允许模型策略，并统计 `tool/call` 中 `name=subagent` 的次数与显式模型参数。若调用参数没有模型，仅当允许列表只有一个模型时才把它标为策略推断；这不是子代理的运行时回显。主会话切换模型不会自动改变子代理策略；回执要分开记录主会话和子代理模型，并标明推断来源。
+- **重试与审批**：按 `llm/retry.data.provider` 与 `failure.code` 汇总具体失败类别，并保留事件顶层 `policyKey` 作为重试策略标签；这两个值可能不同。常见标签包括 `EMPTY_RESPONSE`、`RATE_LIMIT`、`SERVER`、`TIMEOUT`、`TRANSPORT`。用 `approval/asked` 和 `approval/decided` 统计拒绝与理由类别，不复制命令正文；dsh 可能拒绝未引用 glob 或不兼容 grep 方言的命令并说明原因。
+- **压缩与窗口**：统计 `compaction/start`、`compaction/summary`、`compaction/end`；`request/context.data.contextWindow` 记录窗口信息。
+- **模型 ID 与档位**：Xiaomi/MiMo ID 一律使用小写，例如 `mimo-v2.6-flash`、`mimo-v2.6-pro` 和 `mimo-v2.6-pro-ultraspeed`；曾观察到大写 `MiMo-V2.6-Flash` 的思考档为空，不要用大写 ID。当前目录记录的 MiMo 实际档位见 `references/model-catalog.yml`。
+- **长会话费用**：常驻 web 的长会话中缓存命中可能占总 token 的大部分，忽略 `cacheReadTokens` 会明显低估按量费用。长任务应分段执行或更早压缩上下文；使用按量通道前检查预计缓存命中与缓存写入成本，并谨慎处理长会话费用。
+- **证据边界**：会话事件证明框架发出的请求配置和记录的用量，不证明任务质量，也不等同 provider 账单。会话文件只在本机按需检查，不把会话正文或具体用量样本写入仓库。
 - **派发纪律**：每次 dsh 派发后按 cwd 定位 session 文件，把提取到的 `actual_model`/`provider` 写入
   验收回执，替代 `unavailable`/`actual_model_unverified` 的默认标注。
-- **证据边界**：落盘字段能证明框架实际请求的 provider/model，但不足以单独证明「某一条 assistant
-  回答确由该模型生成」；把成本数字与官方账单对账前，只能记为估算。
 
 ## 效率特征（2026-08-20 本地端点实测）
 
 - 同一修复任务：dsh 65s（仅 2 轮 LLM 调用，单轮批量并行约 50 个工具调用）vs pi 522s（4 轮）vs opencode 673s（8 轮）。
-- prompt cache 命中率实测 91%（309K 输入 token 场景）。
+- 长 prompt 场景中观察到显著的 prompt cache 命中；核算用量时应查看缓存命中分项。
 - 适用场景：**长 prompt + 工具组合类任务优先派 dsh**；pi 该形态在本地端点上实测挂死（见 `references/dispatch-contract.md` 派发纪律）。
 
 ## 当前验证边界

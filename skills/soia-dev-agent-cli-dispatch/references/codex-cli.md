@@ -21,6 +21,17 @@
 
 Codex CLI 支持 `-m/--model`；reasoning effort 通过 `-c model_reasoning_effort="high"` 指定。
 
+### GPT-6 Sol / Luna 显式派发
+
+每次派发都显式传 `-m`。本机 `~/.codex/config.toml` 中的默认模型可能不同；省略 `-m` 会让本次请求落到宿主默认值，不能据默认配置推断实际模型。
+
+```bash
+codex exec -m gpt-6-sol -c model_reasoning_effort="high" "<task>"
+codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" "<task>"
+```
+
+2026-09-23 的 Codex CLI 0.156.0 冒烟中，Sol 的 stderr 会话头回显 `model: gpt-6-sol`、`provider: openai`、`reasoning effort: high`；Luna 回显 `model: gpt-6-luna`、`provider: openai`、`reasoning effort: xhigh`。以 stderr 会话头中的 `model:` 和 `reasoning effort:` 两行为证据；两者的模型自述都只有“GPT-6”，不作为身份依据。证据只证明模型身份、实际推理档和可服务，不证明任务质量。其他档位没有本次验证证据，模型目录只登记已跑档位且保持空 `routing_profile`。
+
 ## 推荐命令模板
 
 ### 1. 交互式会话（PTY）
@@ -188,7 +199,7 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 
 - **历史验证角色**：下述深审当时按调用方 Owner 裁定，仅用于审核、重点方案和建议，不执行实现。这是该次验证的角色边界；当前派发以调用方最新适用裁决为准，历史记录不覆盖后续授权。审核、主控协调与代码实现是不同职责，获准担任主控不自动授予代码实现权限，也不推广到其它项目。
 - 上述只读深审的调用形态：`codex exec -m gpt-6-astra -c model_reasoning_effort=medium -s read-only … < /dev/null`；其它角色按本次授权选择权限。
-- 前向验证证据（SoiaDeck TASK-G0.0.4-067 深审）：requested=actual=`gpt-6-astra`（会话头 `model:` 行核验），medium，94,061 tokens；9 项审查全部 file:line 证据、抓到 1 个实现层 REFUTED + 3 项最小处方，返工证实全部有效，零幻觉引用。仅 medium 档已验证。
+- 前向验证证据（SoiaDeck TASK-G0.0.4-067 深审）：requested=actual=`gpt-6-astra`（会话头 `model:` 行核验），medium；9 项审查全部 file:line 证据、抓到 1 个实现层 REFUTED + 3 项最小处方，返工证实全部有效，零幻觉引用。仅 medium 档已验证。
 - 配额（订阅侧 Pro 5x，5 小时窗口本地消息估算）：Astra 25-225 · Sol 50-500 · Terra 125-1,000 · Luna 1,250-10,000 · 5.4-mini 300-1,750。Astra 最稀缺，排程时优先留给最高价值深审。
 
 ### 按任务选择推理档（Owner 使用建议）

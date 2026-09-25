@@ -3,6 +3,14 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.6 — 2026-09-25
+
+dispatch 2.5.2: verified dsh headless --session-id resume path
+
+## 维护
+- docs(dispatch): record verified dsh headless --session-id resume (2.5.2)
+- chore(release): open next train after v2.8.5 (#142)
+
 ## v2.8.5 — 2026-09-25
 
 dispatch 2.5.1: executor_watch no longer lets echoed transcript text override a clean hand-back

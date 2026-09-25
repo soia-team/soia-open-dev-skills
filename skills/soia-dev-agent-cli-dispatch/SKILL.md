@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.4.0
+version: 2.5.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-25 08:30:00
+updated_at: 2026-09-25 10:30:00
 created_by: claude opus 4.6
 updated_by: claude opus 5.5
 ---
@@ -276,6 +276,8 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | 重新探测 Claude 实际服务的模型 ID | `scripts/probe_claude_models.py --models <ids>`（真实调用，消耗额度；`--selftest` 只跑 fixture） |
 | 按需发起一次 Jev 类型化判断（不自动派发、不作门禁） | `references/jev-integration.md`；`scripts/jev_check.py` |
 | dsh 会话模型、子代理及用量只读取证（会话格式 v3/v4） | `scripts/dsh_session_usage.py`（需要系统 `zstd`） |
+| codex 会话 ID、实际模型、用量与续接模板 | `references/codex-cli.md`「会话取证与续接」；`scripts/codex_session_info.py` |
+| 长任务判活、有界等待与退出原因归类 | `references/executor-watch.md`；`scripts/executor_watch.py` |
 | 与执行器无关的用量记录、本地聚合及 Jev 推荐输入 | `references/usage-records.md`；`scripts/usage_record.py`、`scripts/usage_aggregate.py` |
 | 私有运行配置模板 | `assets/config.example.yml` |
 
@@ -300,6 +302,8 @@ python3 scripts/jev_check.py --selftest
 python3 scripts/dsh_session_usage.py --selftest
 python3 scripts/usage_record.py --selftest
 python3 scripts/usage_aggregate.py --selftest
+python3 scripts/codex_session_info.py --selftest
+python3 scripts/executor_watch.py --selftest
 ```
 
 复杂行为还要运行一个脱敏的真实前向实例，并核对产物或 manifest 内容，不能只核对退出码。

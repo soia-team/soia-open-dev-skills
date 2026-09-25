@@ -116,6 +116,7 @@ dsh headless 的 stdout 无模型回显：它只打印最终 assistant 消息，
 - **证据边界**：会话事件证明框架发出的请求配置和记录的用量，不证明任务质量，也不等同 provider 账单。会话文件只在本机按需检查，不把会话正文或具体用量样本写入仓库。
 - **派发纪律**：每次 dsh 派发后按 cwd 定位 session 文件，把提取到的 `actual_model`/`provider` 写入
   验收回执，替代 `unavailable`/`actual_model_unverified` 的默认标注。
+- **判活与退出归类**：dsh 在 `NO_ADAPTER`、会话不存在、沙箱拒绝写 `.git` 等情况下退出码仍为 0。长任务用 `scripts/executor_watch.py wait --log <会话文件>` 判活，结束后用 `classify --executor dsh` 归类，见 `references/executor-watch.md`。
 - **统一用量记录**：需要沉淀用量或为模型推荐积累样本时，把报告交给 `scripts/usage_record.py from-dsh --report <report.json>`，生成与执行器无关的记录；dsh 默认 `billing_class=metered_api`（本地 `mlx` 为 `local`），`provider_reported_cost_usd` 为 `null`，费用只有目录价估算。格式、结果映射与存储见 `references/usage-records.md`。
 
 ## 效率特征（2026-08-20 本地端点实测）
@@ -144,7 +145,7 @@ SoiaDeck 项目中，协调者亲验 DSH + `deepseek-v4-flash-vision-exp` 完成
 ## settings.yaml 持久化与 NO_ADAPTER 诊断（2026-08-20 实测）
 
 - dsh web 里选择模型会把默认模型**持久化写进 `~/.dsh/settings.yaml`**（`agent-default-model` 键）——但 **provider 定义不会**随之写入。此后不带 `--patch` 的 headless 调用报 `NO_ADAPTER: no adapter registered for provider "<名>"`。
-- **2026-09-25 复现于 headless 切 MiMo**：xiaomi provider 只注册在 web profile 的 patch 里，headless 与 tui profile 的 patch 为空数组，所以 `--patch` 只改 `agent-default-model` 指向 xiaomi 时同样报 `NO_ADAPTER: no adapter registered for provider "xiaomi"`。已实测可行的做法：headless 派单用的 patch 同时包含 `llm-pi-ai` 下的 xiaomi provider 块（从 web patch 按原文截取，只含 `apiKeyEnv` 变量名，不含密钥值）和 `agent-default-model`。截取时按文本复制，不要用 PyYAML 读出再写回：模型的 `reasoningEfforts` 里有未加引号的 `off` 键，YAML 1.1 解析器会把它变成布尔 `false`，写回后 provider 注册失败，仍报 `NO_ADAPTER`。凭据文件（如 `$DSH_HOME/.credentials.yaml`）只核对存在，不读取、不打印。
+- **2026-09-25 复现于 headless 切 MiMo**：provider 定义按 profile 注册。只在 web profile 的 patch 里注册了 xiaomi、headless 与 tui profile 的 patch 仍为空数组时，`--patch` 只改 `agent-default-model` 指向 xiaomi 同样报 `NO_ADAPTER: no adapter registered for provider "xiaomi"`。已实测可行的做法：headless 派单用的 patch 同时包含 `llm-pi-ai` 下的 xiaomi provider 块（从 web patch 按原文截取，只含 `apiKeyEnv` 变量名，不含密钥值）和 `agent-default-model`。截取时按文本复制，不要用 PyYAML 读出再写回：模型的 `reasoningEfforts` 里有未加引号的 `off` 键，YAML 1.1 解析器会把它变成布尔 `false`，写回后 provider 注册失败，仍报 `NO_ADAPTER`。若该机的 headless/tui profile patch 已按原文注册了 xiaomi provider，派单 patch 只需改 `agent-default-model`；否则须带上 provider 块。派发后用会话文件核对 `provider=xiaomi`。凭据文件（如 `$DSH_HOME/.credentials.yaml`）只核对存在，不读取、不打印。
 - 修复二选一：把 provider 定义也写进 settings.yaml（键结构 = plugin id 为顶层键，`llm-pi-ai:` 下放 `providers:`，与 patch 的 `- id/config` 一一对应），或把 `agent-default-model` 改回云端 provider。
 - settings.yaml 与 `--patch` 双轨并存：settings 是本机持久层，patch 是本次叠加层。凭据仍必须显式传环境变量（如 `OPENAI_API_KEY=mlx`），settings 不能免除。
 - **优先级修正（2026-08-21 单变量实验推翻旧断言）**：本文档曾写"patch 覆盖 settings"——**实测相反**：settings.yaml 存在 `agent-default-model` 时，`--patch` 里的同名条目**不生效**，请求仍打到 settings 指定的 provider。旧断言成立的环境是 settings 尚无该键（patch 独占生效）。切换模型的可靠做法：把目标 provider 写进 settings.yaml 的 `providers:` 并临时改 `agent-default-model`，用完改回。

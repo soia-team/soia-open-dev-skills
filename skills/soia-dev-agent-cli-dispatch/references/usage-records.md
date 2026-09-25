@@ -15,7 +15,7 @@
 |---|---|---|
 | `schema` | 是 | 固定为 `soia.dispatch.usage-record/v1` |
 | `record_id` | 是 | 来源键（manifest 的 `run_id`+`case_id`、dsh 会话 ID 等）加开始时间的 SHA-256 前 16 位；用于去重，不可逆 |
-| `source` | 是 | `run_manifest` / `dsh_session` / `cli_output` |
+| `source` | 是 | `run_manifest` / `dsh_session` / `codex_session` / `cli_output` |
 | `executor` | 是 | 执行器标识，如 `codex`、`claude`、`pi`、`dsh` |
 | `provider` | 否 | 与 manifest 相同；dsh 取主模型的 provider |
 | `dispatch_role` | 否 | 与调用契约同名字段相同 |
@@ -61,13 +61,14 @@
 
 `pending`、`running`、`not_tested` 不是终态，不生成记录。manifest 的 `passed` 只表示执行成功且模型证据满足门禁，不代表产物已验收；主控验收后可以用 `--outcome` 与 `--failure-category acceptance_rejected` 覆盖，并把 `outcome_basis` 记为 `acceptance`。
 
-`failure_category` 取值：`task_failed`、`acceptance_rejected`、`timeout`、`interrupted`、`unsupported`、`model_mismatch`、`auth`、`quota`、`paid_api_blocked`、`independence`、`transport`、`rate_limit`、`server`、`empty_response`、`invalid_request`、`approval_denied`、`unknown`。只写类别，不写错误消息原文。
+`failure_category` 取值：`task_failed`、`acceptance_rejected`、`timeout`、`interrupted`、`unsupported`、`model_mismatch`、`auth`、`quota`、`paid_api_blocked`、`independence`、`transport`、`rate_limit`、`server`、`empty_response`、`invalid_request`、`approval_denied`、`unknown`，以及来自 `scripts/executor_watch.py classify` 的环境与交还类别 `provider_not_registered`、`session_not_found`、`sandbox_git_write_denied`、`executor_blocked_awaiting_decision`。后四类在没有验收覆盖时一律记 `outcome=blocked`：它们是配置、环境或执行者交还决策，不计入成功率分母。只写类别，不写错误消息原文。
 
 ## 各执行器取证到记录的映射
 
 | 执行器 | 现有取证 | 映射 |
 |---|---|---|
-| codex | stdout 会话头 `model:` 行；`tokens used` 后的总数 | `actual_model_source=cli_echo`；只有 `total_tokens`，`usage_status=partial`，分项与估算为 `null` |
+| codex | `scripts/codex_session_info.py` 读 stderr 会话头与 rollout 落盘 | `from-codex`：`session_file`；rollout 累计用量拆成未命中、缓存命中与输出，`measured`；订阅默认 `billing_class=subscription`，只有 API 等价估算 |
+| codex（仅 stdout） | stdout `model:` 行；`tokens used` 后的总数 | `cli_echo`；只有 `total_tokens`，`usage_status=partial`，分项与估算为 `null` |
 | claude | `--output-format json` 的 `modelUsage`、`usage`、`total_cost_usd` | `cli_json`；分项 `measured`；`total_cost_usd` 写入 `provider_reported_cost_usd`，订阅登录时只是 API 等价值 |
 | pi | `--mode json` 最终 `message_end` 的 `model` 与 `usage` | `cli_json`；分项 `measured`；`usage.cost.total` 写入 `provider_reported_cost_usd` |
 | dsh | `scripts/dsh_session_usage.py` 读会话落盘（v3/v4） | `session_file`；各行用量相加；`provider_reported_cost_usd=null`；多模型时写 `model_breakdown` |
@@ -87,6 +88,7 @@ dsh 的主模型取 `message_source`/`request_header` 归属行中 token 最多�
 python3 scripts/usage_record.py from-manifest --manifest <manifest.json> --billing-class subscription --append
 python3 scripts/dsh_session_usage.py --marker <marker> > <report.json>
 python3 scripts/usage_record.py from-dsh --report <report.json> --requested-model deepseek-flash --task-class implement --append
+python3 scripts/codex_session_info.py --stderr-file <stderr.log> | python3 scripts/usage_record.py from-codex --info - --requested-model gpt-6-luna --append
 python3 scripts/usage_record.py from-output --executor claude --stdout-file <out.json> --requested-model claude-sonnet-5 \
   --started-at <iso> --completed-at <iso> --exit-code 0 --billing-class subscription --append
 python3 scripts/usage_record.py --selftest

@@ -32,6 +32,30 @@ codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" "<task>"
 
 2026-09-23 的 Codex CLI 0.156.0 冒烟中，Sol 的 stderr 会话头回显 `model: gpt-6-sol`、`provider: openai`、`reasoning effort: high`；Luna 回显 `model: gpt-6-luna`、`provider: openai`、`reasoning effort: xhigh`。以 stderr 会话头中的 `model:` 和 `reasoning effort:` 两行为证据；两者的模型自述都只有“GPT-6”，不作为身份依据。证据只证明模型身份、实际推理档和可服务，不证明任务质量。其他档位没有本次验证证据，模型目录只登记已跑档位且保持空 `routing_profile`。
 
+## 会话取证与续接（2026-09-25，Codex CLI 0.156.1）
+
+`codex exec` 的证据有两处，都用 `scripts/codex_session_info.py` 只读提取：
+
+- **stderr 会话头**：`OpenAI Codex v<版本>` 之后依次是 `workdir:`、`model:`、`provider:`、`approval:`、`sandbox:`、`reasoning effort:`、`reasoning summaries:`、`session id:`。派单时把 stderr 重定向到文件，`--stderr-file` 即可读出会话 ID 与实际模型，不再手工抠。
+- **rollout 落盘**：`$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<时间>-<session id>.jsonl`（默认 `~/.codex`）。`session_meta` 给 CLI 版本与来源；每轮 `turn_context` 给实际 `model`、`effort`、`sandbox_policy.type`、`approval_policy`；`event_msg/token_count` 的 `total_token_usage` 是累计用量；`task_complete`、`turn_aborted` 记录每轮如何结束。子代理线程是独立 rollout，其 `session_meta.session_id` 指向父会话，脚本按此单列子代理模型与用量。
+- **用量口径**：codex 的 `input_tokens` 已包含 `cached_input_tokens` 与 `cache_write_input_tokens`（本机 450 个 rollout 中 `input + output = total` 全部成立）。脚本输出的 `input_tokens` 是扣除缓存后的未命中部分，与其他执行器口径一致；订阅登录下估算只是 API 等价值。
+- **额度快照**：`token_count.rate_limits.primary` 的 `used_percent`、`window_minutes`、`resets_at` 以 `rate_limit_primary_last_seen` 输出，只是历史观测，不是派发前的实时额度探测。积分余额与套餐字段不输出。
+
+```bash
+codex exec -m <model> -c model_reasoning_effort="high" ... "<task>" 2> <stderr.log> -o <last-message-file>
+python3 scripts/codex_session_info.py --stderr-file <stderr.log> --cwd-check "$PWD"
+python3 scripts/codex_session_info.py --stderr-file <stderr.log> | python3 scripts/usage_record.py from-codex --info - --requested-model <model> --append
+```
+
+**续接**：`codex exec resume` 不接受 `-s/--sandbox` 与 `-C/--cd`，沙箱与审批要用 `-c` 传；它按当前目录筛选会话（`--all` 才跨目录），所以要在原会话的 cwd 下执行。脚本按最后一轮的 `turn_context` 生成模板：
+
+```bash
+cd <original-workdir> && codex exec resume -m <model> -c model_reasoning_effort='"<effort>"' \
+  -c sandbox_mode='"danger-full-access"' -c approval_policy='"never"' -o <last-message-file> <session-id> "$(cat <prompt-file>)"
+```
+
+`--cwd-check` 只输出当前目录是否与原会话一致，不输出原路径。长任务判活与退出原因归类（例如执行者交还决策、沙箱拒绝写 `.git`）见 `references/executor-watch.md`。
+
 ## 推荐命令模板
 
 ### 1. 交互式会话（PTY）

@@ -85,8 +85,9 @@ agy models
 - `agy models` 不发送模型 prompt，但会使用当前登录态访问服务。需要登录、
   浏览器确认或账号选择时返回 `blocked_user_action`，不要把授权 URL/code 写进
   日志。
-- 输出是账号、套餐和服务端状态范围内的**显示名称**。当前 CLI 没有承诺 JSON、
-  稳定 alias 或固定顺序；不要把显示名自行转换成 API model id。
+- 输出是账号、套餐和服务端状态范围内的可用模型。2026-09-25（agy 1.2.9）核对时每行为
+  `<id>\t<显示名>`，例如 `gemini-3.8-flash-high`；派发时把第一列 id 传给 `--model`，
+  不要把显示名自行转换成 id，也不要把它当成 API model id。顺序不固定。
 - 官方当前列出的基础模型是 Gemini 3.5 Flash、Gemini 3.1 Pro、Claude Sonnet
   4.6 (thinking)、Claude Opus 4.6 (thinking) 和 GPT-OSS-120b。Gemini 两个模型
   面向 Standard、Google AI Pro、Google AI Ultra 和 Enterprise；三个第三方
@@ -133,7 +134,7 @@ agy --output-format json -p "/usage"
 agy --model gemini-3.8-flash-high --output-format json --disable-slash-commands -p "<prompt>"
 ```
 
-JSON 输出不包含实际模型字段。模型证据取这次调用对应的 CLI 日志：在 `~/.gemini/antigravity-cli/log/cli-*.log` 中按本次会话 ID 或调用时间定位，再核对如下行：
+JSON 输出不包含实际模型字段。模型证据取这次调用对应的 CLI 日志：优先给每次调用传 `--log-file <本次任务目录>/agy.log`，避免在共享日志里定位；未传时在 `~/.gemini/antigravity-cli/log/cli-*.log` 中按本次会话 ID 或调用时间定位。核对如下行：
 
 ```text
 Propagating selected model override to backend: label="Gemini 3.8 Flash (High)"
@@ -141,7 +142,15 @@ Propagating selected model override to backend: label="Gemini 3.8 Flash (High)"
 
 该日志证明所选模型已下发到后端，不是服务端回显的实际模型证据。不要仅按修改时间取最新日志文件；常驻进程可能同时写入其他会话日志。
 
-每次调用有万级 input token 的固定系统提示开销，批量派发估算用量时应计入。`agy` 属于订阅通道：计费回执标记 `billing_class=subscription`，不得从 `model-catalog.yml` 取 API 价格估算成实际扣费。
+每次调用有万级 input token 的固定系统提示开销，批量派发估算用量时应计入。
+
+**2026-09-25 复核（agy 仍为 1.2.9）**：`agy --model gemini-3.8-flash-low --output-format json --disable-slash-commands --log-file <file> -p "<prompt>"` 退出码 0。
+
+- JSON 输出现含 `usage{input_tokens, output_tokens, thinking_tokens, cache_read_tokens, total_tokens}`，另有 `conversation_id`、`duration_seconds`、`num_turns`、`status`；没有费用字段。token 可记为 `measured`，费用只能写 `unavailable`。
+- 会话按 `conversation_id` 落盘：`~/.gemini/antigravity-cli/conversations/<id>.db`（SQLite）、`brain/<id>/`、`annotations/<id>.pbtxt`。数据库中的生成元数据含模型 id 与显示名，但尚未解码核实，暂不作为服务端实际模型证据。
+- 帮助中另有 `--effort low|medium|high`、`--print-timeout`（1.2.6 起默认不限时）、`--json-schema`、`--continue`/`-c`、`--project`、`--new-project`。据 1.2.6 更新说明，headless 下模型或 agent API 失败会在 stderr 打印一行 `AGY_ERROR: {...}` 并以退出码 3 结束。
+- 单次调用墙钟约 48 秒，其中约 30 秒花在模型轮次开始前的启动与认证上；短任务批量派发要计入。
+- 每次调用的日志含已登录账号的邮箱明文；日志只在本机核对，回执与记录中不得出现。`agy` 属于订阅通道：计费回执标记 `billing_class=subscription`，不得从 `model-catalog.yml` 取 API 价格估算成实际扣费。
 
 ### agy 1.2.9 交互代理与非交互续问
 
@@ -175,9 +184,9 @@ agy --sandbox --mode plan -p "<prompt>"
 - `-p` / `--print` 是真实模型调用，可能消耗套餐额度或产生费用；运行前确认。
 - `--dangerously-skip-permissions` 会自动批准工具动作，只能在客户明确授权写入
   且 workdir 隔离后使用；不得作为默认参数。
-- 本技能尚未验证 `agy` 的结构化 usage、实际模型回显或价格映射。回执中
-  `actual_model`、Token 和实际扣费拿不到时写 `unknown/unavailable`，不得把
-  Gemini API 等价价格冒充 Antigravity 实际账单。
+- `--output-format json` 的 token 用量可记录（见上文 2026-09-25 复核）；实际模型回显与
+  价格映射仍未验证。回执中 `actual_model` 与实际扣费拿不到时写 `unknown/unavailable`，
+  不得把 Gemini API 等价价格冒充 Antigravity 实际账单。
 - 未完成付费/额度 benchmark 前，`agy` 只能显式派发，不能进入自动路由。
 
 ## 诊断回执

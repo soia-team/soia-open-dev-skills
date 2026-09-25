@@ -2,11 +2,11 @@
 # This is not a credential file. Keep mutable support facts here; prose should link here instead of copying the matrix.
 schema_version: 1
 config_template: assets/config.example.yml
-updated_at: "2026-09-23"
+updated_at: "2026-09-25"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "2.3.0"
+  version: "2.5.0"
   purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
   triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
 usage:
@@ -66,7 +66,7 @@ agents:
     prompt_transport: stdin
     structured_output: text_header
     model_integrity: verified
-    usage_evidence: partial
+    usage_evidence: session_file_available
     auto_routing: [easy, medium, hard]
     reference: references/codex-cli.md
   claude:
@@ -113,9 +113,9 @@ agents:
     matrix_supported: true
     verification_status: availability_discovered
     prompt_transport: argument
-    structured_output: text
-    model_integrity: unimplemented
-    usage_evidence: unavailable
+    structured_output: json
+    model_integrity: requested_label_in_log
+    usage_evidence: tokens_without_cost
     auto_routing: []
     reference: references/antigravity-cli.md
   gemini:
@@ -166,11 +166,11 @@ agents:
     command: qodercli
     dispatch_supported: true
     matrix_supported: false
-    verification_status: command_template_only
+    verification_status: single_call_verified
     prompt_transport: argument
-    structured_output: text
-    model_integrity: unimplemented
-    usage_evidence: unavailable
+    structured_output: json
+    model_integrity: tier_alias_only
+    usage_evidence: credits_only
     auto_routing: []
     reference: references/qoder-cli.md
   deepcode:

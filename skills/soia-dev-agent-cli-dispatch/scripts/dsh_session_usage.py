@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only, privacy-filtered dsh v3 session usage and evidence report.
+"""Read-only, privacy-filtered dsh session usage and evidence report (v3, v4).
 
 Examples:
   python3 dsh_session_usage.py --session <uuid-or-prefix>
@@ -10,6 +10,14 @@ Examples:
 Session JSONL is decompressed in memory through the system `zstd` command. The
 report contains metadata, model identifiers, aggregate usage and cost estimates;
 it never emits message bodies, tool arguments/results, paths or raw approval text.
+
+Supported on-disk formats are `session.v3.jsonl.zstd` and `session.v4.jsonl.zstd`.
+When dsh migrates a session, both files can sit in one session directory; the
+highest supported version is read. A session that only has an unknown format
+exits with status `unsupported_format` (exit 4) instead of guessing.
+
+Exit codes: 0 ok, 2 input_error, 3 selftest skipped (zstd missing),
+4 unsupported_format, 1 selftest failure.
 """
 
 from __future__ import annotations
@@ -59,10 +67,18 @@ LOCAL_PATH_PATTERNS = (
 SESSION_PREFIX = re.compile(r"^[0-9a-fA-F-]+$")
 SESSION_UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 RETRY_POLICY_KEYS = {"EMPTY_RESPONSE", "RATE_LIMIT", "SERVER", "TIMEOUT", "TRANSPORT"}
+SUPPORTED_FORMATS = (4, 3)  # preference order: newest first
+SESSION_FILE_RE = re.compile(r"^session\.v([0-9]+)\.jsonl\.zstd$")
+SAFE_CODE = re.compile(r"^[A-Z0-9_]{1,40}$")
+SAFE_KIND = re.compile(r"^[a-z0-9][a-z0-9_-]{0,39}$")
 
 
 class InputError(Exception):
     """An input, dependency, or local session-read error safe to display."""
+
+
+class UnsupportedFormat(InputError):
+    """The selected session exists but its on-disk format is not understood."""
 
 
 def _label(value: Any) -> str | None:
@@ -168,12 +184,33 @@ def _iter_events(path: Path) -> Iterator[dict[str, Any]]:
             raise InputError("could not decompress a dsh session file")
 
 
+def _format_versions(session_dir: Path) -> list[int]:
+    versions = []
+    for path in session_dir.iterdir():
+        match = SESSION_FILE_RE.fullmatch(path.name)
+        if match and path.is_file():
+            versions.append(int(match.group(1)))
+    return sorted(versions, reverse=True)
+
+
 def _session_dirs(dsh_home: Path) -> list[Path]:
-    return sorted(path.parent for path in dsh_home.glob("sessions/*/session-*/session.v3.jsonl.zstd"))
+    """Every `session-*` directory holding at least one `session.vN` file."""
+    return sorted({path.parent for path in dsh_home.glob("sessions/*/session-*/session.v*.jsonl.zstd")})
 
 
-def _session_file(session_dir: Path) -> Path:
-    return session_dir / "session.v3.jsonl.zstd"
+def _session_format(session_dir: Path) -> int:
+    versions = _format_versions(session_dir)
+    for version in SUPPORTED_FORMATS:
+        if version in versions:
+            return version
+    found = ", ".join(f"v{version}" for version in versions) or "none"
+    supported = ", ".join(f"v{version}" for version in sorted(SUPPORTED_FORMATS))
+    raise UnsupportedFormat(f"unsupported dsh session format ({found}); supported: {supported}")
+
+
+def _session_file(session_dir: Path, version: int | None = None) -> Path:
+    version = _session_format(session_dir) if version is None else version
+    return session_dir / f"session.v{version}.jsonl.zstd"
 
 
 def _find_by_session(dsh_home: Path, requested: str) -> Path:
@@ -188,23 +225,44 @@ def _find_by_session(dsh_home: Path, requested: str) -> Path:
     return matches[0]
 
 
+def _marker_texts(event: dict[str, Any]) -> Iterator[str]:
+    """User-authored text: v3/v4 `user/message`, plus v4 inbox splices."""
+    data = event.get("data")
+    if not isinstance(data, dict):
+        return
+    if event.get("type") == "user/message":
+        yield from _user_texts(data)
+    elif event.get("type") == "agent/inbox/spliced":
+        inserted = data.get("inserted")
+        for item in inserted if isinstance(inserted, list) else []:
+            if isinstance(item, dict) and item.get("role") == "user":
+                yield from _user_texts(item)
+
+
 def _find_by_marker(dsh_home: Path, marker: str) -> Path:
     if not marker or not marker.strip():
         raise InputError("marker must not be empty")
     matches: list[Path] = []
+    unsupported = 0
     for session_dir in _session_dirs(dsh_home):
+        try:
+            session_file = _session_file(session_dir)
+        except UnsupportedFormat:
+            unsupported += 1
+            continue
         found = False
-        for event in _iter_events(_session_file(session_dir)):
-            if event.get("type") != "user/message":
-                continue
-            data = event.get("data")
-            if isinstance(data, dict) and any(marker in text for text in _user_texts(data)):
+        for event in _iter_events(session_file):
+            if any(marker in text for text in _marker_texts(event)):
                 found = True
                 break
         if found:
             matches.append(session_dir)
             if len(matches) > 1:
                 raise InputError("marker must identify exactly one session")
+    if not matches and unsupported:
+        raise UnsupportedFormat(
+            f"marker matched no supported session; {unsupported} session(s) use an unsupported format"
+        )
     if len(matches) != 1:
         raise InputError("marker must identify exactly one session")
     if not SESSION_UUID.fullmatch(matches[0].name.removeprefix("session-")):
@@ -315,14 +373,69 @@ def _selection(data: dict[str, Any]) -> tuple[str, str, str | None] | None:
     return provider, model, _effort(data.get("reasoningEffort"))
 
 
+def _message_source(data: dict[str, Any]) -> tuple[str, str] | None:
+    """v4 assistant messages name the model that produced them."""
+    message = data.get("message")
+    source = message.get("source") if isinstance(message, dict) else None
+    if not isinstance(source, dict) or source.get("kind") != "model":
+        return None
+    provider, model = _label(source.get("provider")), _label(source.get("model"))
+    if not provider or not model:
+        return None
+    return provider, model
+
+
+def _stream_usage(data: dict[str, Any]) -> dict[str, Any] | None:
+    """Usage reported inside a v4 `assistant/attempt` stream (an attempt that was not kept)."""
+    stream = data.get("stream")
+    found: dict[str, Any] | None = None
+    for item in stream if isinstance(stream, list) else []:
+        chunk = item.get("chunk") if isinstance(item, dict) else None
+        if isinstance(chunk, dict) and chunk.get("type") == "usage" and isinstance(chunk.get("usage"), dict):
+            found = chunk["usage"]
+    return found
+
+
+def _usage_with_inferred_cache(usage: dict[str, Any], safe: dict[str, Any]) -> dict[str, int]:
+    safe_usage = _numeric_tokens(usage)
+    missing_cache = {
+        field for field in ("cacheReadTokens", "cacheWriteTokens")
+        if field not in safe_usage
+    }
+    # dsh may omit a zero-valued cache counter. Infer zero only if
+    # totalTokens independently reconciles to all available input,
+    # output and cache counters for this message.
+    if (
+        missing_cache
+        and all(field in safe_usage for field in ("inputTokens", "outputTokens", "totalTokens"))
+        and safe_usage["totalTokens"] == sum(
+            safe_usage.get(field, 0)
+            for field in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens")
+        )
+    ):
+        safe_usage.update({field: 0 for field in missing_cache})
+        safe["cache_metrics_inferred_zero"] = True
+    return safe_usage
+
+
 def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = None) -> dict[str, Any]:
+    format_version = _session_format(session_dir)
     events: list[dict[str, Any]] = []
     marker_found = False
     raw_title: str | None = None
     first_time: float | None = None
     last_time: float | None = None
-    for index, event in enumerate(_iter_events(_session_file(session_dir))):
+    header_version: int | None = None
+    for index, event in enumerate(_iter_events(_session_file(session_dir, format_version))):
         event_type = event.get("type")
+        if event_type == "session" and "data" not in event:
+            version = event.get("version")
+            header_version = version if type(version) is int else None
+            if header_version is not None and header_version != format_version:
+                raise UnsupportedFormat(
+                    f"session header declares v{header_version} but file is v{format_version}"
+                )
+            continue
         data = event.get("data")
         if not isinstance(data, dict):
             continue
@@ -331,8 +444,8 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
             first_time = event_time if first_time is None else min(first_time, event_time)
             last_time = event_time if last_time is None else max(last_time, event_time)
 
-        if event_type == "user/message" and marker:
-            marker_found = marker_found or any(marker in text for text in _user_texts(data))
+        if marker and not marker_found:
+            marker_found = any(marker in text for text in _marker_texts(event))
 
         sequence = event.get("seq")
         safe: dict[str, Any] = {
@@ -353,25 +466,29 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
         elif event_type == "assistant/message":
             usage = _usage_object(data)
             if usage is not None:
-                safe_usage = _numeric_tokens(usage)
-                missing_cache = {
-                    field for field in ("cacheReadTokens", "cacheWriteTokens")
-                    if field not in safe_usage
-                }
-                # dsh may omit a zero-valued cache counter. Infer zero only if
-                # totalTokens independently reconciles to all available input,
-                # output and cache counters for this message.
-                if (
-                    missing_cache
-                    and all(field in safe_usage for field in ("inputTokens", "outputTokens", "totalTokens"))
-                    and safe_usage["totalTokens"] == sum(
-                        safe_usage.get(field, 0)
-                        for field in ("inputTokens", "outputTokens", "cacheReadTokens", "cacheWriteTokens")
-                    )
-                ):
-                    safe_usage.update({field: 0 for field in missing_cache})
-                    safe["cache_metrics_inferred_zero"] = True
-                safe["usage"] = safe_usage
+                safe["usage"] = _usage_with_inferred_cache(usage, safe)
+                safe["source_identity"] = _message_source(data)
+        elif event_type == "assistant/attempt":
+            usage = _stream_usage(data)
+            if usage is None:
+                continue
+            safe["usage"] = _usage_with_inferred_cache(usage, safe)
+            safe["usage_kind"] = "aborted_attempt"
+        elif event_type == "compaction/summary":
+            usage = data.get("usage")
+            if not isinstance(usage, dict):
+                continue
+            safe["usage"] = _usage_with_inferred_cache(usage, safe)
+            safe["usage_kind"] = "compaction_summary"
+            provider, model = _label(data.get("provider")), _label(data.get("model"))
+            safe["source_identity"] = (provider, model) if provider and model else None
+        elif event_type == "turn/end":
+            reason = data.get("reason") if isinstance(data.get("reason"), dict) else {}
+            kind = reason.get("kind")
+            error = reason.get("error") if isinstance(reason.get("error"), dict) else {}
+            code = error.get("code")
+            safe["turn_end_kind"] = kind if isinstance(kind, str) and SAFE_KIND.fullmatch(kind) else "unknown"
+            safe["turn_end_error_code"] = code if isinstance(code, str) and SAFE_CODE.fullmatch(code) else (None if code is None else "unknown")
         elif event_type == "subagent/model-selection-policy":
             safe["allowed_models"] = _policy_models(data.get("allowedModels"))
         elif event_type == "tool/call" and data.get("name") == "subagent":
@@ -436,6 +553,8 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
     have_request_header = False
     current_allowed_models: list[dict[str, str | None]] = []
     unassigned_usage_count = 0
+    turn_end_counts: collections.Counter[tuple[str, str | None]] = collections.Counter()
+    last_turn_end: dict[str, str | None] | None = None
 
     for event in events:
         event_type = event["type"]
@@ -458,10 +577,21 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
                 "model": identity[1],
                 "reasoningEffort": identity[2],
             })
-        elif event_type == "assistant/message" and "usage" in event:
-            if current_request_identity is not None:
+        elif event_type in {"assistant/message", "assistant/attempt", "compaction/summary"} and "usage" in event:
+            source = event.get("source_identity")
+            if source is not None:
+                # v4 message source is the strongest per-message evidence; keep
+                # the effort only when the active request header names the same model.
+                effort = (
+                    current_request_identity[2]
+                    if current_request_identity is not None and current_request_identity[:2] == source
+                    else None
+                )
+                usage_identity = (source[0], source[1], effort)
+                attribution = event.get("usage_kind", "message_source")
+            elif current_request_identity is not None:
                 usage_identity = current_request_identity
-                attribution = "request_header"
+                attribution = event.get("usage_kind", "request_header")
             elif current_ui_identity is not None:
                 usage_identity = current_ui_identity
                 attribution = "ui_fallback"
@@ -512,6 +642,9 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
             compaction_count += 1
         elif event_type == "request/context" and event.get("context_window") is not None:
             context_windows.append(event["context_window"])
+        elif event_type == "turn/end":
+            turn_end_counts[(event["turn_end_kind"], event["turn_end_error_code"])] += 1
+            last_turn_end = {"kind": event["turn_end_kind"], "error_code": event["turn_end_error_code"]}
 
     request_rows = [
         {
@@ -616,6 +749,7 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
     )
     report: dict[str, Any] = {
         "session_id": session_dir.name.removeprefix("session-"),
+        "session_format": f"v{format_version}",
         "started_at": _timestamp(first_time),
         "ended_at": _timestamp(last_time),
         "request_models": request_rows,
@@ -641,6 +775,11 @@ def _read_report(session_dir: Path, *, with_title: bool, marker: str | None = No
             ],
         },
         "compactions": {"count": compaction_count},
+        "turn_ends": [
+            {"kind": kind, "error_code": code, "count": count}
+            for (kind, code), count in sorted(turn_end_counts.items(), key=lambda item: (item[0][0], item[0][1] or ""))
+        ],
+        "last_turn_end": last_turn_end,
         "cost_estimate_usd": {"currency": "USD", "by_model": cost_rows},
         "context_windows_observed": sorted(set(context_windows)),
         "unassigned_usage_message_count": unassigned_usage_count,
@@ -700,6 +839,112 @@ def _write_fixture_session(zstd: str, path: Path) -> str:
     return sentinel + " " + title_sentinel
 
 
+V4_FIXTURE_PATH = Path(__file__).resolve().parents[1] / "assets" / "fixtures" / "dsh-session-v4.redacted.jsonl"
+V4_BODY_SENTINEL = "BODY_SENTINEL_V4_DO_NOT_PRINT_8e21"
+
+
+def _compress(zstd: str, payload: bytes, path: Path) -> None:
+    completed = subprocess.run([zstd, "-q", "-c"], input=payload, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if completed.returncode != 0:
+        raise RuntimeError("could not create synthetic compressed session")
+    path.write_bytes(completed.stdout)
+
+
+def _v4_checks(zstd: str, root: Path, check: Any) -> None:
+    """Exercise the redacted v4 fixture, v3/v4 coexistence, and unknown formats."""
+    fixture = V4_FIXTURE_PATH.read_bytes()
+    dsh_home = root / "dsh-home-v4"
+    project = dsh_home / "sessions" / "fixture-project-v4"
+    only_v4 = project / "session-00000000-0000-4000-8000-0000000000a4"
+    both = project / "session-00000000-0000-4000-8000-0000000000b4"
+    only_v5 = project / "session-00000000-0000-4000-8000-0000000000c5"
+    mismatch = project / "session-00000000-0000-4000-8000-0000000000d4"
+    for directory in (only_v4, both, only_v5, mismatch):
+        directory.mkdir(parents=True, mode=0o700)
+    _compress(zstd, fixture, only_v4 / "session.v4.jsonl.zstd")
+    (only_v4 / "session.lock").write_bytes(b"")
+    # A migrated session keeps its old v3 file next to v4; v4 must win.
+    stale_v3 = json.dumps({"type": "assistant/message", "seq": 1, "time": 1, "data": {"message": {"usage": {
+        "inputTokens": 999, "outputTokens": 999, "cacheReadTokens": 0, "cacheWriteTokens": 0, "totalTokens": 1998}}}}) + "\n"
+    _compress(zstd, stale_v3.encode(), both / "session.v3.jsonl.zstd")
+    _compress(zstd, fixture.replace(b"marker-V4-fixture", b"marker-V4-other"), both / "session.v4.jsonl.zstd")
+    _compress(zstd, fixture.replace(b"marker-V4-fixture", b"marker-V5-fixture"), only_v5 / "session.v5.jsonl.zstd")
+    _compress(zstd, fixture.replace(b'"version":4', b'"version":5', 1).replace(b"marker-V4-fixture", b"marker-V4-mismatch"),
+              mismatch / "session.v4.jsonl.zstd")
+    snapshot = {
+        str(path.relative_to(dsh_home)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in dsh_home.rglob("*") if path.is_file()
+    }
+
+    report = analyze(session="00000000-0000-4000-8000-0000000000a4", marker=None, dsh_home=str(dsh_home))
+    encoded = json.dumps(report, ensure_ascii=False)
+    rows = {(row["model"], row["attribution"]): row for row in report["usage_by_model"]}
+    check("v4-only session is located and reported as v4", report["session_format"] == "v4")
+    check(
+        "v4 usage is attributed by per-message source, not only the request header",
+        rows.get(("deepseek-flash", "message_source"), {}).get("input_tokens_uncached") == 10
+        and rows.get(("deepseek-flash", "message_source"), {}).get("reasoningEffort") == "max"
+        and rows.get(("mimo-v2.6-flash", "message_source"), {}).get("input_tokens_uncached") == 20
+        and rows.get(("mimo-v2.6-flash", "message_source"), {}).get("reasoningEffort") is None,
+    )
+    check(
+        "v4 compaction summary and aborted attempt usage are reported as separate rows",
+        rows.get(("mimo-v2.6-flash", "compaction_summary"), {}).get("input_tokens_uncached") == 40
+        and rows.get(("deepseek-flash", "aborted_attempt"), {}).get("input_tokens_uncached") == 3
+        and rows.get(("deepseek-flash", "aborted_attempt"), {}).get("cache_metrics_inferred_zero_messages") == 1,
+    )
+    check(
+        "v4 turn end kinds and error codes are counted without messages",
+        {(row["kind"], row["error_code"], row["count"]) for row in report["turn_ends"]}
+        == {("error", "AUTH", 1), ("completed", None, 1)}
+        and report["last_turn_end"] == {"kind": "completed", "error_code": None},
+    )
+    check(
+        "v4 retries and flat request/context are read",
+        report["retries"] == [{"provider": "deepseek-official", "failure_category": "TRANSPORT", "policy_key": "TRANSPORT", "count": 1}]
+        and report["context_windows_observed"] == [1000000],
+    )
+    by_marker = analyze(session=None, marker="marker-V4-fixture", dsh_home=str(dsh_home))
+    check("v4 marker is found in inbox-spliced user messages", by_marker["session_id"].endswith("0000000000a4") and by_marker["marker_matched"] is True)
+    check(
+        "v4 report omits bodies, header cwd, tool arguments and response ids",
+        V4_BODY_SENTINEL not in encoded
+        and "private-project-v4" not in encoded
+        and V4_BODY_SENTINEL not in json.dumps(by_marker, ensure_ascii=False),
+    )
+    migrated = analyze(session="00000000-0000-4000-8000-0000000000b4", marker=None, dsh_home=str(dsh_home))
+    check(
+        "a migrated directory with v3 and v4 reads v4",
+        migrated["session_format"] == "v4"
+        and all(row["input_tokens_uncached"] != 999 for row in migrated["usage_by_model"]),
+    )
+    try:
+        analyze(session="00000000-0000-4000-8000-0000000000c5", marker=None, dsh_home=str(dsh_home))
+        unsupported_ok = False
+    except UnsupportedFormat as exc:
+        unsupported_ok = "v5" in str(exc)
+    try:
+        analyze(session="00000000-0000-4000-8000-0000000000d4", marker=None, dsh_home=str(dsh_home))
+        mismatch_ok = False
+    except UnsupportedFormat:
+        mismatch_ok = True
+    check("an unknown session format raises UnsupportedFormat instead of guessing", unsupported_ok)
+    check("a header version that disagrees with the file name is rejected", mismatch_ok)
+    completed = subprocess.run(
+        [sys.executable, os.fspath(Path(__file__).resolve()), "--dsh-home", os.fspath(dsh_home), "--session", "00000000-0000-4000-8000-0000000000c5"],
+        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+    )
+    check(
+        "CLI exits 4 with status unsupported_format",
+        completed.returncode == 4 and json.loads(completed.stdout).get("status") == "unsupported_format",
+    )
+    after = {
+        str(path.relative_to(dsh_home)): hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in dsh_home.rglob("*") if path.is_file()
+    }
+    check("v4 analysis does not modify the dsh session directory", snapshot == after)
+
+
 def run_selftest() -> int:
     zstd = shutil.which("zstd")
     if not zstd:
@@ -718,7 +963,7 @@ def run_selftest() -> int:
             dsh_home = root / "dsh-home"
             session_dir = dsh_home / "sessions" / "fixture-project" / "session-00000000-0000-4000-8000-000000000001"
             session_dir.mkdir(parents=True, mode=0o700)
-            session_file = _session_file(session_dir)
+            session_file = _session_file(session_dir, 3)
             sentinel = _write_fixture_session(zstd, session_file)
             file_snapshot = {
                 str(path.relative_to(dsh_home)): (path.stat().st_mode, path.stat().st_size, hashlib.sha256(path.read_bytes()).hexdigest())
@@ -798,6 +1043,7 @@ def run_selftest() -> int:
             }
             check("analysis does not modify the dsh session directory", file_snapshot == after and len(after) == 1)
             check("cost estimate includes cache-read tokens", identities.get(("deepseek-official", "deepseek-flash"), {}).get("cache_read_tokens") == 90 and by_session["cost_estimate_usd"]["by_model"][0]["value"] is not None)
+            _v4_checks(zstd, root, check)
     except Exception:
         checks.append(("selftest completed without exposing local/session content", False))
 
@@ -824,6 +1070,9 @@ def main() -> int:
         if not args.session and args.marker is None:
             raise InputError("provide exactly one of --session or --marker")
         report = analyze(session=args.session, marker=args.marker, dsh_home=args.dsh_home, with_title=args.with_title)
+    except UnsupportedFormat as exc:
+        print(json.dumps({"status": "unsupported_format", "error": str(exc)}, ensure_ascii=False))
+        return 4
     except InputError as exc:
         print(json.dumps({"status": "input_error", "error": str(exc)}, ensure_ascii=False))
         return 2

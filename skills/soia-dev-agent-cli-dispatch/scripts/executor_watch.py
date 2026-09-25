@@ -46,10 +46,13 @@ RULES: tuple[tuple[str, str, re.Pattern[str], str], ...] = (
     ("dsh_session_corrupt", "dsh", re.compile(r"failed to observe session .*corrupt session log"), "session_not_found"),
     ("git_lock_denied", "*", re.compile(r"\.git/\S*index\.lock\S*[：:]\s*Operation not permitted|index\.lock.*Operation not permitted"), "sandbox_git_write_denied"),
     ("sandbox_escalation_denied", "*", re.compile(r"sandbox escalation to \"?[a-z-]+\"? requires approval"), "sandbox_git_write_denied"),
-    ("auth_error", "*", re.compile(r"(?i)\b(?:401 Unauthorized|invalid api key|not logged in|authentication failed|AUTH\b.*error)"), "auth"),
+    ("auth_error", "*", re.compile(r"(?i:\b401 Unauthorized|\binvalid api key|\bnot logged in\b|\bauthentication failed)|\"code\"\s*:\s*\"AUTH\""), "auth"),
     ("quota_error", "*", re.compile(r"(?i)usage limit|usage_limit|quota exceeded|insufficient[_ ]balance|rate_limit_reached"), "quota"),
-    ("rate_limited", "*", re.compile(r"(?i)\b429\b|rate limit(?:ed)?\b"), "rate_limit"),
-    ("transport_error", "*", re.compile(r"(?i)stream disconnected|connection reset|ECONNRESET|TRANSPORT"), "transport"),
+    ("rate_limited", "*", re.compile(r"(?i)\b429 Too Many Requests\b|\brate[ _-]?limit(?:ed| exceeded| reached)\b"), "rate_limit"),
+    # Only concrete disconnect signals or an uppercase error code next to error/failure/code;
+    # the bare word "transport" shows up in echoed task text (codex stderr carries the transcript).
+    ("transport_error", "*", re.compile(r"(?i:stream disconnected|connection reset by peer|\bECONNRESET\b)|"
+                                          r"(?:error|failure|code)\W{0,4}[^\n]{0,40}\bTRANSPORT\b"), "transport"),
     ("unrecognized_args", "*", re.compile(r"error: unrecognized arguments"), "task_failed"),
 )
 # Executor stopped on purpose and handed a decision back: not a crash.
@@ -57,6 +60,10 @@ AWAITING_DECISION = re.compile(
     r"未修改|未提交|暂停|等待(?:你|您|主控)(?:的)?(?:选择|裁决|确认|决定)|未开始改动|需要(?:你|您|主控)裁决|"
     r"(?i:awaiting (?:your )?decision|paused for (?:a )?decision|no changes (?:were )?made|did not (?:modify|commit))"
 )
+# codex stderr carries the transcript, so these phrases can be echoed task text. They only
+# decide the category when the process failed or left no final message; after a clean
+# finish they are reported in matched_rules but the final message wins.
+SOFT_CATEGORIES = {"rate_limit", "transport", "auth", "quota", "task_failed"}
 BLOCKED_CATEGORIES = {"provider_not_registered", "session_not_found", "sandbox_git_write_denied",
                       "executor_blocked_awaiting_decision", "auth", "quota"}
 
@@ -200,14 +207,16 @@ def classify(*, executor: str, stdout: str = "", stderr: str = "", last_message:
     matched = [(rule_id, category) for rule_id, target, pattern, category in RULES
                if target in ("*", executor) and pattern.search(text)]
     awaiting = bool(last_message and AWAITING_DECISION.search(last_message))
+    clean_finish = exit_code in (0, None) and bool(last_message.strip())
+    decisive = [(rule, cat) for rule, cat in matched if not (cat in SOFT_CATEGORIES and clean_finish)]
     category: str | None
     if timed_out:
         category = "timeout"
-    elif matched:
+    elif decisive:
         # Environment/config blockers outrank generic transport noise.
         priority = ["provider_not_registered", "session_not_found", "auth", "quota", "sandbox_git_write_denied",
                     "rate_limit", "transport", "task_failed"]
-        category = min((c for _, c in matched), key=lambda c: priority.index(c) if c in priority else len(priority))
+        category = min((c for _, c in decisive), key=lambda c: priority.index(c) if c in priority else len(priority))
     elif awaiting and exit_code in (0, None):
         category = "executor_blocked_awaiting_decision"
     elif exit_code not in (0, None):
@@ -326,8 +335,14 @@ def run_selftest() -> int:
               awaiting["category"] == "executor_blocked_awaiting_decision" and awaiting["outcome"] == "blocked")
         bad_args = classify(executor="codex", exit_code=0, stderr="tool.py: error: unrecognized arguments: --write",
                             last_message="暂停，等待主控裁决")
-        check("a concrete error outranks the awaiting-decision wording", bad_args["category"] == "task_failed"
-              and "last_message_awaiting_decision" in bad_args["matched_rules"])
+        check("after a clean finish the hand-back wins over an echoed tool error",
+              bad_args["category"] == "executor_blocked_awaiting_decision"
+              and "unrecognized_args" in bad_args["matched_rules"])
+        bad_exit = classify(executor="codex", exit_code=2, stderr="tool.py: error: unrecognized arguments: --write")
+        check("the same tool error with a failing exit is task_failed", bad_exit["category"] == "task_failed")
+        git_clean = classify(executor="dsh", exit_code=0, last_message="改动已完成，提交失败。",
+                             stdout="index.lock'：Operation not permitted")
+        check("sandbox .git denial stays decisive after a clean finish", git_clean["category"] == "sandbox_git_write_denied")
         quota = classify(executor="codex", exit_code=1, stderr="ERROR: You've hit your usage limit.")
         check("usage limit is quota/blocked", quota["category"] == "quota" and quota["outcome"] == "blocked")
         clean = classify(executor="codex", exit_code=0, last_message="已完成并提交。")
@@ -335,6 +350,22 @@ def run_selftest() -> int:
         crashed = classify(executor="codex", exit_code=137)
         check("non-zero exit without a rule is task_failed", crashed["category"] == "task_failed" and crashed["outcome"] == "failed")
         check("timeout wins", classify(executor="dsh", timed_out=True)["category"] == "timeout")
+        echoed = classify(
+            executor="codex", exit_code=0,
+            stderr="| net-transport-lib 已移入候选 |\n用注入的假 transport 验证协议层不变\nTransport layer notes",
+            last_message="## 阶段 B 暂停，未提交\n发现需要额外依赖后停下，没有自行加包或安装。",
+        )
+        check("echoed task text mentioning transport does not beat a clean hand-back",
+              echoed["category"] == "executor_blocked_awaiting_decision" and echoed["outcome"] == "blocked"
+              and "transport_error" not in echoed["matched_rules"])
+        dropped = classify(executor="codex", exit_code=1, stderr="ERROR: stream disconnected before completion")
+        check("a real disconnect with a failing exit is transport", dropped["category"] == "transport")
+        soft_clean = classify(executor="codex", exit_code=0, stderr="warning: stream disconnected, retrying",
+                              last_message="已完成并提交。")
+        check("a retried disconnect on a clean finish stays passed", soft_clean["category"] is None
+              and "transport_error" in soft_clean["matched_rules"])
+        dsh_code = classify(executor="dsh", exit_code=0, stderr='turn ended: error {"code":"TRANSPORT"}')
+        check("dsh TRANSPORT error code without a final message is transport", dsh_code["category"] == "transport")
     except Exception as exc:  # pragma: no cover
         checks.append((f"selftest raised {type(exc).__name__}", False))
 

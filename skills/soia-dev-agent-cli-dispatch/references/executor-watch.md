@@ -39,7 +39,8 @@ python3 scripts/executor_watch.py wait --pid <pid> --log <stdout.log> --interval
 | `task_failed` | `unrecognized arguments` 等具体错误；无规则命中但退出码非 0 | `failed` | unknown |
 | `timeout` | 等待超时或调用方标记超时 | `failed` | unknown |
 
-- 具体错误优先于「等待裁决」措辞：执行者在消息里说暂停，但 stderr 已有脚本参数错误时，归 `task_failed`，并在 `matched_rules` 保留 `last_message_awaiting_decision`。
+- codex 的 stderr 会回显任务正文，所以 `transport`、`rate_limit`、`auth`、`quota`、`task_failed` 这些规则可能被正文字样触发。进程正常退出且留下最后一条消息时，它们只记入 `matched_rules`，类别以最后一条消息为准；只有进程非零退出或没有最后消息时才决定类别。`transport` 只认具体断线信号（`stream disconnected`、`connection reset by peer`、`ECONNRESET`、错误码旁的 `TRANSPORT`），不认单独的 transport 一词。
+- 沙箱拒绝写 `.git`、`NO_ADAPTER`、会话不存在这类具体信号在正常退出时仍然生效。
 - `blocked` 类别不计入成功率分母，见 `references/usage-records.md`；它们多是配置、环境或交还决策，不代表执行者能力。
 - 归类是执行层结论；产物质量仍由主控核对 diff 与验收命令。
 
@@ -49,4 +50,4 @@ python3 scripts/executor_watch.py classify --executor codex --stderr <err> --las
 python3 scripts/usage_record.py from-codex --info <codex-info.json> --classification <classify.json> --requested-model <model> --append
 ```
 
-规则来自 2026-09-25 作业台执行窗口的真实失败样本（路径已脱敏）。遇到未归类的失败，把脱敏后的错误行补进 `RULES` 并加自检用例，不要在调用方另写一套判断。
+规则来自 2026-09-25 作业台执行窗口的真实失败样本（路径已脱敏）；同日一例正常交还决策因正文含 transport 被误判为断线，已按上条修正。遇到未归类的失败，把脱敏后的错误行补进 `RULES` 并加自检用例，不要在调用方另写一套判断。

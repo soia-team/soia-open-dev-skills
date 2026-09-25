@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.5.1
+version: 2.5.2
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-25 11:40:00
+updated_at: 2026-09-25 12:10:00
 created_by: claude opus 4.6
 updated_by: claude opus 5.5
 ---

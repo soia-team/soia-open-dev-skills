@@ -16,7 +16,11 @@
 - **注入 provider/模型配置**：`--patch <yaml>`（可重复），作为 profile 配置之后的候选覆盖层；`settings.yaml` 持久化值可能优先，最终只以 `--dump-config` 为准。
 - **核对生效配置**：`dsh --profile <name> --dump-config` 打印合成后的配置树；派发前用它确认 patch 已生效。
 - **恢复会话**：`dsh --profile tui --resume <session>`；launcher 自身选项之后的参数原样透传给被启动的 app。
-- **headless 续接**：`dsh --profile headless --session-id session-<uuid> "<task>"`。ID 必须带 `session-` 前缀，即会话目录名；只传裸 UUID 会报 `session "<uuid>" does not exist`。会话按启动时的 cwd 归档，会话头还记录了原 cwd，所以必须在原会话的同一工作目录下续接：换目录会找不到会话，或因会话头与所在目录不符被判为损坏。2026-09-25 在隔离 `DSH_HOME` 下复现了这两种失败（无凭据，未发起模型调用）；成功续接的完整路径尚未实测。
+- **headless 续接**：`dsh --profile headless --session-id session-<uuid> "<task>"`。ID 必须带 `session-` 前缀，即会话目录名；只传裸 UUID 会报 `session "<uuid>" does not exist`。会话按启动时的 cwd 归档，会话头还记录了原 cwd，所以必须在原会话的同一工作目录下续接：换目录会找不到会话，或因会话头与所在目录不符被判为损坏。2026-09-25 在隔离 `DSH_HOME` 下复现了这两种失败（无凭据，未发起模型调用）。同日在正常 dsh 环境中实测成功续接（dsh 0.1.7-alpha.2，deepseek-official/deepseek-flash，同一临时目录）：
+  1. `dsh --profile headless --patch <patch> "<第一轮，要求记住一个暗号>"`，退出码 0；会话目录 `~/.dsh/sessions/<cwd-slug>/session-<uuid>/` 随之出现。
+  2. 在同一目录执行 `dsh --profile headless --patch <patch> --session-id session-<uuid> "<第二轮，问暗号>"`，退出码 0，正确答出第一轮的暗号，没有新建会话目录。
+  3. `scripts/dsh_session_usage.py --session <uuid 前缀>` 显示同一会话有 2 次请求、2 条 assistant 消息、两轮均以 `completed` 结束。上下文被带上的证据是第二轮答对了只在第一轮出现过的暗号。两轮合计 API 等价估算约 0.0025 美元。
+  这次续接只验证了两轮短对话，未覆盖压缩后的长会话。
 
 ## 本地 OpenAI 兼容端点接入
 

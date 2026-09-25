@@ -16,6 +16,7 @@
 - **注入 provider/模型配置**：`--patch <yaml>`（可重复），作为 profile 配置之后的候选覆盖层；`settings.yaml` 持久化值可能优先，最终只以 `--dump-config` 为准。
 - **核对生效配置**：`dsh --profile <name> --dump-config` 打印合成后的配置树；派发前用它确认 patch 已生效。
 - **恢复会话**：`dsh --profile tui --resume <session>`；launcher 自身选项之后的参数原样透传给被启动的 app。
+- **headless 续接**：`dsh --profile headless --session-id session-<uuid> "<task>"`。ID 必须带 `session-` 前缀，即会话目录名；只传裸 UUID 会报 `session "<uuid>" does not exist`。会话按启动时的 cwd 归档，会话头还记录了原 cwd，所以必须在原会话的同一工作目录下续接：换目录会找不到会话，或因会话头与所在目录不符被判为损坏。2026-09-25 在隔离 `DSH_HOME` 下复现了这两种失败（无凭据，未发起模型调用）；成功续接的完整路径尚未实测。
 
 ## 本地 OpenAI 兼容端点接入
 
@@ -143,6 +144,7 @@ SoiaDeck 项目中，协调者亲验 DSH + `deepseek-v4-flash-vision-exp` 完成
 ## settings.yaml 持久化与 NO_ADAPTER 诊断（2026-08-20 实测）
 
 - dsh web 里选择模型会把默认模型**持久化写进 `~/.dsh/settings.yaml`**（`agent-default-model` 键）——但 **provider 定义不会**随之写入。此后不带 `--patch` 的 headless 调用报 `NO_ADAPTER: no adapter registered for provider "<名>"`。
+- **2026-09-25 复现于 headless 切 MiMo**：xiaomi provider 只注册在 web profile 的 patch 里，headless 与 tui profile 的 patch 为空数组，所以 `--patch` 只改 `agent-default-model` 指向 xiaomi 时同样报 `NO_ADAPTER: no adapter registered for provider "xiaomi"`。已实测可行的做法：headless 派单用的 patch 同时包含 `llm-pi-ai` 下的 xiaomi provider 块（从 web patch 按原文截取，只含 `apiKeyEnv` 变量名，不含密钥值）和 `agent-default-model`。截取时按文本复制，不要用 PyYAML 读出再写回：模型的 `reasoningEfforts` 里有未加引号的 `off` 键，YAML 1.1 解析器会把它变成布尔 `false`，写回后 provider 注册失败，仍报 `NO_ADAPTER`。凭据文件（如 `$DSH_HOME/.credentials.yaml`）只核对存在，不读取、不打印。
 - 修复二选一：把 provider 定义也写进 settings.yaml（键结构 = plugin id 为顶层键，`llm-pi-ai:` 下放 `providers:`，与 patch 的 `- id/config` 一一对应），或把 `agent-default-model` 改回云端 provider。
 - settings.yaml 与 `--patch` 双轨并存：settings 是本机持久层，patch 是本次叠加层。凭据仍必须显式传环境变量（如 `OPENAI_API_KEY=mlx`），settings 不能免除。
 - **优先级修正（2026-08-21 单变量实验推翻旧断言）**：本文档曾写"patch 覆盖 settings"——**实测相反**：settings.yaml 存在 `agent-default-model` 时，`--patch` 里的同名条目**不生效**，请求仍打到 settings 指定的 provider。旧断言成立的环境是 settings 尚无该键（patch 独占生效）。切换模型的可靠做法：把目标 provider 写进 settings.yaml 的 `providers:` 并临时改 `agent-default-model`，用完改回。

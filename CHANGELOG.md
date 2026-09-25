@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.4 — 2026-09-25
+
+dispatch 2.5.0: codex session evidence and resume template, executor liveness and exit classification, Claude Code/agy/qoder re-verification
+
+## 新增
+- feat(dispatch): codex session evidence, executor liveness/exit classification, CLI re-verification (2.5.0)
+
+## 维护
+- chore(release): open next train after v2.8.3 (#136)
+
 ## v2.8.3 — 2026-09-25
 
 dispatch 2.4.0: dsh v4 session evidence, unified usage records and local aggregation for Jev recommendations

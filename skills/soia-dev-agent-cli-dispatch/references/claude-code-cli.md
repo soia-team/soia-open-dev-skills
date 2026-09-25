@@ -54,7 +54,9 @@
 claude -p --model claude-opus-5-5 --output-format json
 ```
 
-2026-09-23 的 JSON 冒烟中，`modelUsage` 的业务模型键为 `claude-opus-5-5`，顶层 `canonicalModel` 也为 `claude-opus-5-5`；这两项是本次模型身份和可服务证据，不是任务质量证据。按 `modelUsage` 键读取模型身份，并继续应用下方辅助模型剔除规则。
+2026-09-23 的 JSON 冒烟中，`modelUsage` 的业务模型键为 `claude-opus-5-5`，`canonicalModel` 也为 `claude-opus-5-5`（2026-09-25 在 CLI 2.1.282 上核对：`canonicalModel` 位于 `modelUsage.<模型键>` 之内，不在顶层）；这两项是本次模型身份和可服务证据，不是任务质量证据。按 `modelUsage` 键读取模型身份，并继续应用下方辅助模型剔除规则。
+
+JSON 的 `modelUsage` 键是请求用的别名（如 `claude-haiku-4-5`），而会话文件 `~/.claude/projects/<slug>/<session_id>.jsonl` 中 `assistant.message.model` 记录的是日期版 ID（如 `claude-haiku-4-5-20251001`）；两者比对要经 catalog 的 `actual_model_aliases` 映射，不要通用截断。会话文件里同一次响应可能拆成多条 assistant 记录并重复携带同一 `usage`，直接逐条相加会重复计数；用量以 JSON 输出的 `usage` 或会话末尾 `type=cost-state` 记录为准。`<slug>` 由真实路径生成（macOS 临时目录为 `/private/var/...`）。
 
 订阅登录下，JSON 中的 `costUSD` 或 `total_cost_usd` 若带 `costBasis: list`，表示按官网 API 价计算的等价值，不是订阅账户的实际扣费。回执只能写为“API 等价估算”；只有独立账单证据才能填写实际扣费。
 
@@ -72,8 +74,10 @@ claude -p --model claude-opus-5-5 --output-format json
    `actual_model` 取 `fallback_model`。需要可靠模型证据时优先用 `stream-json`。
    注意这是单日单账号单 prompt 的观察，**不能**据此宣称该模型已下线——它 rc=0
    且正常返回；catalog 中它仍是 `available`，但派发必须逐次读 `fallback_model`。
-2. **`modelUsage` 多键（辅助模型）**：10/10 次调用的 `modelUsage` 都额外含
+2. **`modelUsage` 多键（辅助模型）**：2026-09-02 的 10/10 次调用的 `modelUsage` 都额外含
    `claude-haiku-4-5-20251001`（CLI 自身的辅助模型），所以"取第一个键"已经失效。
+   2026-09-25 在 CLI 2.1.282 上的一次 haiku 调用只出现一个键，说明辅助模型键并非每次都有；
+   剔除规则保持不变。
    技能处理：多键时先按 `providers.anthropic.auxiliary_models`（前缀匹配
    `claude-haiku-4-5`）排除，剩余唯一键才作为 `actual_model`；剩 0 个或多于 1 个
    判 `actual_model_unverified`。单键 map 不排除，否则直接派发 haiku 会被误判。
@@ -81,6 +85,15 @@ claude -p --model claude-opus-5-5 --output-format json
    `[claude-code:unrecognized_model]` 加一个含 `model`/`query_source` 的 JSON。
    技能处理：判 `unsupported`，并把 stderr 原文写进 `notes`；这类 id 以
    `availability: unrecognized_by_cli` 入 catalog，且不进入任何 `routing_profile`。
+
+## 2026-09-25 版本核对（CLI 2.1.282）
+
+一次 `claude -p --model claude-haiku-4-5 --output-format json` 调用退出码 0；`scripts/run_matrix.py` 的 `parse_usage` 与 `detect_claude_model_evidence` 仍能正确解析（分项用量、`total_cost_usd`、模型键）。
+
+- `usage` 另有 `cache_creation.ephemeral_1h_input_tokens` / `ephemeral_5m_input_tokens` 细分、`output_tokens_details.thinking_tokens`、`service_tier`；`modelUsage.<键>` 另有 `costBasis`、`thinkingTokens`、`contextWindow`。
+- 会话 ID 在 JSON 顶层 `session_id`；续接用 `claude -p -r <session_id>`（本次未实测）。
+- 参数变化：`--effort` 取 `low|medium|high|xhigh|max`；`--permission-mode` 取 `acceptEdits|auto|bypassPermissions|manual|dontAsk|plan`（`manual` 为新增）；新增 `--permission-prompts host|none`、`--restricted`、`--bare`、`--max-budget-usd`、`--no-session-persistence`、`--session-id <uuid>`、可接列表的 `--fallback-model` 和 `--bg`。`-p`、`--output-format`、`--resume`、`--continue` 不变。
+- 这些核对只证明 CLI 形态与解析器可用，不证明任务质量。
 
 ## 同宿主派发
 

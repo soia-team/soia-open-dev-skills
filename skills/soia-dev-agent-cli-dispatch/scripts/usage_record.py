@@ -39,7 +39,7 @@ SCHEMA = "soia.dispatch.usage-record/v1"
 CATALOG_PATH = Path(__file__).resolve().parents[1] / "references" / "model-catalog.yml"
 RECORDS_FILE = Path("usage") / "records.jsonl"
 
-SOURCES = {"run_manifest", "dsh_session", "cli_output"}
+SOURCES = {"run_manifest", "dsh_session", "cli_output", "codex_session"}
 MODEL_SOURCES = {"cli_echo", "cli_json", "session_file", "unverified"}
 BILLING_CLASSES = {"subscription", "metered_api", "local", "unknown"}
 USAGE_STATUSES = {"measured", "partial", "unavailable"}
@@ -49,7 +49,13 @@ FAILURE_CATEGORIES = {
     "task_failed", "acceptance_rejected", "timeout", "interrupted", "unsupported",
     "model_mismatch", "auth", "quota", "paid_api_blocked", "independence", "transport",
     "rate_limit", "server", "empty_response", "invalid_request", "approval_denied", "unknown",
+    # environment/handoff categories from executor_watch.py classify
+    "provider_not_registered", "session_not_found", "sandbox_git_write_denied", "executor_blocked_awaiting_decision",
 }
+# These stop an execution-level run without it being the executor's failure:
+# outcome=blocked keeps them out of the success-rate denominator.
+ENVIRONMENT_BLOCKED = {"provider_not_registered", "session_not_found", "sandbox_git_write_denied",
+                       "executor_blocked_awaiting_decision"}
 STATUS_OUTCOME: dict[str, tuple[str, str | None]] = {
     "passed": ("passed", None),
     "actual_model_unverified": ("passed", None),
@@ -192,6 +198,10 @@ def _outcome_fields(status: str, outcome: str | None, failure_category: str | No
         derived_category = failure_category or ("acceptance_rejected" if outcome == "failed" else derived_category)
     elif failure_category is not None:
         derived_category = failure_category
+        if failure_category in ENVIRONMENT_BLOCKED:
+            derived_outcome = "blocked"
+        elif derived_outcome == "passed":
+            derived_outcome = "failed"
     if derived_outcome == "passed":
         derived_category = None
     elif derived_category is None:
@@ -269,7 +279,9 @@ def validate_record(record: Any) -> None:
                 if row.get(field) is not None and _int_or_none(row[field]) is None:
                     raise RecordError("model_breakdown tokens must be non-negative integers")
     # Last line of defence: nothing path- or secret-shaped anywhere in the record.
-    if _looks_sensitive(json.dumps(record, ensure_ascii=False)):
+    # Enum-checked fields are skipped: a long category name is not a secret.
+    free_fields = {key: value for key, value in record.items() if key not in set(enums) | {"failure_category"}}
+    if _looks_sensitive(json.dumps(free_fields, ensure_ascii=False)):
         raise RecordError("record contains a path- or secret-shaped value")
 
 
@@ -551,6 +563,75 @@ def from_cli_output(
     return _finish(record)
 
 
+def from_codex_info(
+    info: dict[str, Any], *, requested_model: str, exit_code: int | None = None, classification: dict[str, Any] | None = None,
+    billing_class: str | None = None, task_class: str | None = None, dispatch_role: str | None = None,
+    reasoning: str | None = None, outcome: str | None = None, failure_category: str | None = None,
+) -> dict[str, Any]:
+    """Map codex_session_info.py output (plus an optional executor_watch classify result)."""
+    if info.get("status") not in (None, "ok"):
+        raise RecordError("codex info is not an ok report")
+    rollout = info.get("rollout") or {}
+    usage = rollout.get("usage") or {}
+    actual = _label_or_none(info.get("actual_model"))
+    source = info.get("actual_model_source")
+    verified = actual is not None and source in {"rollout_turn_context", "stderr_header"}
+    classification = classification or {}
+    category = failure_category or classification.get("category")
+    if classification.get("category") == "timeout":
+        status = "timeout"
+    elif rollout.get("turn_aborted") and not rollout.get("task_complete_count"):
+        status = "interrupted"
+    elif exit_code not in (0, None) and category is None:
+        status = "failed"
+    elif not verified:
+        status = "actual_model_unverified"
+    elif actual != requested_model:
+        status = "fallback_or_downgrade"
+    else:
+        status = "passed"
+    if category == "auth":
+        status = "blocked_auth"
+    elif category == "quota":
+        status = "blocked_quota"
+    started = _iso(rollout.get("started_at"))
+    completed = _iso(rollout.get("ended_at")) or started
+    if not started:
+        raise RecordError("codex info has no rollout timestamps")
+    cost = info.get("cost_estimate_usd") or {}
+    last_turn = rollout.get("last_turn") or {}
+    record: dict[str, Any] = {
+        "schema": SCHEMA,
+        "record_id": _record_id("codex_session", info.get("session_id"), started),
+        "source": "codex_session",
+        "executor": "codex",
+        "provider": _label_or_none(rollout.get("model_provider")),
+        "dispatch_role": _label_or_none(dispatch_role),
+        "task_class": _label_or_none(task_class),
+        "requested_model": _label_or_none(requested_model),
+        "actual_model": actual,
+        "actual_model_source": ("session_file" if source == "rollout_turn_context" else "cli_echo") if verified else "unverified",
+        "model_verified": verified,
+        "requested_reasoning_effort": _label_or_none(reasoning),
+        "actual_reasoning_effort": _label_or_none(last_turn.get("reasoning_effort")),
+        "billing_class": billing_class or "subscription",
+        **{field: _int_or_none(usage.get(field)) for field in TOKEN_FIELDS},
+        "usage_status": usage.get("usage_status") if usage.get("usage_status") in USAGE_STATUSES else "unavailable",
+        "usage_source": "codex_rollout_token_count" if usage.get("usage_status") in {"measured", "partial"} else "unavailable",
+        "provider_reported_cost_usd": None,
+        "estimated_api_equivalent_usd": _num_or_none(cost.get("value")),
+        "actual_charge_usd": None,
+        "pricing_source": _label_or_none(cost.get("pricing_source")),
+        "pricing_date": cost.get("pricing_effective_date") if isinstance(cost.get("pricing_effective_date"), str) and DATE.fullmatch(cost["pricing_effective_date"]) else None,
+        "started_at": started,
+        "completed_at": completed,
+        "duration_seconds": _duration(started, completed),
+        "status": status,
+        **_outcome_fields(status, outcome, category if category in FAILURE_CATEGORIES else None),
+    }
+    return _finish(record)
+
+
 # ---------------------------------------------------------------------------
 # storage
 # ---------------------------------------------------------------------------
@@ -695,6 +776,28 @@ def run_selftest() -> int:
               codex["actual_model"] == "gpt-6-luna" and codex["total_tokens"] == 1234 and codex["usage_status"] == "partial"
               and codex["estimated_api_equivalent_usd"] is None)
 
+        codex_info = {
+            "status": "ok", "session_id": "01a0d43b-0000-7000-8000-00000000c0de", "actual_model": "gpt-6-luna",
+            "actual_model_source": "rollout_turn_context",
+            "rollout": {"model_provider": "openai", "started_at": "2026-09-25T01:00:00Z", "ended_at": "2026-09-25T01:05:00Z",
+                        "task_complete_count": 1, "turn_aborted": {}, "last_turn": {"reasoning_effort": "xhigh"},
+                        "usage": {"input_tokens": 400, "cached_input_tokens": 600, "cache_write_tokens": 0, "output_tokens": 50,
+                                  "reasoning_tokens": 20, "total_tokens": 1050, "usage_status": "measured"}},
+            "cost_estimate_usd": {"value": 0.01, "pricing_source": "openai-pricing", "pricing_effective_date": "2026-09-23"},
+        }
+        codex_rec = from_codex_info(codex_info, requested_model="gpt-6-luna")
+        check("codex session: rollout usage, verified model and subscription billing",
+              codex_rec["status"] == "passed" and codex_rec["input_tokens"] == 400 and codex_rec["reasoning_tokens"] == 20
+              and codex_rec["actual_model_source"] == "session_file" and codex_rec["billing_class"] == "subscription"
+              and codex_rec["actual_reasoning_effort"] == "xhigh" and "c0de" not in json.dumps(codex_rec))
+        handed_back = from_codex_info(codex_info, requested_model="gpt-6-luna",
+                                      classification={"category": "executor_blocked_awaiting_decision"})
+        check("codex session: awaiting-decision classification is blocked, not failed",
+              handed_back["outcome"] == "blocked" and handed_back["failure_category"] == "executor_blocked_awaiting_decision")
+        git_blocked = from_manifest_case(manifest["cases"][0], run_id="selftest-run", failure_category="sandbox_git_write_denied")
+        check("environment categories map to blocked with execution basis",
+              git_blocked["outcome"] == "blocked" and git_blocked["outcome_basis"] == "execution")
+
         rejected = []
         for mutation in (
             {"prompt": "x"},
@@ -789,6 +892,15 @@ def build_parser() -> argparse.ArgumentParser:
     output.add_argument("--timed-out", action="store_true")
     common(output)
 
+    codex = sub.add_parser("from-codex", help="map codex_session_info.py output")
+    codex.add_argument("--info", required=True, help="codex_session_info.py JSON path or - for stdin")
+    codex.add_argument("--classification", help="executor_watch.py classify JSON path")
+    codex.add_argument("--requested-model", required=True)
+    codex.add_argument("--reasoning")
+    codex.add_argument("--dispatch-role")
+    codex.add_argument("--exit-code", type=int)
+    common(codex)
+
     validate = sub.add_parser("validate", help="validate a records JSONL file")
     validate.add_argument("--records", required=True)
     return parser
@@ -815,6 +927,13 @@ def main(argv: list[str] | None = None) -> int:
             record = from_cli_output(executor=args.executor, stdout=stdout, stderr=stderr, requested_model=args.requested_model,
                                      started_at=args.started_at, completed_at=args.completed_at, exit_code=args.exit_code,
                                      timed_out=args.timed_out, billing_class=args.billing_class, task_class=args.task_class,
+                                     dispatch_role=args.dispatch_role, reasoning=args.reasoning, outcome=args.outcome,
+                                     failure_category=args.failure_category)
+            return _emit([record], args)
+        if args.command == "from-codex":
+            record = from_codex_info(_read_json(args.info), requested_model=args.requested_model, exit_code=args.exit_code,
+                                     classification=_read_json(args.classification) if args.classification else None,
+                                     billing_class=args.billing_class, task_class=args.task_class,
                                      dispatch_role=args.dispatch_role, reasoning=args.reasoning, outcome=args.outcome,
                                      failure_category=args.failure_category)
             return _emit([record], args)

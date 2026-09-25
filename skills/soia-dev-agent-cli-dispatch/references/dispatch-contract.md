@@ -278,7 +278,7 @@ Token 与费用：
 
 ### 用量记录 / Usage records
 
-回执面向本次调用；需要跨调用比较执行器与模型时，再把终态结果转成 `soia.dispatch.usage-record/v1` 记录。记录字段沿用本节与 manifest 的同名字段（`requested_model`、`actual_model`、`billing_class`、各 token 分项、`usage_status`/`usage_source`、三类费用、`pricing_source`/`pricing_date`、`started_at`/`completed_at`、`status`），另加 `outcome`（`passed`/`failed`/`blocked`）、`outcome_basis`、`failure_category`、`actual_model_source` 与 `model_verified`；不复制 `notes`、`cmd_template`、`case_id` 原值或任何正文。manifest 用 `scripts/usage_record.py from-manifest`，dsh 用 `from-dsh`，单次 codex/claude/pi 输出用 `from-output`。状态映射、各执行器取证映射、存储与 Jev 聚合输入见 `references/usage-records.md`。用量记录是事后观测，不是额度证据，不进入 `route_model.py`。
+回执面向本次调用；需要跨调用比较执行器与模型时，再把终态结果转成 `soia.dispatch.usage-record/v1` 记录。记录字段沿用本节与 manifest 的同名字段（`requested_model`、`actual_model`、`billing_class`、各 token 分项、`usage_status`/`usage_source`、三类费用、`pricing_source`/`pricing_date`、`started_at`/`completed_at`、`status`），另加 `outcome`（`passed`/`failed`/`blocked`）、`outcome_basis`、`failure_category`、`actual_model_source` 与 `model_verified`；不复制 `notes`、`cmd_template`、`case_id` 原值或任何正文。manifest 用 `scripts/usage_record.py from-manifest`，dsh 用 `from-dsh`，codex 会话用 `from-codex`，单次 codex/claude/pi 输出用 `from-output`。长任务判活与退出原因归类见 `references/executor-watch.md`。状态映射、各执行器取证映射、存储与 Jev 聚合输入见 `references/usage-records.md`。用量记录是事后观测，不是额度证据，不进入 `route_model.py`。
 
 `estimate_cost.py` 的缓存命中缺价行为：若提供了缓存命中 Token，但所选价格档没有 `cached_input_per_1m`，则 `total_cost` / `total_cost_decimal` 返回 `null`，并在 `total_cost_unavailable_reason` 给出原因；不得把缺失价格按零计入。这是有意的兼容性变更：基线估算器曾在缺价时返回遗漏缓存费用的数值总价。
 

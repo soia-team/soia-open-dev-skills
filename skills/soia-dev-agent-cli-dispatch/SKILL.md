@@ -3,11 +3,11 @@ name: soia-dev-agent-cli-dispatch
 description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.3.0
+version: 2.4.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-23 19:43:29
+updated_at: 2026-09-25 08:30:00
 created_by: claude opus 4.6
-updated_by: gpt-6-luna
+updated_by: claude opus 5.5
 ---
 
 # soia-dev-agent-cli-dispatch
@@ -90,7 +90,8 @@ SOIA_DEV_AGENT_CLI_DISPATCH_CONFIG_FILE=<custom-config-path>
 - prompt：写入 OS 临时目录下按 task-id 隔离的目录；任务结束后清理。除非客户明确要求，不把 prompt 长期保存。
 - run manifest：默认写入 `<state>/soia-skills/soia-dev-agent-cli-dispatch/runs/<run-id>/manifest.json`。
 - manifest 只保存脱敏状态、CLI 版本、请求/实际模型、Token、费用、时间和恢复信息；不保存 prompt、响应正文、凭据、账号或私有绝对路径。
-- 平台允许时，state 目录使用 `0700`、manifest 使用 `0600`。默认最多保留 50 个 run；达到上限时阻断新 run，不自动删除。清理前先让客户查看范围并确认。
+- 用量记录：按需追加到 `<state>/soia-skills/soia-dev-agent-cli-dispatch/usage/records.jsonl`，字段与脱敏规则见 `references/usage-records.md`；同样不保存 prompt、正文、会话 ID 原值或私有路径。
+- 平台允许时，state 目录使用 `0700`、manifest 与用量记录使用 `0600`。默认最多保留 50 个 run；达到上限时阻断新 run，不自动删除。清理前先让客户查看范围并确认。
 - 仓库 checkout 不得作为运行时 config、state、cache 或临时目录。
 
 路径解析：
@@ -274,7 +275,8 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | Claude 模型 ID 实测快照与 fallback/辅助模型现象 | `reports/claude-model-probe-2026-09-02.md` |
 | 重新探测 Claude 实际服务的模型 ID | `scripts/probe_claude_models.py --models <ids>`（真实调用，消耗额度；`--selftest` 只跑 fixture） |
 | 按需发起一次 Jev 类型化判断（不自动派发、不作门禁） | `references/jev-integration.md`；`scripts/jev_check.py` |
-| dsh 会话模型、子代理及用量只读取证 | `scripts/dsh_session_usage.py`（需要系统 `zstd`） |
+| dsh 会话模型、子代理及用量只读取证（会话格式 v3/v4） | `scripts/dsh_session_usage.py`（需要系统 `zstd`） |
+| 与执行器无关的用量记录、本地聚合及 Jev 推荐输入 | `references/usage-records.md`；`scripts/usage_record.py`、`scripts/usage_aggregate.py` |
 | 私有运行配置模板 | `assets/config.example.yml` |
 
 加载原则：主文件 → 所选执行器 reference，最多一跳；不要一次性加载全部 references。
@@ -296,6 +298,8 @@ python3 scripts/run_matrix.py --selftest
 python3 scripts/probe_claude_models.py --selftest
 python3 scripts/jev_check.py --selftest
 python3 scripts/dsh_session_usage.py --selftest
+python3 scripts/usage_record.py --selftest
+python3 scripts/usage_aggregate.py --selftest
 ```
 
 复杂行为还要运行一个脱敏的真实前向实例，并核对产物或 manifest 内容，不能只核对退出码。

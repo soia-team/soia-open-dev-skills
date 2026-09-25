@@ -16,6 +16,7 @@
 - **注入 provider/模型配置**：`--patch <yaml>`（可重复），作为 profile 配置之后的候选覆盖层；`settings.yaml` 持久化值可能优先，最终只以 `--dump-config` 为准。
 - **核对生效配置**：`dsh --profile <name> --dump-config` 打印合成后的配置树；派发前用它确认 patch 已生效。
 - **恢复会话**：`dsh --profile tui --resume <session>`；launcher 自身选项之后的参数原样透传给被启动的 app。
+- **headless 续接**：`dsh --profile headless --session-id session-<uuid> "<task>"`。ID 必须带 `session-` 前缀，即会话目录名；只传裸 UUID 会报 `session "<uuid>" does not exist`。会话按启动时的 cwd 归档，会话头还记录了原 cwd，所以必须在原会话的同一工作目录下续接：换目录会找不到会话，或因会话头与所在目录不符被判为损坏。2026-09-25 在隔离 `DSH_HOME` 下复现了这两种失败（无凭据，未发起模型调用）；成功续接的完整路径尚未实测。
 
 ## 本地 OpenAI 兼容端点接入
 
@@ -82,19 +83,30 @@ OPENAI_API_KEY=mlx dsh web --patch <patch-file>
 - headless 输出只有最终 assistant 消息，CLI 侧不回显结构化 usage。模型与档位、token 分项、重试、审批和上下文压缩等记录可从会话文件提取，见下方「模型证据提取」。
 - `scripts/run_matrix.py` 未实现 dsh 的模型回显检测：经 dsh 的调用默认 `actual_model_unverified`，除非派发者补充模型服务器日志或会话落盘文件证据。
 
-## 模型证据提取（session v3 取证法，2026-09-23 核对）
+## 模型证据提取（session v3/v4 取证法，2026-09-25 核对）
 
 dsh headless 的 stdout 无模型回显：它只打印最终 assistant 消息，既不带 `model`/`provider`，也不带结构化 usage。真实证据在会话落盘文件：
 
 ```
-~/.dsh/sessions/<项目>/session-<id>/session.v3.jsonl.zstd
+~/.dsh/sessions/<项目>/session-<id>/session.v4.jsonl.zstd   # 本机 dsh 0.1.7-alpha.2 写入的格式
+~/.dsh/sessions/<项目>/session-<id>/session.v3.jsonl.zstd   # 旧格式
 ```
 
-`<项目>` 是 cwd 编码后的目录名，`<id>` 是会话 UUID。该文件是 zstd 压缩的 JSONL，每行一个事件，常见字段为 `type`、`seq`、毫秒时间 `time` 和 `data`。会话标题来自 `session/title`。
+`<项目>` 是 cwd 编码后的目录名，`<id>` 是会话 UUID。该文件是 zstd 压缩的 JSONL，每行一个事件，常见字段为 `type`、`seq`、毫秒时间 `time` 和 `data`。首行是不带 `data` 的会话头（`type=session`，含 `version`、`id`、`createdAt`、`cwd` 等）；会话标题来自 `session/title`。
 
-- **定位**：`<cwd-encoded>` 是工作目录编码后的会话目录。用 prompt 中的唯一标记在 `user/message` 事件里找会话；不要按修改时间取最新文件。常驻的 `dsh web` 可能并发写入其他会话，按时间选择会取错。
+**v4 格式差异（2026-09-25 只读核对本机 dsh 0.1.7-alpha.2 会话结构）：**
+
+- 升级会把旧会话迁移为 v4，并在同一会话目录保留原 v3 文件；v4 是迁移后的超集，此后只有 v4 继续写入。两者并存时以 v4 为准。
+- `assistant/message` 的用量位于 `data.usage`（v3 夹具在 `data.message.usage`），并新增 `data.message.source`：`kind=model` 时带该条消息实际的 `provider`/`model`。它比按时间归属请求头更直接，用量按它归属，标 `attribution=message_source`；档位只在当时请求头指向同一模型时沿用请求头的 `reasoningEffort`。
+- `compaction/summary` 带独立的 `provider`/`model`/`usage`，是压缩摘要的真实调用用量，单列 `attribution=compaction_summary`；`assistant/attempt` 的流中若有 `usage` 块，是未被保留的尝试，单列 `attribution=aborted_attempt`。
+- `request/context` 的 `contextWindow` 直接在 `data` 下；`turn/end.data.reason` 记录 `kind`（`completed`/`interrupted`/`error`）与错误码（如 `AUTH`、`INVALID_REQUEST`），脚本只输出 kind 与错误码计数及最后一轮的结束方式，不输出错误消息。
+- 用户输入除 `user/message` 外，还可能经 `agent/inbox/spliced.data.inserted[]`（`role=user`）进入会话；标记定位两处都查。
+- 会话头的 `cwd`、`agent/inbox/spliced` 的正文、`tool/call` 参数和 `replayState` 响应 ID 都不进入报告。
+
+- **定位**：`<cwd-encoded>` 是工作目录编码后的会话目录。用 prompt 中的唯一标记在 `user/message`（v4 另含 `agent/inbox/spliced`）事件里找会话；不要按修改时间取最新文件。常驻的 `dsh web` 可能并发写入其他会话，按时间选择会取错。
+- **格式识别**：脚本只读 `session.v3`/`session.v4`，同目录并存时取 v4；只有其他版本（如 `session.v5`）或会话头版本与文件名不符时输出 `status=unsupported_format` 并以退出码 4 结束，不猜测字段。遇到该退出码先核对 dsh 版本与新格式结构，再扩展脚本。
 - **实际请求模型与档位**：以 `request/header.data.header.config` 的 `{provider, model, reasoningEffort, maxTokens}` 为准。这是该次请求实际发出的配置，证据强于界面选择。`model/selection.data` 记录 UI 选择，只作辅助；dsh web 切换一次模型可能连续落下多条选择事件（例如先记录 high、再记录 max），因此不能用最后一条 UI 选择替代请求头。
-- **用量归属**：每条 `assistant/message.data.usage` 的 `inputTokens` 是未命中缓存输入，另有 `outputTokens`、`cacheReadTokens`、`cacheWriteTokens`、可选 `reasoningTokens` 和 `totalTokens`。用量事件自身不提供模型字段，只按时间顺序归到最近一次 `request/header`；后续 `model/selection` 只进入 UI 选择时间线，不改变用量归属。只有还没有任何请求头时，才以最近的 UI 选择作兜底，并在输出标记 `attribution=ui_fallback`。用量估价要把缓存命中和缓存写入分项传入，不能把 `totalTokens` 全按普通输入或输出计费。若缓存计数缺失，脚本只有在 `totalTokens` 与已记录的输入、输出及缓存计数完全相符时才将缺项视为零；无法核实时成本为 `null`。
+- **用量归属**：每条 `assistant/message` 用量的 `inputTokens` 是未命中缓存输入，另有 `outputTokens`、`cacheReadTokens`、`cacheWriteTokens`、可选 `reasoningTokens` 和 `totalTokens`。v4 优先按消息自带的 `message.source` 归属；v3 用量事件自身不提供模型字段，只按时间顺序归到最近一次 `request/header`；后续 `model/selection` 只进入 UI 选择时间线，不改变用量归属。只有还没有任何请求头时，才以最近的 UI 选择作兜底，并在输出标记 `attribution=ui_fallback`。用量估价要把缓存命中和缓存写入分项传入，不能把 `totalTokens` 全按普通输入或输出计费。若缓存计数缺失，脚本只有在 `totalTokens` 与已记录的输入、输出及缓存计数完全相符时才将缺项视为零；无法核实时成本为 `null`。
 - **按需提取**：运行 `python3 scripts/dsh_session_usage.py --session <uuid-or-prefix>`，或用 prompt 唯一标记定位：`python3 scripts/dsh_session_usage.py --marker <unique-prompt-marker>`。标题默认不输出；只有显式加 `--with-title` 才输出经过路径与 token 脱敏的标题。脚本需要系统 `zstd`，只读解压；不写入 dsh 目录，不输出对话、工具参数或结果正文。成本按本仓 `model-catalog.yml` 估算；无价格或必要用量字段时返回 `null` 并说明原因。DeepSeek 价格时段会在每个模型估算中注明使用的目录标量档位。
 - **子代理**：读取 `subagent/model-selection-policy.data.allowedModels` 作为允许模型策略，并统计 `tool/call` 中 `name=subagent` 的次数与显式模型参数。若调用参数没有模型，仅当允许列表只有一个模型时才把它标为策略推断；这不是子代理的运行时回显。主会话切换模型不会自动改变子代理策略；回执要分开记录主会话和子代理模型，并标明推断来源。
 - **重试与审批**：按 `llm/retry.data.provider` 与 `failure.code` 汇总具体失败类别，并保留事件顶层 `policyKey` 作为重试策略标签；这两个值可能不同。常见标签包括 `EMPTY_RESPONSE`、`RATE_LIMIT`、`SERVER`、`TIMEOUT`、`TRANSPORT`。用 `approval/asked` 和 `approval/decided` 统计拒绝与理由类别，不复制命令正文；dsh 可能拒绝未引用 glob 或不兼容 grep 方言的命令并说明原因。
@@ -104,6 +116,7 @@ dsh headless 的 stdout 无模型回显：它只打印最终 assistant 消息，
 - **证据边界**：会话事件证明框架发出的请求配置和记录的用量，不证明任务质量，也不等同 provider 账单。会话文件只在本机按需检查，不把会话正文或具体用量样本写入仓库。
 - **派发纪律**：每次 dsh 派发后按 cwd 定位 session 文件，把提取到的 `actual_model`/`provider` 写入
   验收回执，替代 `unavailable`/`actual_model_unverified` 的默认标注。
+- **统一用量记录**：需要沉淀用量或为模型推荐积累样本时，把报告交给 `scripts/usage_record.py from-dsh --report <report.json>`，生成与执行器无关的记录；dsh 默认 `billing_class=metered_api`（本地 `mlx` 为 `local`），`provider_reported_cost_usd` 为 `null`，费用只有目录价估算。格式、结果映射与存储见 `references/usage-records.md`。
 
 ## 效率特征（2026-08-20 本地端点实测）
 
@@ -131,6 +144,7 @@ SoiaDeck 项目中，协调者亲验 DSH + `deepseek-v4-flash-vision-exp` 完成
 ## settings.yaml 持久化与 NO_ADAPTER 诊断（2026-08-20 实测）
 
 - dsh web 里选择模型会把默认模型**持久化写进 `~/.dsh/settings.yaml`**（`agent-default-model` 键）——但 **provider 定义不会**随之写入。此后不带 `--patch` 的 headless 调用报 `NO_ADAPTER: no adapter registered for provider "<名>"`。
+- **2026-09-25 复现于 headless 切 MiMo**：xiaomi provider 只注册在 web profile 的 patch 里，headless 与 tui profile 的 patch 为空数组，所以 `--patch` 只改 `agent-default-model` 指向 xiaomi 时同样报 `NO_ADAPTER: no adapter registered for provider "xiaomi"`。已实测可行的做法：headless 派单用的 patch 同时包含 `llm-pi-ai` 下的 xiaomi provider 块（从 web patch 按原文截取，只含 `apiKeyEnv` 变量名，不含密钥值）和 `agent-default-model`。截取时按文本复制，不要用 PyYAML 读出再写回：模型的 `reasoningEfforts` 里有未加引号的 `off` 键，YAML 1.1 解析器会把它变成布尔 `false`，写回后 provider 注册失败，仍报 `NO_ADAPTER`。凭据文件（如 `$DSH_HOME/.credentials.yaml`）只核对存在，不读取、不打印。
 - 修复二选一：把 provider 定义也写进 settings.yaml（键结构 = plugin id 为顶层键，`llm-pi-ai:` 下放 `providers:`，与 patch 的 `- id/config` 一一对应），或把 `agent-default-model` 改回云端 provider。
 - settings.yaml 与 `--patch` 双轨并存：settings 是本机持久层，patch 是本次叠加层。凭据仍必须显式传环境变量（如 `OPENAI_API_KEY=mlx`），settings 不能免除。
 - **优先级修正（2026-08-21 单变量实验推翻旧断言）**：本文档曾写"patch 覆盖 settings"——**实测相反**：settings.yaml 存在 `agent-default-model` 时，`--patch` 里的同名条目**不生效**，请求仍打到 settings 指定的 provider。旧断言成立的环境是 settings 尚无该键（patch 独占生效）。切换模型的可靠做法：把目标 provider 写进 settings.yaml 的 `providers:` 并临时改 `agent-default-model`，用完改回。

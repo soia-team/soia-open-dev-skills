@@ -46,6 +46,17 @@ jev:
 
 TypeSafe 的 Data Processing Addendum 说明客户数据处理条款；服务托管在美国。零数据保留（ZDR）仅向企业客户提供。[Data Processing Addendum](https://typesafe.ai/legal/data-processing)、[Privacy Policy](https://typesafe.ai/legal/privacy-policy)、[Legal overview](https://docs.typesafe.ai/legal.md)（官方文档，2026-09-23 核对）。
 
+## 模型推荐的本地输入
+
+在「Agent/模型推荐」场景中，Jev 只判断任务语义与候选执行器/模型的匹配。它能读取的本地使用数据只有 `scripts/usage_aggregate.py` 产出的聚合摘要：按 `executor`/模型分组的样本数与 `low_sample`、`success_rate`、`blocked_rate`、`acceptance_samples`、平均 token 分项、API 等价估算与自报费用的平均值、计费类别，以及最近失败的原因类别计数。单条用量记录、`record_id`、具体时间、会话或 case 标识不外发。
+
+- 聚合在本机完成：`usage_aggregate.py --jev-state <state.txt>` 写出前先按本文件的外发扫描规则（含私有配置 `extra_block_patterns`）和本机路径规则自检，命中即不写文件、以退出码 2 结束。
+- 写出的 state 与调用方另行脱敏的任务摘要一起，仍走本脚本的 `--dry-run` 与 `--enable-jev` 流程；外发扫描、密钥查找与数据边界不因输入来自聚合脚本而放宽。
+- 推荐结果只作旁证，不是门禁：不改写额度观测、不绕过 `route_model.py` 的预检校验，也不替代 Independence Gate 与 Model Integrity Gate。额度、健康、权限与真实派发仍由本地流程决定。
+- 聚合摘要是本机数据，不提交到仓库；仍不得发布 Jev 自身的性能或评测数据。
+
+记录格式、状态映射与聚合字段定义见 `references/usage-records.md`。
+
 ## 输出与退出码
 
 成功 JSON 包含 `status`、服务响应的 `model`、重建后的 `answers` 与 `usage`，以及按官方输入价格计算的 `cost_usd_estimate`；它是 API 价格估算，不是实际账单。若 usage 缺少有效的 `input_tokens`（包括空 usage），`cost_usd_estimate.value` 为 `null`，并由 `reason` 说明输入用量缺失，不能把缺失计为零。

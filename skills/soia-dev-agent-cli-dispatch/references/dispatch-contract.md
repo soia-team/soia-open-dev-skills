@@ -6,6 +6,7 @@
 
 - 统一调用契约、输入输出字段与未知值处理
 - 预检、模型完整性、断点恢复与完成回执
+- 事后用量记录与本地聚合（字段复用 manifest，细节在 `references/usage-records.md`）
 - 派发纪律、危险目录、反虚假修复门禁与执行面板收敛核对
 
 ## 统一调用契约 / Unified invocation contract
@@ -234,7 +235,7 @@ python3 scripts/run_matrix.py --cases <cases.json> --run-id <run_id> --resume
 `dsh-mimo-v2.6-flash`。只写 `dsh` 无法追溯本次调用使用的模型。
 
 dsh 回执应分别记录主会话的实际模型与子代理的实际模型；两者可能不同。用量优先采用
-`scripts/dsh_session_usage.py` 的按模型拆分结果，并继续区分未命中输入、缓存命中、缓存写入和输出。
+`scripts/dsh_session_usage.py` 的按模型拆分结果（会话格式 v3/v4），并继续区分未命中输入、缓存命中、缓存写入和输出。
 
 ```text
 完成：<一句话说明本次调用做了什么>
@@ -274,6 +275,10 @@ Token 与费用：
 单次调用用这份回执；批量矩阵额外参考 manifest 的 `completed_cases` / `remaining_cases` / `stop_reason` 汇总整批状态。
 
 计费口径：`billing_class=subscription` 时，目录价格或 CLI 按官网价计算的 `costUSD` / `total_cost_usd` 只能写成 API 等价估算，不得写成实际扣费；只有可靠账单证据才能填 `actual_charge_usd`。`metered_api` 表示按量 API，`local` 表示本地推理，`unknown` 表示无法确认。选择“优先走订阅”之类的偏好属于调用方策略；本技能只提供计费类别与证据判据，不规定哪个执行器优先。
+
+### 用量记录 / Usage records
+
+回执面向本次调用；需要跨调用比较执行器与模型时，再把终态结果转成 `soia.dispatch.usage-record/v1` 记录。记录字段沿用本节与 manifest 的同名字段（`requested_model`、`actual_model`、`billing_class`、各 token 分项、`usage_status`/`usage_source`、三类费用、`pricing_source`/`pricing_date`、`started_at`/`completed_at`、`status`），另加 `outcome`（`passed`/`failed`/`blocked`）、`outcome_basis`、`failure_category`、`actual_model_source` 与 `model_verified`；不复制 `notes`、`cmd_template`、`case_id` 原值或任何正文。manifest 用 `scripts/usage_record.py from-manifest`，dsh 用 `from-dsh`，单次 codex/claude/pi 输出用 `from-output`。状态映射、各执行器取证映射、存储与 Jev 聚合输入见 `references/usage-records.md`。用量记录是事后观测，不是额度证据，不进入 `route_model.py`。
 
 `estimate_cost.py` 的缓存命中缺价行为：若提供了缓存命中 Token，但所选价格档没有 `cached_input_per_1m`，则 `total_cost` / `total_cost_decimal` 返回 `null`，并在 `total_cost_unavailable_reason` 给出原因；不得把缺失价格按零计入。这是有意的兼容性变更：基线估算器曾在缺价时返回遗漏缓存费用的数值总价。
 

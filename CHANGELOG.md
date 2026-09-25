@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.3 — 2026-09-25
+
+dispatch 2.4.0: dsh v4 session evidence, unified usage records and local aggregation for Jev recommendations
+
+## 新增
+- feat(dispatch): dsh v4 session evidence, unified usage records, local aggregation (2.4.0)
+
+## 维护
+- docs(dispatch): dsh headless NO_ADAPTER for xiaomi and --session-id prefix/cwd rules
+- chore(release): open next train after v2.8.2 (#133)
+
 ## v2.8.2 — 2026-09-23
 
 review-code 1.3.0：回源「什么算验过」门禁一节（CI 配置为门清单权威、基线对拍、退出码取法、只读）

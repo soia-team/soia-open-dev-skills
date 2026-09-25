@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.8.5 — 2026-09-25
+
+dispatch 2.5.1: executor_watch no longer lets echoed transcript text override a clean hand-back
+
+## 修复
+- fix(dispatch): executor_watch soft rules no longer override a clean hand-back (2.5.1)
+
+## 维护
+- chore(release): open next train after v2.8.4 (#139)
+
 ## v2.8.4 — 2026-09-25
 
 dispatch 2.5.0: codex session evidence and resume template, executor liveness and exit classification, Claude Code/agy/qoder re-verification

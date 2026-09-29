@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.9.0 — 2026-09-29
+
+dispatch: Claude Sonnet 5.5 verified and routable
+
+## 新增
+- feat(dispatch): Claude Sonnet 5.5 verified and routable (2.6.0)
+
+## 维护
+- chore(release): open next train after v2.8.6 (#145)
+
 ## v2.8.6 — 2026-09-25
 
 dispatch 2.5.2: verified dsh headless --session-id resume path

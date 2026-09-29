@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 调度外部 AI CLI 进程，核验模型、额度、权限及产物。仅外部 CLI 派发、多 CLI 分工或外部自动选模时使用；宿主内置 subagent 不走本技能。
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.5.2
+version: 2.6.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-25 12:10:00
+updated_at: 2026-09-29 14:43:34
 created_by: claude opus 4.6
 updated_by: claude opus 5.5
 ---
@@ -272,7 +272,7 @@ prompt 只包含：任务目标、必要上下文、目标文件/范围、权限
 | 价格目录的带日期来源快照 | `reports/model-pricing-2026-07-10.md` |
 | 历史证据边界 | `reports/benchmark-2026-07-10.md` |
 | Pi + DeepSeek V4 Flash 历史实例（id 已下线，新派发用 `deepseek-flash`） | `examples/pi-deepseek-v4-flash-easy.md` |
-| Claude 模型 ID 实测快照与 fallback/辅助模型现象 | `reports/claude-model-probe-2026-09-02.md` |
+| Claude 模型 ID 实测快照与 fallback/辅助模型现象 | `reports/claude-model-probe-2026-09-02.md`；Claude Sonnet 5.5（`claude-sonnet-5-5`，medium 可自动路由）的前向验证见 `reports/claude-model-probe-2026-09-29.md` |
 | 重新探测 Claude 实际服务的模型 ID | `scripts/probe_claude_models.py --models <ids>`（真实调用，消耗额度；`--selftest` 只跑 fixture） |
 | 按需发起一次 Jev 类型化判断（不自动派发、不作门禁） | `references/jev-integration.md`；`scripts/jev_check.py` |
 | dsh 会话模型、子代理及用量只读取证（会话格式 v3/v4） | `scripts/dsh_session_usage.py`（需要系统 `zstd`） |

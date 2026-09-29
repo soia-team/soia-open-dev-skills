@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
-# @modified_by dsh + deepseek-flash (actual model unverified)
-# @modified_at 2026-09-14 10:56:45
-# @version 0.4.0
+# @modified_by anthropic/claude-opus-5-5
+# @modified_at 2026-09-29 14:45:00
+# @version 0.4.1
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog Quota evidence is re-validated inside route_model (a copied kind string is not a credential): auth/source/probed_at/model/bucket checks run on every library call, unknown catalog models and unparseable probe times are rejected per row, an observation with bucket=unknown never authorizes and catalog quota_scope_keys are no longer injected as observed scopes, and selected_observation is chosen to match the bound model+scope instead of the first same-model row.
+# @changelog 0.4.1: selftest covers claude-sonnet-5-5 auto-routing (preferred over claude-sonnet-5 only when its own bucket is observed available). 0.4.0: Quota evidence is re-validated inside route_model (a copied kind string is not a credential): auth/source/probed_at/model/bucket checks run on every library call, unknown catalog models and unparseable probe times are rejected per row, an observation with bucket=unknown never authorizes and catalog quota_scope_keys are no longer injected as observed scopes, and selected_observation is chosen to match the bound model+scope instead of the first same-model row.
 """Mechanically route an executor family to a verified model/effort pair.
 
 The live-quota precheck is mandatory evidence, not a post-hoc check: a route
@@ -779,6 +779,11 @@ def run_selftest() -> int:
     claude_sonnet = evidence("claude", [observation("claude-sonnet-5", "claude")])
     claude_opus_4_8 = evidence("claude", [observation("claude-opus-4-8", "claude")])
     claude_opus_5 = evidence("claude", [observation("claude-opus-5", "claude")])
+    claude_sonnet_5_5 = evidence("claude", [observation("claude-sonnet-5-5", "claude")])
+    claude_sonnet_both = evidence("claude", [
+        observation("claude-sonnet-5", "claude"),
+        observation("claude-sonnet-5-5", "claude"),
+    ])
 
     # --- selection with valid precheck evidence ---
     luna_easy, luna_easy_error = route("codex", "easy", quota_evidence=codex_luna)
@@ -1451,6 +1456,22 @@ def run_selftest() -> int:
         non_gated is not None and non_gated["independence_gate"]["independence"] == "not_gated",
     ))
     no_role, _ = route("claude", "medium", quota_evidence=claude_sonnet)
+    sonnet55_medium, _ = route("claude", "medium", quota_evidence=claude_sonnet_5_5)
+    checks.append((
+        "claude medium with only sonnet-5-5 observed -> sonnet-5-5 medium (owner_policy)",
+        sonnet55_medium is not None and sonnet55_medium.get("selected_model") == "claude-sonnet-5-5"
+        and sonnet55_medium.get("selected_reasoning_effort") == "medium"
+        and sonnet55_medium.get("routing_basis") == "owner_policy",
+    ))
+    sonnet_both_medium, _ = route("claude", "medium", quota_evidence=claude_sonnet_both)
+    checks.append((
+        "claude medium with sonnet-5 and sonnet-5-5 observed -> routing_priority prefers sonnet-5-5",
+        sonnet_both_medium is not None and sonnet_both_medium.get("selected_model") == "claude-sonnet-5-5",
+    ))
+    checks.append((
+        "claude medium with only sonnet-5 observed still routes sonnet-5",
+        no_role is not None and no_role.get("selected_model") == "claude-sonnet-5",
+    ))
     checks.append(("omitting --role leaves the receipt unchanged", no_role is not None and "independence_gate" not in no_role))
     _, unknown_role_error = route("claude", "medium", role="auditor", quota_evidence=claude_sonnet)
     checks.append(("unknown dispatch_role blocks", unknown_role_error is not None))

@@ -46,6 +46,24 @@
 能力分级证据——prompt 是单词回显。因此不要据此排任务分级；分级仍需按任务类型
 单独取证。完整原始摘要见 `reports/claude-model-probe-2026-09-02.md`。
 
+### Claude Sonnet 5.5（2026-09-29，CLI 2.1.284）
+
+`claude-sonnet-5-5`（别名 `sonnet-5.5` / `sonnet-5-5`）已前向验证：`--output-format json`
+rc=0，`modelUsage` 只有 `claude-sonnet-5-5` 一个键；`probe_claude_models.py` 判 `exact`；
+`--effort low|medium|high|xhigh|max` 各一次均 rc=0、`assistant.message.model=claude-sonnet-5-5`、
+无 fallback 事件。effort 档位本身不在事件流里回显，所以只证明五档被接受，不证明档位产生差异。
+
+```bash
+claude -p --model claude-sonnet-5-5 --effort medium --output-format stream-json --verbose
+```
+
+catalog 中它以 `routing_basis: owner_policy` 进入 `routing_profile: [medium]`（Owner 2026-09-29
+授权发版支持），`routing_priority: 50`：额度预检同时观测到 `claude-sonnet-5` 与
+`claude-sonnet-5-5` 可用时自动路由优先后者；只观测到 `claude-sonnet-5` 时行为不变。
+它与 `claude-sonnet-5` 同属 `model_family: claude-sonnet-5`，审查独立性门把两者视为同族。
+价格与 Sonnet 5 相同（官方公开价，输入 $2 / 输出 $10 / 缓存读 $0.20 每 1M tokens）。
+完整摘要见 `reports/claude-model-probe-2026-09-29.md`。
+
 ### Claude Opus 5.5 模型证据与订阅成本口径
 
 调用示例：

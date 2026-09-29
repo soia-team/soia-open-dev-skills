@@ -32,11 +32,13 @@
 # part of the 2026-07-10 29-model count above.
 # Anthropic contributes 10 invocable model rows. Claude Sonnet 5's introductory
 # price is now standard; the planned 2026-09-01 increase will not happen.
+# 2026-09-29: claude-sonnet-5-5 (Claude Sonnet 5.5) added from a Claude Code
+# 2.1.284 probe; it is not part of the 2026-07-10 count above.
 # Antigravity/agy is intentionally absent: its account-scoped Gemini/third-party
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-09-23"
+updated_at: "2026-09-29"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -59,6 +61,9 @@ sources:
   - id: claude-model-probe-2026-09-02
     path: reports/claude-model-probe-2026-09-02.md
     date: "2026-09-02"
+  - id: claude-model-probe-2026-09-29
+    path: reports/claude-model-probe-2026-09-29.md
+    date: "2026-09-29"
   - id: deepseek-flash-verification-2026-09-11
     path: reports/deepseek-flash-verification-2026-09-11.md
     date: "2026-09-11"
@@ -675,6 +680,35 @@ providers:
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
+      - model_id: claude-sonnet-5-5
+        display_name: "Claude Sonnet 5.5"
+        aliases: [sonnet-5.5, sonnet-5-5]
+        model_family: claude-sonnet-5
+        availability: available
+        context_window: 1000000
+        supported_reasoning_levels: [low, medium, high, xhigh, max]
+        reasoning_levels_confidence: smoke_tested
+        default_reasoning_level: null
+        max_output_tokens: 128000
+        pricing:
+          input_per_1m: 2
+          cached_input_per_1m: 0.2
+          cache_write_5m_per_1m: null
+          cache_write_1h_per_1m: null
+          output_per_1m: 10
+          long_context: null
+          batch: null
+          reasoning_billing_rule: counted_as_output
+          billing_mode_notes: "Standard USD per 1M tokens from Anthropic's official price list (same as Claude Sonnet 5: $2 input, $10 output, $0.20 cache-hit), read 2026-09-29 from the official model/price table bundled with Claude Code 2.1.284 (cached 2026-09-25) and the Anthropic pricing page. The 5m/1h cache-write, long-context and batch rates were not in that source and stay null rather than copied from Sonnet 5."
+          effective_date: "2026-09-29"
+          source_id: anthropic-pricing-2026-09-23
+        routing_profile: [medium]
+        routing_basis: owner_policy
+        routing_basis_note: "Owner 2026-09-29 asked for the dispatch skill to support Claude Sonnet 5.5 in a new release; this skill has model-identity and effort-acceptance smoke evidence only, no task-quality measurement."
+        routing_priority: 50
+        discovered_at: "2026-09-29"
+        discovery_evidence: "2026-09-29 Claude Code 2.1.284 probe: `claude -p --model claude-sonnet-5-5 --output-format json` rc=0 with the single modelUsage key claude-sonnet-5-5; probe_claude_models.py (stream-json) outcome=exact; `--effort` low/medium/high/xhigh/max each rc=0, assistant.message.model=claude-sonnet-5-5, no fallback event. The effort level itself is not echoed, so this proves the levels are accepted, not that they change output. Context window and max output come from the official model table, not this probe. See reports/claude-model-probe-2026-09-29.md."
+        notes: "Successor to Claude Sonnet 5 at the same price. routing_priority 50 makes auto-routing prefer it over claude-sonnet-5 (default 100) only when the live quota precheck has an available observation bound to claude-sonnet-5-5; otherwise claude-sonnet-5 still routes as before. model_family is shared with claude-sonnet-5, so the reviewer Independence Gate treats the two as the same family."
       - model_id: claude-sonnet-5
         display_name: "Claude Sonnet 5"
         aliases: [sonnet-5]

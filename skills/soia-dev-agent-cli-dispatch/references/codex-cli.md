@@ -32,6 +32,18 @@ codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" "<task>"
 
 2026-09-23 的 Codex CLI 0.156.0 冒烟中，Sol 的 stderr 会话头回显 `model: gpt-6-sol`、`provider: openai`、`reasoning effort: high`；Luna 回显 `model: gpt-6-luna`、`provider: openai`、`reasoning effort: xhigh`。以 stderr 会话头中的 `model:` 和 `reasoning effort:` 两行为证据；两者的模型自述都只有“GPT-6”，不作为身份依据。证据只证明模型身份、实际推理档和可服务，不证明任务质量。其他档位没有本次验证证据，模型目录只登记已跑档位且保持空 `routing_profile`。
 
+**GPT-6.1 Sol（别名 `sol61`；2026-09-30 身份冒烟未通过，不进自动路由）**：调用形态与 6 Sol 相同，同样每次显式传 `-m`。
+
+```bash
+codex exec -m gpt-6.1-sol -c model_reasoning_effort="medium" -s read-only "<task>"
+```
+
+2026-09-30 13:3x 本机实测（Codex CLI 0.158.0，brew cask，ChatGPT 账号登录）：`~/.codex/models_cache.json` 已列出 `gpt-6.1-sol`，`~/.codex/config.toml` 默认模型也已是它。上面这条命令的 stderr 会话头显示 `model: gpt-6.1-sol`，并有 `Model metadata for gpt-6.1-sol not found` 警告，但请求被后端拒绝：400 `The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.` 同机 `-m gpt-6-sol` 正常。也就是说该模型没有被服务过：请求被拒时会话头照样回显了该 id，所以这次回显不算身份证据，也没有任何推理档被验证；目录里此行为 `availability: unrecognized_by_cli`（与 claude 行不同：这里是后端拒绝，不是 CLI 侧拒绝）、`routing_profile: []`、价格全为 `null`。当时 cask 最新版本是 0.159.2，未升级，升级后的行为未测。公开信息（二手报道，非官方文档）称它于 DevDay 2026 发布并在 Codex 中替代 GPT-6 Sol；本技能未核官方页。
+
+- **版本坑**：ChatGPT 账号需 CLI ≥ 0.159（待核；已知只有 0.158.0 被拒）。
+- **默认模型坑**：`config.toml` 默认模型是 6.1 Sol 时，不带 `-m` 的调用会落到同一个 400（据上述实测推断，未单独跑过不带 `-m` 的调用）。派发一律显式 `-m`，不靠默认配置。
+- **接替条件**：Owner 2026-09-30 裁决为 CLI 升级且冒烟通过后取代 `gpt-6-sol` 作为 Codex 首选（hard/medium，优先级高于 6 Sol）。冒烟通过的判据是请求被服务且会话头 `model:` 与 `reasoning effort:` 两行回显；到那时才改目录的 `routing_profile` 与 `routing_priority`，在此之前 Codex 首选仍是 `gpt-6-sol`。
+
 ## 会话取证与续接（2026-09-25，Codex CLI 0.156.1）
 
 `codex exec` 的证据有两处，都用 `scripts/codex_session_info.py` 只读提取：

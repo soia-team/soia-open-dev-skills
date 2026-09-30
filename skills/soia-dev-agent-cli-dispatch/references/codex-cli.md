@@ -32,7 +32,7 @@ codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" "<task>"
 
 2026-09-23 的 Codex CLI 0.156.0 冒烟中，Sol 的 stderr 会话头回显 `model: gpt-6-sol`、`provider: openai`、`reasoning effort: high`；Luna 回显 `model: gpt-6-luna`、`provider: openai`、`reasoning effort: xhigh`。以 stderr 会话头中的 `model:` 和 `reasoning effort:` 两行为证据；两者的模型自述都只有“GPT-6”，不作为身份依据。证据只证明模型身份、实际推理档和可服务，不证明任务质量。其他档位没有本次验证证据，模型目录只登记已跑档位且保持空 `routing_profile`。
 
-**GPT-6.1 Sol（别名 `sol61`；Codex CLI 0.159.2 起可用，Codex 首选）**：调用形态与 6 Sol 相同，同样每次显式传 `-m`。
+**GPT-6.1 Sol（别名 `sol61`；Codex CLI 0.159.2 起可用，暂不进自动路由）**：调用形态与 6 Sol 相同，同样每次显式传 `-m`。
 
 ```bash
 codex exec -m gpt-6.1-sol -c model_reasoning_effort="high" -s read-only "<task>"
@@ -41,7 +41,7 @@ codex exec -m gpt-6.1-sol -c model_reasoning_effort="high" -s read-only "<task>"
 2026-09-30 13:44:57 的冒烟（Codex CLI 0.159.2，ChatGPT 账号登录，`--sandbox read-only --json`）：退出码 0，回复 `SMOKE-OK`。rollout 的 `turn_context` 记录 `model: gpt-6.1-sol`、`effort: high`，`task_complete` 正常结束；`scripts/codex_session_info.py --session <id>` 读出 `actual_model: gpt-6.1-sol`（来源 `rollout_turn_context`）。用量 input 21828（其中缓存命中 7168）、output 20、reasoning 10 tokens。stderr 有非致命报错 `failed to refresh available models: request timed out`，不影响本次请求。证据只证明模型身份、`high` 档和可服务，不证明任务质量；其他档位没有验证，目录只登记 `high`，价格没有官方来源，全为 `null`。
 
 - **版本坑**：ChatGPT 账号下该模型需 CLI ≥ 0.159。同日更早，Codex CLI 0.158.0 + 同一账号对它返回 400 `The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.`，并有 `Model metadata for gpt-6.1-sol not found` 警告；0.159.2 通过。0.159.0 与 0.159.1 未测。遇到这个 400 先看 CLI 版本，不要当成额度问题。
-- **接替关系**：Owner 2026-09-30 policy 让它接替 `gpt-6-sol` 成为 Codex 首选（`hard`/`medium`，`routing_priority` 5，`gpt-6-sol` 的是 10）；`gpt-6-sol` 保留为回退。依据是 Owner 授权，不是本技能测得的任务质量。
+- **路由状态**：Owner 2026-09-30 policy 暂时不用它，目录 `routing_profile` 为空，`route_model.py` 不会选它，Codex 首选仍是 `gpt-6-sol`。上面只是可用性的实测事实；启用路由需要 Owner 明确决定。
 
 ## 会话取证与续接（2026-09-25，Codex CLI 0.156.1）
 

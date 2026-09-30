@@ -2,10 +2,10 @@
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
 # @modified_by anthropic/claude-sonnet-5-5
-# @modified_at 2026-09-30 13:52:00
+# @modified_at 2026-09-30 13:55:43
 # @version 0.4.2
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog 0.4.2: selftest covers gpt-6.1-sol auto-routing (priority 5 ahead of gpt-6-sol, gpt-6-sol as fallback). 0.4.1: selftest covers claude-sonnet-5-5 auto-routing (preferred over claude-sonnet-5 only when its own bucket is observed available). 0.4.0: Quota evidence is re-validated inside route_model (a copied kind string is not a credential): auth/source/probed_at/model/bucket checks run on every library call, unknown catalog models and unparseable probe times are rejected per row, an observation with bucket=unknown never authorizes and catalog quota_scope_keys are no longer injected as observed scopes, and selected_observation is chosen to match the bound model+scope instead of the first same-model row.
+# @changelog 0.4.2: selftest guards that gpt-6.1-sol (registered available, empty routing_profile) is never auto-selected and does not displace gpt-6-sol. 0.4.1: selftest covers claude-sonnet-5-5 auto-routing (preferred over claude-sonnet-5 only when its own bucket is observed available). 0.4.0: Quota evidence is re-validated inside route_model (a copied kind string is not a credential): auth/source/probed_at/model/bucket checks run on every library call, unknown catalog models and unparseable probe times are rejected per row, an observation with bucket=unknown never authorizes and catalog quota_scope_keys are no longer injected as observed scopes, and selected_observation is chosen to match the bound model+scope instead of the first same-model row.
 """Mechanically route an executor family to a verified model/effort pair.
 
 The live-quota precheck is mandatory evidence, not a post-hoc check: a route
@@ -761,10 +761,6 @@ def run_selftest() -> int:
         observation("gpt-6.1-sol", "codex"),
         observation("gpt-6-sol", "codex"),
     ])
-    codex_gpt61_exhausted_gpt6_sol = evidence("codex", [
-        observation("gpt-6.1-sol", "codex", state="exhausted"),
-        observation("gpt-6-sol", "codex"),
-    ])
     codex_gpt6_both = evidence("codex", [
         observation("gpt-6-sol", "codex"),
         observation("gpt-6-luna", "codex"),
@@ -856,28 +852,17 @@ def run_selftest() -> int:
         and gpt6_luna_medium.get("selected_reasoning_effort") == "xhigh"
         and gpt6_luna_medium.get("routing_basis") == "owner_policy",
     ))
-    gpt61_hard, _ = route("codex", "hard", quota_evidence=codex_gpt61_sol)
+    gpt61_only, gpt61_only_error = route("codex", "hard", quota_evidence=codex_gpt61_sol)
     checks.append((
-        "Owner policy: codex hard with only GPT-6.1 Sol available selects it at high",
-        gpt61_hard is not None
-        and gpt61_hard.get("selected_model") == "gpt-6.1-sol"
-        and gpt61_hard.get("selected_reasoning_effort") == "high"
-        and gpt61_hard.get("routing_priority") == 5
-        and gpt61_hard.get("routing_basis") == "owner_policy",
+        "GPT-6.1 Sol has an empty routing_profile, so an available observation alone selects nothing",
+        gpt61_only is None and gpt61_only_error is not None,
     ))
     gpt61_medium_both, _ = route("codex", "medium", quota_evidence=codex_gpt61_and_gpt6_sol)
     checks.append((
-        "GPT-6.1 Sol priority 5 precedes GPT-6 Sol priority 10 at medium",
+        "GPT-6.1 Sol observed available does not displace GPT-6 Sol at medium",
         gpt61_medium_both is not None
-        and gpt61_medium_both.get("selected_model") == "gpt-6.1-sol"
-        and gpt61_medium_both.get("routing_priority") == 5,
-    ))
-    gpt61_hard_fallback, _ = route("codex", "hard", quota_evidence=codex_gpt61_exhausted_gpt6_sol)
-    checks.append((
-        "GPT-6.1 Sol exhausted falls back to available GPT-6 Sol at hard",
-        gpt61_hard_fallback is not None
-        and gpt61_hard_fallback.get("selected_model") == "gpt-6-sol"
-        and gpt61_hard_fallback.get("routing_priority") == 10,
+        and gpt61_medium_both.get("selected_model") == "gpt-6-sol"
+        and gpt61_medium_both.get("routing_priority") == 10,
     ))
     gpt6_medium_priority, _ = route("codex", "medium", quota_evidence=codex_gpt6_both)
     checks.append((

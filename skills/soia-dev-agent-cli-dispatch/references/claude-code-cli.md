@@ -113,6 +113,10 @@ JSON 的 `modelUsage` 键是请求用的别名（如 `claude-haiku-4-5`），而
 - 参数变化：`--effort` 取 `low|medium|high|xhigh|max`；`--permission-mode` 取 `acceptEdits|auto|bypassPermissions|manual|dontAsk|plan`（`manual` 为新增）；新增 `--permission-prompts host|none`、`--restricted`、`--bare`、`--max-budget-usd`、`--no-session-persistence`、`--session-id <uuid>`、可接列表的 `--fallback-model` 和 `--bg`。`-p`、`--output-format`、`--resume`、`--continue` 不变。
 - 这些核对只证明 CLI 形态与解析器可用，不证明任务质量。
 
+## 2026-09-30 版本核对（CLI 2.1.285）
+
+只用 `claude --help` 与参数解析探测核对，没有发模型请求：本文用到的 `-p/--print`、`--model`、`--effort`（`low|medium|high|xhigh|max`）、`--output-format`（`text|json|stream-json`）、`--permission-mode`（`acceptEdits|auto|bypassPermissions|manual|dontAsk|plan`）、`--permission-prompts host|none`、`--restricted`、`--safe-mode`、`--bare`、`--tools`、`--setting-sources`、`--mcp-config`、`--strict-mcp-config`、`--agents`、`--fallback-model`、`--max-budget-usd`、`--no-session-persistence`、`--session-id`、`--resume`、`--continue`、`--bg`、`--verbose` 都还在，取值集合与上一节一致，没有参数变化。`scripts/probe_claude_models.py` 传的 `--max-turns` 不在 `--help` 里，但 `claude -p --max-turns 1` 不带输入时只报缺输入（`Input must be provided…`，退出码 1），而未知参数报 `unknown option`（退出码 1），所以它仍被解析器接受。`--output-format json` 的输出形态在 2.1.285 上没有重新实跑。
+
 ## 同宿主派发
 
 当主控**本身**就运行在 Claude Code 里时，派发子任务应当用宿主自己的 Agent 工具，

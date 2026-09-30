@@ -5,7 +5,7 @@
 - **交互式编码会话**：使用 `codex`，放在 PTY 会话中运行。
 - **一次性批处理**：使用 `codex exec`。
 - **差异评审**：使用 `codex review`。
-- **去沙箱全权限（常见默认候选）**：`--dangerously-bypass-approvals-and-sandbox`（注意：`--full-auto` 与此互斥，两者只能二选一，按你的编排约定选定后固定使用）。
+- **去沙箱全权限（常见默认候选）**：`--dangerously-bypass-approvals-and-sandbox`（Codex CLI 0.159.2 起 `codex exec` 不再接受 `--full-auto`，见下方「2026-09-30 版本核对」；沙箱用 `-s` 收窄）。
 - **多 Agent 并行**：`[features] multi_agent = true` 只适用于当前 Codex runtime 确实有可用 thread/collaboration 上下文的场景。外部 `codex exec` 不得仅因全局开关已启用就假设能 spawn；先做 capability probe。
 - **去沙箱全权限模式**：`--dangerously-bypass-approvals-and-sandbox` — 仅在用户已明确同意（系统级或本次任务级授权）时使用；不要把它当成无需确认的默认状态。
 
@@ -32,17 +32,16 @@ codex exec -m gpt-6-luna -c model_reasoning_effort="xhigh" "<task>"
 
 2026-09-23 的 Codex CLI 0.156.0 冒烟中，Sol 的 stderr 会话头回显 `model: gpt-6-sol`、`provider: openai`、`reasoning effort: high`；Luna 回显 `model: gpt-6-luna`、`provider: openai`、`reasoning effort: xhigh`。以 stderr 会话头中的 `model:` 和 `reasoning effort:` 两行为证据；两者的模型自述都只有“GPT-6”，不作为身份依据。证据只证明模型身份、实际推理档和可服务，不证明任务质量。其他档位没有本次验证证据，模型目录只登记已跑档位且保持空 `routing_profile`。
 
-**GPT-6.1 Sol（别名 `sol61`；2026-09-30 身份冒烟未通过，不进自动路由）**：调用形态与 6 Sol 相同，同样每次显式传 `-m`。
+**GPT-6.1 Sol（别名 `sol61`；Codex CLI 0.159.2 起可用，Codex 首选）**：调用形态与 6 Sol 相同，同样每次显式传 `-m`。
 
 ```bash
-codex exec -m gpt-6.1-sol -c model_reasoning_effort="medium" -s read-only "<task>"
+codex exec -m gpt-6.1-sol -c model_reasoning_effort="high" -s read-only "<task>"
 ```
 
-2026-09-30 13:3x 本机实测（Codex CLI 0.158.0，brew cask，ChatGPT 账号登录）：`~/.codex/models_cache.json` 已列出 `gpt-6.1-sol`，`~/.codex/config.toml` 默认模型也已是它。上面这条命令的 stderr 会话头显示 `model: gpt-6.1-sol`，并有 `Model metadata for gpt-6.1-sol not found` 警告，但请求被后端拒绝：400 `The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.` 同机 `-m gpt-6-sol` 正常。也就是说该模型没有被服务过：请求被拒时会话头照样回显了该 id，所以这次回显不算身份证据，也没有任何推理档被验证；目录里此行为 `availability: unrecognized_by_cli`（与 claude 行不同：这里是后端拒绝，不是 CLI 侧拒绝）、`routing_profile: []`、价格全为 `null`。当时 cask 最新版本是 0.159.2，未升级，升级后的行为未测。公开信息（二手报道，非官方文档）称它于 DevDay 2026 发布并在 Codex 中替代 GPT-6 Sol；本技能未核官方页。
+2026-09-30 13:44:57 的冒烟（Codex CLI 0.159.2，ChatGPT 账号登录，`--sandbox read-only --json`）：退出码 0，回复 `SMOKE-OK`。rollout 的 `turn_context` 记录 `model: gpt-6.1-sol`、`effort: high`，`task_complete` 正常结束；`scripts/codex_session_info.py --session <id>` 读出 `actual_model: gpt-6.1-sol`（来源 `rollout_turn_context`）。用量 input 21828（其中缓存命中 7168）、output 20、reasoning 10 tokens。stderr 有非致命报错 `failed to refresh available models: request timed out`，不影响本次请求。证据只证明模型身份、`high` 档和可服务，不证明任务质量；其他档位没有验证，目录只登记 `high`，价格没有官方来源，全为 `null`。
 
-- **版本坑**：ChatGPT 账号需 CLI ≥ 0.159（待核；已知只有 0.158.0 被拒）。
-- **默认模型坑**：`config.toml` 默认模型是 6.1 Sol 时，不带 `-m` 的调用会落到同一个 400（据上述实测推断，未单独跑过不带 `-m` 的调用）。派发一律显式 `-m`，不靠默认配置。
-- **接替条件**：Owner 2026-09-30 裁决为 CLI 升级且冒烟通过后取代 `gpt-6-sol` 作为 Codex 首选（hard/medium，优先级高于 6 Sol）。冒烟通过的判据是请求被服务且会话头 `model:` 与 `reasoning effort:` 两行回显；到那时才改目录的 `routing_profile` 与 `routing_priority`，在此之前 Codex 首选仍是 `gpt-6-sol`。
+- **版本坑**：ChatGPT 账号下该模型需 CLI ≥ 0.159。同日更早，Codex CLI 0.158.0 + 同一账号对它返回 400 `The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.`，并有 `Model metadata for gpt-6.1-sol not found` 警告；0.159.2 通过。0.159.0 与 0.159.1 未测。遇到这个 400 先看 CLI 版本，不要当成额度问题。
+- **接替关系**：Owner 2026-09-30 policy 让它接替 `gpt-6-sol` 成为 Codex 首选（`hard`/`medium`，`routing_priority` 5，`gpt-6-sol` 的是 10）；`gpt-6-sol` 保留为回退。依据是 Owner 授权，不是本技能测得的任务质量。
 
 ## 会话取证与续接（2026-09-25，Codex CLI 0.156.1）
 
@@ -67,6 +66,15 @@ cd <original-workdir> && codex exec resume -m <model> -c model_reasoning_effort=
 ```
 
 `--cwd-check` 只输出当前目录是否与原会话一致，不输出原路径。长任务判活与退出原因归类（例如执行者交还决策、沙箱拒绝写 `.git`）见 `references/executor-watch.md`。
+
+## 2026-09-30 版本核对（Codex CLI 0.159.2）
+
+只用 `--help` 与参数解析核对（例如 `codex exec --full-auto --help`：未知参数排在 `--help` 前会先报错），没有发任何模型请求：
+
+- `codex exec` 仍接受本文用到的 `-m`、`-c`、`-s`、`-o`、`-C`、`--skip-git-repo-check`、`--dangerously-bypass-approvals-and-sandbox`、`--disable`；`codex exec resume` 仍接受 `-m`、`-c`、`-o`、`--all`，仍不接受 `-s`（与上文一致）。
+- **已变**：`--full-auto` 已移除，`codex exec --full-auto` 退出码 2、`unexpected argument`；`codex review` 不接受 `-m/--model`（退出码 2），只接受 `-c`、`--base`、`--uncommitted`、`--commit`、`--title`。两处都已改在本文的命令模板里；更早版本是否接受，当时没有留档。
+- **帮助里现有**：`codex exec --approve-for-me`（帮助文字为 Route approval requests through automatic review using the workspace-write sandbox）。它是否等价于旧 `--full-auto` 没有验证，本技能不使用。
+- `scripts/codex_session_info.py --session <id>` 在 0.159.2 写出的 rollout 上仍能读出 `actual_model`、推理档、CLI 版本与分项用量。
 
 ## 推荐命令模板
 
@@ -103,18 +111,19 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 适用：
 
 - 已明确授权，任务边界清晰、风险可控。
-- ⚠️ `--full-auto` 与 `--dangerously-bypass-approvals-and-sandbox` 互斥，按你的编排约定二选一（多数场景选后者）。
+- ⚠️ 需要收窄权限时改用 `-s read-only` 或 `-s workspace-write`，不要再写 `--full-auto`（0.159.2 起被拒）。
 
 ### 4. 差异评审
 
 ```bash
-codex review -m <model> -c model_reasoning_effort="high" --base main
+codex review -c model="<model>" -c model_reasoning_effort="high" --base main
 ```
 
 适用：
 
 - 评审当前分支相对基线的差异。
 - 输出 pre-landing 风险意见。
+- `codex review` 在 0.159.2 不接受 `-m/--model`（退出码 2），模型改用 `-c model=...` 覆盖；这个写法只核过参数解析，没有实跑（不发付费调用），实际是否按所填模型评审要用会话头或 rollout 的 `model:` 核对。
 
 ### 5. 新增 / 难任务 / 高风险变更
 

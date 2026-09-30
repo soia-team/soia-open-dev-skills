@@ -110,7 +110,7 @@ Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10
 
 | 执行器家族 | easy 候选 | medium 候选 | hard 候选 | 状态 |
 |---|---|---|---|---|
-| codex | `gpt-6-luna` @ xhigh（Owner policy；不可用时旧候选 `gpt-5.6-luna` @ low） | `gpt-6-sol` @ high 优先；Sol 不可用时 `gpt-6-luna` @ xhigh；GPT-6 桶都不可用时回退 `gpt-5.6-terra` @ medium | `gpt-6-sol` @ high（Owner policy；不可用时旧候选 `gpt-5.6-sol` @ high） | 旧候选 `partial_coverage`；GPT-6 候选依据 Owner policy，只有模型身份冒烟证据。`gpt-6.1-sol` 待 Codex CLI 升级且冒烟通过后接替 `gpt-6-sol`（Owner 2026-09-30 裁决；当前 CLI 0.158.0 + ChatGPT 账号被拒，`routing_profile` 为空，见 `references/codex-cli.md`） |
+| codex | `gpt-6-luna` @ xhigh（Owner policy；不可用时旧候选 `gpt-5.6-luna` @ low） | `gpt-6.1-sol` @ high 优先；其不可用时 `gpt-6-sol` @ high；Sol 系都不可用时 `gpt-6-luna` @ xhigh；GPT-6 桶都不可用时回退 `gpt-5.6-terra` @ medium | `gpt-6.1-sol` @ high（Owner policy）；其不可用时 `gpt-6-sol` @ high，再不可用时旧候选 `gpt-5.6-sol` @ high | 旧候选 `partial_coverage`；GPT-6 与 GPT-6.1 候选依据 Owner policy，只有模型身份冒烟证据。`gpt-6.1-sol` 自 Codex CLI 0.159.2 起可用（0.158.0 + ChatGPT 账号被拒），接替 `gpt-6-sol` 成为首选，见 `references/codex-cli.md` |
 | claude | `claude-haiku-4-5`（比 opus 便宜约 18 倍；未按 effort 拆分数据） | `claude-sonnet-5` @ medium | *(暂无 hard 档实证推荐，见下方反模式警示)* | `partial_coverage` — 3 个型号有聚合记录，缺全 catalog 覆盖与原始 manifest |
 | pi | `deepseek-flash` @ low | — | — | `smoke_tested` — Pi 0.85.1 结构化回显（2026-09-10，thinking=high）+ provider 元数据声明 low/high/max；easy 自动路由只走已验证的 low。旧 `deepseek-v4-flash` id 已于 2026-09-11 下线（请求路由到 `deepseek-flash`），不再参与自动路由 |
 | agy | — | — | — | `availability_discovered`（账号级显示名、零消耗额度预检及选中模型下发到后端的 CLI 日志有记录；JSON 无服务端实际模型回显，任务质量未测，禁止自动路由） |
@@ -120,7 +120,7 @@ Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10
 
 ### 路由依据与优先级
 
-目录的 `routing_basis` 标注候选进入路由的依据：`measured` 表示已有路由测量依据；`owner_policy` 表示由 Owner 明确授权的选型策略，不代表本技能测得了任务质量。`routing_basis_note` 记录策略来源和证据边界。`routing_priority` 是非负整数，数值越小越优先；缺省为 100。同档多个额度可用候选按优先级、再按 `model_id` 字母序选择。当前 Codex 策略将 Sol 设为 10、Luna 设为 20：hard 和 medium 选 Sol，easy 选 Luna；Sol 不可用时 medium 选 Luna，Sol 与 Luna 都不可用时回退到仍可用的旧候选。优先选谁属于调用方策略，可由 Owner 授权；本技能只执行候选与额度门禁，并在回执中标注 `routing_basis` 和 `routing_priority`。
+目录的 `routing_basis` 标注候选进入路由的依据：`measured` 表示已有路由测量依据；`owner_policy` 表示由 Owner 明确授权的选型策略，不代表本技能测得了任务质量。`routing_basis_note` 记录策略来源和证据边界。`routing_priority` 是非负整数，数值越小越优先；缺省为 100。同档多个额度可用候选按优先级、再按 `model_id` 字母序选择。当前 Codex 策略将 GPT-6.1 Sol 设为 5、GPT-6 Sol 设为 10、Luna 设为 20：hard 和 medium 先选 6.1 Sol，它不可用时选 6 Sol，easy 选 Luna；Sol 系都不可用时 medium 选 Luna，Sol 与 Luna 都不可用时回退到仍可用的旧候选。优先选谁属于调用方策略，可由 Owner 授权；本技能只执行候选与额度门禁，并在回执中标注 `routing_basis` 和 `routing_priority`。
 
 ### 反模式警示（实证）
 
@@ -182,4 +182,4 @@ python3 scripts/route_model.py --executor codex --complexity medium \
 
 ### 与 model-catalog.yml 的关系
 
-`references/model-catalog.yml` 每个模型条目预留了 `routing_profile`、`discovered_at`、`discovery_evidence` 三个字段。P4（2026-07-10）只回填参与 smoke matrix 的真实可调用型号：`gpt-5.6-sol`/`gpt-5.6-terra`/`gpt-5.6-luna`/`claude-sonnet-5`/`claude-opus-4-8`/`claude-haiku-4-5`；未来价格时期只作为同一模型的 `future_pricing`，不得伪装成第二个 model ID。`gpt-5.5`/`gpt-5.4`/`gpt-5.4-mini` 有运行记录但仍缺 reasoning 生效证据，`routing_profile` 保持 `[]`。未参与矩阵的型号保持未知，不得包装成已验证推荐。`gpt-5.3-codex-spark`（2026-09-12 登记）只有存在性与桶映射证据（`quota_scope_keys: [codex_bengalfox]`），价格、上下文、reasoning 全部留空，`routing_profile` 保持 `[]`：它让预检观测到的桶能被路由器和 cases.json 命名，不构成能力验证，也不能进入自动路由。`claude-sonnet-5-5`（2026-09-29 登记）只有模型身份与五档 effort 接受的冒烟证据，按 Owner 授权以 `routing_basis: owner_policy`、`routing_priority: 50` 进入 `medium`，不是任务质量测量结论（见 `reports/claude-model-probe-2026-09-29.md`）。
+`references/model-catalog.yml` 每个模型条目预留了 `routing_profile`、`discovered_at`、`discovery_evidence` 三个字段。P4（2026-07-10）只回填参与 smoke matrix 的真实可调用型号：`gpt-5.6-sol`/`gpt-5.6-terra`/`gpt-5.6-luna`/`claude-sonnet-5`/`claude-opus-4-8`/`claude-haiku-4-5`；未来价格时期只作为同一模型的 `future_pricing`，不得伪装成第二个 model ID。`gpt-5.5`/`gpt-5.4`/`gpt-5.4-mini` 有运行记录但仍缺 reasoning 生效证据，`routing_profile` 保持 `[]`。未参与矩阵的型号保持未知，不得包装成已验证推荐。`gpt-5.3-codex-spark`（2026-09-12 登记）只有存在性与桶映射证据（`quota_scope_keys: [codex_bengalfox]`），价格、上下文、reasoning 全部留空，`routing_profile` 保持 `[]`：它让预检观测到的桶能被路由器和 cases.json 命名，不构成能力验证，也不能进入自动路由。`claude-sonnet-5-5`（2026-09-29 登记）只有模型身份与五档 effort 接受的冒烟证据，按 Owner 授权以 `routing_basis: owner_policy`、`routing_priority: 50` 进入 `medium`，不是任务质量测量结论（见 `reports/claude-model-probe-2026-09-29.md`）。`gpt-6.1-sol`（2026-09-30 登记）只有 Codex CLI 0.159.2 上 `high` 档的模型身份冒烟证据，按 Owner 授权以 `routing_basis: owner_policy`、`routing_priority: 5` 进入 `hard`/`medium`，价格全为 `null`，同样不是任务质量测量结论（见 `references/codex-cli.md`）。

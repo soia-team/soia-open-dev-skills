@@ -165,7 +165,7 @@ HTTP 回环、端口监听或依赖起本地服务的验证任务在该沙箱中
 **codex 的额度是分桶的，不是 CLI 级的一个数。** 默认档与 `codex_bengalfox`（`GPT-5.3-Codex-Spark`）各自持有独立窗口；**一个桶耗尽不等于整个 CLI 不可用**。因此：
 
 - 额度判断必须**按桶**做，并选一个**还有额度**的桶，不能拿一个桶的状态给整个 codex 下结论。
-- `codex login status` 返回 `Logged in using ChatGPT` 只证明凭据有效，**不提供任何额度信息**。用登录态推「codex 可用」是 2026-09-12 事故的直接成因。
+- `codex login status` 返回 `Logged in using ChatGPT` 只证明凭据有效，**不提供任何额度信息**，不能据此推「codex 可用」。
 - 派发前先读 `~/.codex/config.toml` 的 `model`，但它是**默认**模型、不是无条件的 effective model：官方配置优先级是 CLI 参数（`-m/--model`）→ 项目 `.codex/config.toml` → profile → 用户 `~/.codex/config.toml`，用户配置排第四。显式 `-m` 会覆盖它：2026-09-12 当天该配置写的是 `model = "gpt-5.3-codex-spark"`（本机实测），而主控派发本轮独立评审用的命令是 `codex exec -m gpt-5.6-sol ...`，实际执行的是 `gpt-5.6-sol`——把用户配置里的 `model` 记成 `executor_config_default_model`，把被覆盖后真正请求的模型记成 `selected_model`，不要把前者写成本次实际会用的桶。跳过配置读取的代价同样真实：当次探测到的两个桶里，该配置指向的 Spark 桶正是唯一还有额度的那个。
 - 探测结果要作为**选型的输入**，不是选完再复查：把这次探测写成预检报告（`auth_status=ok`；默认档一条 observation、Spark 桶一条，每条都带非空 `bucket`/`model`/`state`/`source`/`probed_at`），用 `scripts/route_model.py --quota-observations <预检报告.json>` 交给路由。路由只在报告中 `state=available` 且绑定到候选模型自己那个桶的条目里选；显式指定或报告绑定的桶不可用时脚本拒绝并写明 `quota_unavailable`，不会静默换桶。裸模型名入口 `--available-model` 自 2.0.0 起移除——单个模型名没有 auth_status、桶、source、probed_at，不构成预检证据，旧命令以 `quota_evidence_missing` 和非 0 退出。
 
@@ -221,7 +221,7 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 
 ## GPT-6 Astra（2026-09-05 前向验证）
 
-- **历史验证角色**：下述深审当时按调用方 Owner 裁定，仅用于审核、重点方案和建议，不执行实现。这是该次验证的角色边界；当前派发以调用方最新适用裁决为准，历史记录不覆盖后续授权。审核、主控协调与代码实现是不同职责，获准担任主控不自动授予代码实现权限，也不推广到其它项目。
+- **验证覆盖的角色**：下述前向验证只覆盖只读深审（审核、重点方案和建议）。本次担任的角色与写入范围按本次任务授权；审核、主控协调与代码实现是不同职责，获准担任主控不自动授予代码实现权限，也不推广到其它项目。
 - 上述只读深审的调用形态：`codex exec -m gpt-6-astra -c model_reasoning_effort=medium -s read-only … < /dev/null`；其它角色按本次授权选择权限。
 - 前向验证证据（SoiaDeck TASK-G0.0.4-067 深审）：requested=actual=`gpt-6-astra`（会话头 `model:` 行核验），medium；9 项审查全部 file:line 证据、抓到 1 个实现层 REFUTED + 3 项最小处方，返工证实全部有效，零幻觉引用。仅 medium 档已验证。
 - 配额（订阅侧 Pro 5x，5 小时窗口本地消息估算）：Astra 25-225 · Sol 50-500 · Terra 125-1,000 · Luna 1,250-10,000 · 5.4-mini 300-1,750。Astra 最稀缺，排程时优先留给最高价值深审。
@@ -238,7 +238,7 @@ codex exec -m <model> -c model_reasoning_effort="high" \
 
 - 显式模型和档位优先；执行前核对所选模型在目标宿主上的支持情况。不可用时报告差异，不静默替换。
 - 本仓只有 `medium` 已有本地前向验证；其余建议不标记为 verified，不扩大自动路由，也不修改 `model-catalog.yml` 的验证数据。显式选择未验证组合时按主文件记录 `explicit_unverified`，requested/actual model 与 reasoning 分开记录。
-- “小修改”在仅审核/建议的任务中指补丁建议；若调用方最新裁决已允许实现，则按其明确文件范围执行，不重复要求解除已被覆盖的历史限制。档位建议本身不授予实现权限。
+- “小修改”在仅审核/建议的任务中指补丁建议；任务授权了实现时按其明确文件范围执行。档位建议本身不授予实现权限。
 
 ### API、外部 CLI 与宿主参数
 

@@ -9,7 +9,7 @@ reviews the findings and decides. A request to review is not a request to
 merge — this holds even if the same message also pre-authorizes merging
 ("review PR 42, merge it if it's fine"). Pre-authorization is conditional on
 findings the user has not seen yet, so it cannot substitute for the
-confirmation Safety Model requires before `gh pr merge`. Always post the
+merge confirmation that SKILL.md「写入须明确授权」requires before `gh pr merge`. Always post the
 graded findings from Step 4 first, then treat the next message as the actual
 merge confirmation — never merge in the same turn the report is produced.
 
@@ -53,9 +53,8 @@ authoring rules — version bump discipline, frontmatter requirements),
 `DATA_STORAGE_SPEC.md` (where credentials/config/cache may and may not live),
 and `THIRD_PARTY_NOTICES.md` (any new adapted code or dependency must be
 registered there) — check for these by name specifically when the PR's repo
-is one of the `soia-*-skills` repos, since a diff that skips registering a
-new third-party adaptation is a real, previously-seen failure mode here, not
-a hypothetical one.
+is one of the `soia-*-skills` repos; a new third-party adaptation missing
+from `THIRD_PARTY_NOTICES.md` is a blocking finding.
 
 If no rule file exists, say so plainly in the final report instead of
 inventing rules from memory of other repositories.

@@ -83,28 +83,14 @@ gh pr merge <number> --repo <owner>/<repo> --squash
 
 ## CI Failure Triage
 
-Use this order:
-
-1. Identify the failing run and job.
-2. Read the first actionable error in the failed log.
-3. Classify the failure.
-4. Reproduce locally only if the repo has enough context and the command is safe.
-5. Report the exact failing command, file, or external blocker.
+Triage rules live in SKILL.md「失败围绕当前原因处理」. Commands:
 
 ```bash
 gh run view <run-id> --repo <owner>/<repo> --json status,conclusion,workflowName,jobs,url
 gh run view <run-id> --repo <owner>/<repo> --log-failed
 ```
 
-Common classes:
-
-| Class | Signal | Next step |
-|---|---|---|
-| Compile | compiler, typecheck, or lint error | Read the first error and map to file/line |
-| Test | assertion failure or failing test name | Reproduce that test locally if possible |
-| Environment | missing tool, package, or cache | Check setup steps and runner image |
-| Permission | `Resource not accessible` or denied secret | Check workflow permissions and fork context |
-| Quota/timeout | quota message or cancelled after timeout | Report external limit or split work |
+`Resource not accessible` or a denied secret usually means workflow `permissions` or a fork-PR context, not a code bug.
 
 ## Release Operations
 

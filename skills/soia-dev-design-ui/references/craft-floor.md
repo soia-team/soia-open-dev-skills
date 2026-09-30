@@ -1,6 +1,6 @@
 # 工艺下限（craft floor）
 
-本文件是 `soia-dev-design-ui` 的量化下限清单：方向定稿之后加载，按这些数值把界面做实。已批准的设计 brief 或已提交的视觉世界可以覆盖本文件的任何一条；你自己的习惯不能。
+本文件是 `soia-dev-design-ui` 的量化下限清单：方向定稿之后加载，按这些数值把界面做实。已批准的设计 brief 或已提交的视觉世界可以覆盖本文件中未标为硬禁的条目；你自己的习惯不能。
 
 每条都是**对建成结果的检查，不是意图**。在真实渲染上批量跑完：这些检查共用同一次渲染，按批一次量到位，逐条单独截图只会把一次检查拆成多次往返。
 
@@ -65,7 +65,7 @@ python3 skills/soia-dev-design-ui/scripts/check_ui_thresholds.py
 
 ## 表面习惯：默认值，不是禁令
 
-下面这些是这一品类的默认值，不是禁令——**brief 自己的话可以挣回任何一条**。在轴还空着的时候就伸手去拿它们，说明这一次没有在做决定；这时正确的动作是重写元素，而不是把默认值改软一点。
+下面这些是这一品类的默认值，不是禁令——除标为硬禁的一条外，**brief 自己的话可以挣回任何一条**。在轴还空着的时候就伸手去拿它们，说明这一次没有在做决定；这时正确的动作是重写元素，而不是把默认值改软一点。
 
 每一条都给出它的正向替代目标：
 
@@ -102,7 +102,7 @@ python3 skills/soia-dev-design-ui/scripts/check_ui_thresholds.py
 ## 来源与承接说明
 
 - **外部概念**：本文件的结构与阈值清单承接自 `impeccable` 仓 `reference/craft-floor.md`（对比度 4.5:1 / 大号 3:1、行宽 65–75ch、展示字 6rem、字距下限 -0.04em、卡片圆角 12–16px、高程只声明一次、标题上间距大于下间距、表面清单与「默认值不是禁令、brief 可以挣回」的口径），以及同仓 `reference/adapt.md` / `audit.md` / `audit.native.md` / `ios.md` 的触控尺寸口径（44×44px；原生 iOS 44pt / Android 48dp）与 `reference/animate.md` 的 4 档时长表、指数缓出、reduced-motion 要求（均为外部概念）。
-- **本仓改造**：原仓库的 `Refuse` 清单是纯禁止式写法，本仓按 `references/writing-positive-constraints.md` 的正向约束准则改写为「默认值 → 正向替代目标」两列，保留「标题上方 kicker/eyebrow 是硬禁」这一条硬护栏并配正向目标（删掉标签让标题承重）。
+- **本仓改造**：原仓库的 `Refuse` 清单是纯禁止式写法，本仓按 `soia-dev-agent-cli-dispatch` 技能 `references/writing-positive-constraints.md` 的正向约束准则改写为「默认值 → 正向替代目标」两列，保留「标题上方 kicker/eyebrow 是硬禁」这一条硬护栏并配正向目标（删掉标签让标题承重）。
 - **外部标准**：LCP < 2.5s / INP < 200ms / CLS < 0.1 为 Google Core Web Vitals 的公开阈值口径（第 75 百分位），非 `impeccable` 原文；对比度阈值对应 WCAG 2.x 的 1.4.3（AA）与 1.4.6（AAA）。
 - **数值真源说明**：本文件是**设计侧**的数值真源；`soia-dev-audit-ui` 的 `references/technical-checks.md` 是**验收侧**的判据真源。两个技能可独立安装，因此数值在两处各自完整保留；改动任一数值时两处同步更新，并运行 `scripts/check_ui_thresholds.py` 机械核对同名阈值标记（漂移时非零退出，`--selftest` 跑夹具自检）。
 - **实战素材**：本仓现有 `soia-dev-design-ui` 正文的「复用已有系统；确需探索时给有实质差别的可见方向」「隐藏、折叠或挪位不得改变任务语义」「不猜品牌色、不把假数据或静态交互包装为已接通能力」三条与上表同向，本文件是其量化补充。

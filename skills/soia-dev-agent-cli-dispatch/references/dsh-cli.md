@@ -98,6 +98,8 @@ dsh headless 的 stdout 无模型回显：它只打印最终 assistant 消息，
 
 `<项目>` 是 cwd 编码后的目录名，`<id>` 是会话 UUID。该文件是 zstd 压缩的 JSONL，每行一个事件，常见字段为 `type`、`seq`、毫秒时间 `time` 和 `data`。首行是不带 `data` 的会话头（`type=session`，含 `version`、`id`、`createdAt`、`cwd` 等）；会话标题来自 `session/title`。
 
+**版本状态（2026-09-30）**：本机 dsh 仍是 0.1.7-alpha.2；远端已有 0.2.0-rc.2，但 `npm update -g` 没把它升上去，本机未升级，0.2.0-rc.2 未实测（参数与会话格式是否仍如本文所述没有核对）。
+
 **v4 格式差异（2026-09-25 只读核对本机 dsh 0.1.7-alpha.2 会话结构）：**
 
 - 升级会把旧会话迁移为 v4，并在同一会话目录保留原 v3 文件；v4 是迁移后的超集，此后只有 v4 继续写入。两者并存时以 v4 为准。

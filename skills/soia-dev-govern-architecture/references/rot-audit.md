@@ -8,7 +8,7 @@
 - 十个漂移指标
 - 证据记账与保留
 - 收口契约：Closed 与 Open
-- 判据：指标是投影，不是健康本身
+- 判据
 
 ## 审计路由：先声明，再取证
 
@@ -49,7 +49,7 @@
 
 ## 收口契约：Closed 与 Open
 
-按 Closed/Open 两态收口，口径见 `soia-dev-implement-task/references/acceptance-line.md`。不可得来源或排除项若可能改变承重决策，就贡献 applicable findings 或 decision-changing unknown，并据此选 Open。
+按两态收口：**Closed** 指最强结论、适用授权、归属责任与实质风险都已解决，没有已知未知还能改变结论；否则为 **Open**，交付最强有界结果、会改变决策的未知、该未知的 owner 或归属缺口、下一份证据或决策触发条件。不可得来源或排除项若可能改变承重决策，就贡献 applicable findings 或 decision-changing unknown，并据此选 Open。
 
 两种状态都要额外给出四件事：
 

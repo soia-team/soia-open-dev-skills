@@ -63,7 +63,7 @@ grep -o '"type":"tool-call","id":"[^"]*","name":"skill"' /tmp/session.jsonl | wc
 
 **边界（同批出现的反例）：** 同一批 16 项清单的会话里，也有加载了 2 次技能的执行单（工具调用 284 次）。所以这不是「必然为 0」，而是命中不稳定——对策是把「本单该加载哪几个技能」从「模型自己猜」变成任务书里的显式字段，而不是断言修好通道就等于修好行为。
 
-**对策：** 派发方在任务书「适用技能」字段逐个列出本单技能名，执行者开工前加载全文，并在回报第一节写明实际加载项与未加载原因。字段格式与示例见 `soia-dev-agent-cli-dispatch/references/task-brief.md`；派发纪律见同技能 `references/dispatch-contract.md` 第 5 条；字段在输入契约里的必填位置见该技能 `SKILL.md` 的「输入契约」。
+**对策：** 派发方在任务书「适用技能」字段列出本单确实需要的技能名（无匹配可写 `[]`），列出的技能执行者开工前实际加载，并在回报第一节写明实际加载项与未加载原因。字段格式与示例见 `soia-dev-agent-cli-dispatch/references/task-brief.md`；派发纪律见同技能 `references/dispatch-contract.md` 的「适用技能按需声明」；字段位置见该技能 `SKILL.md` 的「输入契约」。
 
 ## 一手数据：触发词在真实任务书措辞下的命中情况（2026-09-12）
 
@@ -94,5 +94,5 @@ grep -o '"type":"tool-call","id":"[^"]*","name":"skill"' /tmp/session.jsonl | wc
 - **外部概念**：「失效模式 → 条款」这一索引形态承接自 `lencx` 仓 `coding-protocol/references/rule-rationale.md`（29 行表），其「不是一条规则配一个测试的要求，合并重叠、删除不再改变协议的条目」的维护口径一并承接；通用模式中 `Silent assumptions`、`Collateral changes`、`Dishonest green`、`Vacuous test`、`Bug-encoding test`、`Irrelevant verification`、`Verification inflation`、`Thrashing`、`Dropped requirements` 亦源自该表（外部概念，本仓改写并入本技能条款名）。
 - **实战素材（我们已实证）**：**假 passed** 与 **机械门全绿下的内容错误** 取自 `owner-directives` 指令 222（v61 大对账把 `G0.0.4.28.17` 误写 passed，实况仅 M0/M1 并入且 M1 回执自述未通过；机械门 `check_docs` 全绿前提下仍核出 14 条 P1）；**未验证的删除** 与 **glob 空转** 取自指令 211（归档 commit glob 报错空转未察觉即删树，11 个未提交冻结资产丢失）；**状态词越界** 取自指令 193（15 个越界状态词改合法词，`check_goal_graph` 负向测试确认能红）；**未解决问题蒸发** 取自指令 219③（每单验收时未解决问题逐条定去向后才销账）；**修复漂移** 取自指令 222（图状态回写必须逐条附一手证据）与报告 P2-23（绝不把修复漂移当作当前任务的副作用）。
 - **实战素材（一手事故引用）**：**`git add -A` 卷入无关改动** 取自 `owner-directives` 指令 222 处理期间的亲历事故，补证要求登记在 SoiaDeck `docs/governance/goals/receipts/2026-09-11-unresolved-ledger.md` 的 P0 起草单行（原文注「add -A 卷改动=指令 222 亲历」）；**哨兵自匹配** 取自指令 151 的 2026-09 修复（判活 `pgrep` 必须带 `codex exec` 进程前缀，不带前缀的模式会匹配到哨兵自身的命令行，把已死进程读成仍有活动）。
-- **实战素材（本仓一手）**：**污染基线**、**自报身份失真**、**叙述代替证据**、**子进程随会话退出被杀**、**空输入照跑** 五条取自 `references/codex-cli.md`「实战控制规程（2026-07 云盘战役校准，七条全部有实证）」，全部有实跑证据。
-- **实战素材（本仓一手，2026-09-12 增补）**：**技能送达≠技能生效** 取自 2026-09-11 项目技能交付通道修复前后的执行端会话取证（可见技能 1→16、Skill 调用数 0，判据与数据见上方同名节）；**「触发词补不住、字段才是机制」** 取自 2026-09-12 的三臂对照与同日 13 单全量核对（见上方同名节）。对策「适用技能」字段同时写进 `soia-dev-agent-cli-dispatch/references/task-brief.md`（字段模板）、同技能 `references/dispatch-contract.md`（派发纪律第 5 条）与同技能 `SKILL.md` 的「输入契约」（必填字段 `applicable_skills`）；本表只登记失效模式与判据，字段真源在 dispatch 技能。
+- **实战素材（本仓一手）**：**污染基线**、**自报身份失真**、**叙述代替证据**、**子进程随会话退出被杀**、**空输入照跑** 五条取自 `soia-dev-agent-cli-dispatch/references/codex-cli.md`「实战控制规程（2026-07 云盘战役校准，七条全部有实证）」，全部有实跑证据。
+- **实战素材（本仓一手，2026-09-12 增补）**：**技能送达≠技能生效** 取自 2026-09-11 项目技能交付通道修复前后的执行端会话取证（可见技能 1→16、Skill 调用数 0，判据与数据见上方同名节）；**「触发词补不住、字段才是机制」** 取自 2026-09-12 的三臂对照与同日 13 单全量核对（见上方同名节）。对策「适用技能」字段同时写进 `soia-dev-agent-cli-dispatch/references/task-brief.md`（字段模板）、同技能 `references/dispatch-contract.md`（派发纪律「适用技能按需声明」）与同技能 `SKILL.md` 的「输入契约」（`applicable_skills` 字段，按需声明、可为 `[]`）；本表只登记失效模式与判据，字段真源在 dispatch 技能。

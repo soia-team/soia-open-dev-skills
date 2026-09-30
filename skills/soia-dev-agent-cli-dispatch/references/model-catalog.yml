@@ -34,11 +34,14 @@
 # price is now standard; the planned 2026-09-01 increase will not happen.
 # 2026-09-29: claude-sonnet-5-5 (Claude Sonnet 5.5) added from a Claude Code
 # 2.1.284 probe; it is not part of the 2026-07-10 count above.
+# 2026-09-30: gpt-6.1-sol (GPT-6.1 Sol) added. Codex CLI 0.158.0 + ChatGPT account
+# rejected it (HTTP 400); Codex CLI 0.159.2 served it (high smoke). Prices stay null;
+# routing_profile stays empty (Owner does not use it for now).
 # Antigravity/agy is intentionally absent: its account-scoped Gemini/third-party
 # roster and plan/credit billing are not equivalent to these API model ids or
 # per-token prices. Discover agy display names at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-09-29"
+updated_at: "2026-09-30"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -70,6 +73,9 @@ sources:
   - id: codex-quota-bucket-2026-09-12
     path: references/codex-cli.md
     date: "2026-09-12"
+  - id: codex-gpt-6-1-sol-smoke-2026-09-30
+    path: references/codex-cli.md
+    date: "2026-09-30"
   - id: openai-pricing-2026-09-23
     path: https://developers.openai.com/api/docs/pricing
     date: "2026-09-23"
@@ -135,6 +141,32 @@ providers:
         routing_priority: 10
         discovered_at: "2026-09-23"
         discovery_evidence: "2026-09-23 Codex CLI 0.156.0 smoke: `codex exec -m gpt-6-sol -c model_reasoning_effort=\"high\"`; stderr session header showed `model: gpt-6-sol`, `provider: openai`, and `reasoning effort: high`. Model self-description was only GPT-6 and was not used as identity evidence. This establishes model identity and service for the tested reasoning level, not task quality."
+      - model_id: gpt-6.1-sol
+        display_name: "GPT-6.1 Sol"
+        aliases: [sol61]
+        model_family: gpt-6.1
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [high]
+        reasoning_levels_confidence: smoke_tested
+        default_reasoning_level: high
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: null
+          pricing_source: unknown
+          billing_mode_notes: "No official price source as of 2026-09-30, so every price field is null (仅二手报道，未核官方价). Secondhand reporting (an X article, not official documentation) claims a lower per-task cost than GPT-6 Astra and a lower cached-input price than GPT-6 Sol; none of that is encoded or used for estimation. effective_date/source_id below point at the 2026-09-30 smoke evidence, not at a price quote."
+          effective_date: "2026-09-30"
+          source_id: codex-gpt-6-1-sol-smoke-2026-09-30
+        routing_profile: []
+        routing_basis: owner_policy
+        routing_basis_note: "Owner 2026-09-30 policy: not used for now, so routing_profile stays empty and route_model.py cannot select it; gpt-6-sol remains the Codex first choice. Availability here is a measured fact only (identity smoke on CLI 0.159.2, high level, no task-quality measurement). Enabling routing needs an explicit Owner decision."
+        discovered_at: "2026-09-30"
+        discovery_evidence: "2026-09-30 13:44:57 Codex CLI 0.159.2 smoke with a ChatGPT-account login: `codex exec -m gpt-6.1-sol -c model_reasoning_effort=high --sandbox read-only --json` exited 0 and replied SMOKE-OK. The rollout turn_context recorded model gpt-6.1-sol and effort high (scripts/codex_session_info.py --session reads actual_model gpt-6.1-sol from rollout_turn_context, cli_version 0.159.2, task_complete); usage was input 21828 (7168 cached), output 20, reasoning 10 tokens. stderr carried a non-fatal `failed to refresh available models: request timed out`. Earlier the same day Codex CLI 0.158.0 with the same account rejected this id with HTTP 400 `The 'gpt-6.1-sol' model is not supported when using Codex with a ChatGPT account.` (plus a `Model metadata for gpt-6.1-sol not found` warning), so the model needs CLI 0.159 or later there (0.159.0 and 0.159.1 untested). This establishes model identity and service for the high level only, not task quality; other reasoning levels are untested and not listed. See references/codex-cli.md."
       - model_id: gpt-6-luna
         display_name: "GPT-6 Luna"
         aliases: [luna6]

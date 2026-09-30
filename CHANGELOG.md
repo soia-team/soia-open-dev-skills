@@ -3,6 +3,21 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.9.1 — 2026-09-30
+
+技能按强模型精简；调度技能登记 gpt-6.1-sol（不进路由）并适配 Codex 0.159.2
+
+## 新增
+- feat(dispatch): enable gpt-6.1-sol on Codex CLI 0.159.2 and refresh executor CLI version checks
+- feat(dispatch): register gpt-6.1-sol as unrecognized on Codex CLI 0.158.0 + ChatGPT account
+
+## 修复
+- fix(dispatch): keep gpt-6.1-sol available but out of auto-routing (Owner: not used for now)
+
+## 维护
+- refactor(skills): slim SKILL.md and references for strong models (2026-09-30)
+- chore(release): open next train after v2.9.0 (#148)
+
 ## v2.9.0 — 2026-09-29
 
 dispatch: Claude Sonnet 5.5 verified and routable

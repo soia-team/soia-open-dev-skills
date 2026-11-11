@@ -3,6 +3,19 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.9.2-SNAPSHOT — 未发布
+
+下线没人用的技能、合并重叠技能（20 → 15）
+
+## 移除
+- 删除 `soia-dev-release-plan-checklist`、`soia-dev-test-draft-doc`、`soia-dev-archify-diagrams`、`soia-dev-drawio-visio-diagrams`
+
+## 合并
+- `soia-dev-agent-md-advisor` 并入 `soia-dev-project-scaffold`：诊断、起草、精简 AI 项目指令的能力与触发词都保留，旧入口不留别名
+
+## 维护
+- README 中英、技能目录、WorkBuddy 专家清单与人设同步到 15 个技能
+
 ## v2.9.1 — 2026-09-30
 
 技能按强模型精简；调度技能登记 gpt-6.1-sol（不进路由）并适配 Codex 0.159.2

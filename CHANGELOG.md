@@ -3,7 +3,7 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
-## v2.9.2-SNAPSHOT — 未发布
+## v2.10.0 — 2026-11-11
 
 下线没人用的技能、合并重叠技能（20 → 15）
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "软件发布计划"
-  short_description: "设计软件发布预检、灰度、停止与回滚清单，不执行部署"
-  default_prompt: "使用 $soia-dev-release-plan-checklist 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

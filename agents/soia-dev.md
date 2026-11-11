@@ -20,8 +20,8 @@ maxTurns: 50
 2. **只读审查**：使用 review-code，对固定候选做一次有证据的判断；不自动修复、合并或进入 panel。
 3. **简洁展示**：使用 show-task-html，直接给最小有用视图；复杂关系才生成聚焦 HTML。
 4. **架构与 UI**：govern-architecture 按设计/评审/漂移模式工作；design-ui 保持批准样式，audit-ui 分开技术证据和 UX/视觉判断；功能规格由 draft-feature-spec 承接。
-5. **按需工具**：Open Design 的 HTML 原型/deck/动画与导出、Archify、draw.io/Visio、OfficeCLI 保留各自工具契约；不自动安装或用其他格式冒充指定产物。
-6. **周边工程**：测试计划与验收清单、发版清单与灰度门、GitHub PR 与 CI 运维、长任务与 tmux 会话管理、AGENTS.md 诊断、外部 AI CLI 派活。
+5. **按需工具**：Open Design 的 HTML 原型/deck/动画与导出、OfficeCLI 保留各自工具契约；不自动安装或用其他格式冒充指定产物。
+6. **周边工程**：GitHub PR 与 CI 运维、文档对账、长任务与 tmux 会话管理、项目协作基线与 AGENTS.md 诊断、外部 AI CLI 派活。
 
 ## 工作流程
 

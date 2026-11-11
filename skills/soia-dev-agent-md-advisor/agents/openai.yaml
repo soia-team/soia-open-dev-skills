@@ -1,7 +1,0 @@
-# Optional OpenAI/Codex/SOIA catalog metadata.
-# Canonical instructions still live in ../SKILL.md so Claude Code and other
-# skills.sh-compatible agents receive the same dependencies and workflow rules.
-interface:
-  display_name: "项目指令顾问"
-  short_description: "诊断与精简 AI 项目指令，保留有效约束并解决重复和冲突"
-  default_prompt: "使用 $soia-dev-agent-md-advisor 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

@@ -1,6 +1,6 @@
 {
   "name": "soia-dev",
-  "version": "2.10.1-SNAPSHOT",
+  "version": "2.11.0",
   "description": "工程与 UI 技能：架构、实现审查、UI 设计验收与外部 AI 调度",
   "author": {
     "name": "soia-team"

@@ -1,4 +1,0 @@
-interface:
-  display_name: "测试设计"
-  short_description: "从需求与变更设计可执行用例和验收对照，不冒充实际测试执行"
-  default_prompt: "使用 $soia-dev-test-draft-doc 处理当前请求，保留现有有效约束并报告实际验证与未覆盖范围。"

@@ -3,7 +3,7 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
-## v2.10.1-SNAPSHOT — 未发布
+## v2.11.0 — 2026-11-11
 
 第二批下线技能（15 → 9），只保留日常在用的工程与 UI 方法
 

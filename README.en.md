@@ -6,13 +6,13 @@
 
 **Stop letting the agent close a change with "should be fine"**
 
-20 on-demand skills: engineering, architecture and UI methods, with specialized tools when needed
+15 on-demand skills: engineering, architecture and UI methods, with specialized tools when needed
 
 [中文](README.md) · English · [Ecosystem portal](https://github.com/soia-team/soia-open-skills)
 
 <p align="center">
   <img alt="plugin version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsoia-team%2Fsoia-open-dev-skills%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=F5A623&prefix=v">
-  <img alt="skills" src="https://img.shields.io/badge/skills-20-brightgreen">
+  <img alt="skills" src="https://img.shields.io/badge/skills-15-brightgreen">
   <img alt="hosts" src="https://img.shields.io/badge/hosts-Claude%20%C2%B7%20Codex%20%C2%B7%20WorkBuddy-8A2BE2">
   <img alt="license" src="https://img.shields.io/github/license/soia-team/soia-open-dev-skills?color=blue">
 </p>
@@ -34,7 +34,7 @@ flowchart LR
     D -.fails.-> C
 ```
 
-## 20 skills
+## 15 skills
 
 ### 01 Change loop　`Requirement or bug → a change with scope, verification and review`
 
@@ -44,37 +44,29 @@ flowchart LR
 | [`soia-dev-implement-task`](skills/soia-dev-implement-task/SKILL.md) | One implementation flow for requirements, bugs and findings | ✅ |
 | [`soia-dev-review-code`](skills/soia-dev-review-code/SKILL.md) | One read-only review of a fixed candidate; no automatic fixes or merge | ✅ |
 
-### 02 Testing and release　`Requirement or change → test plan, release checklist, rollout gates`
-
-| Skill | Responsibility | Ready |
-|---|---|:-:|
-| [`soia-dev-test-draft-doc`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-test-draft-doc.md) | Generates test plans, cases and an acceptance matrix from requirements, PRDs or change notes | ✅ |
-| [`soia-dev-release-plan-checklist`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-release-plan-checklist.md) | Generates the release checklist, pre-flight gates, canary verification and post-release checks | ✅ |
-
-### 03 Repository operations　`Repo as-is → consistent docs, compliant PRs, a working baseline`
+### 02 Repository operations　`Repo as-is → consistent docs, compliant PRs, a working baseline`
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
 | [`soia-dev-github-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-github-ops.md) | GitHub `gh` CLI operations, PR compliance review and remediation | 🟡 |
 | [`soia-dev-doc-sync`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-doc-sync.md) | Audits and repairs factual drift between docs, README, CHANGELOG, VERSION and the source of truth | ✅ |
-| [`soia-dev-project-scaffold`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-project-scaffold.md) | Generates a minimal AI-collaboration baseline for a new Git project (AGENTS.md + docs nav) | ✅ |
+| [`soia-dev-project-scaffold`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-project-scaffold.md) | Adds a minimal AI-collaboration baseline to a Git project (AGENTS.md + docs nav); diagnoses, drafts and trims AI project instructions | ✅ |
 
-### 04 Terminal and multi-agent　`Long tasks and several CLIs → controlled execution and dispatch`
+### 03 Terminal and multi-agent　`Long tasks and several CLIs → controlled execution and dispatch`
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
 | [`soia-dev-terminal-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-terminal-ops.md) | Long tasks, tmux sessions, log capture, stall diagnosis; killing goes through TERM → recheck → KILL | ✅ |
 | [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | External AI CLI dispatch and model routing, with controlled hand-off and usage receipts | 🟡 |
-| [`soia-dev-agent-md-advisor`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-md-advisor.md) | Advisor for AI project instructions and config: diagnosis, drafting and rewriting | ✅ |
 
-### 05 Understanding code changes　`AI-generated code → architecture, data flow and evidence views`
+### 04 Understanding code changes　`AI-generated code → architecture, data flow and evidence views`
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
 | [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | Explains the current topic in the smallest useful view; focused HTML only when visual complexity warrants it | ✅ |
 
 
-### 06 Architecture, feature specifications and UI
+### 05 Architecture, feature specifications and UI
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
@@ -83,13 +75,11 @@ flowchart LR
 | [`soia-dev-design-ui`](skills/soia-dev-design-ui/SKILL.md) | Information hierarchy, interaction, visual design and handoff; preserve approved styles | ✅ |
 | [`soia-dev-audit-ui`](skills/soia-dev-audit-ui/SKILL.md) | Separate technical evidence from UX/visual judgments; read-only by default | ✅ |
 
-### 07 On-demand design and document tools
+### 06 On-demand design and document tools
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
 | [`soia-dev-open-design-ops`](skills/soia-dev-open-design-ops/SKILL.md) | Open Design environment, HTML prototypes/decks/animation, exports and session continuation | 🟡 |
-| [`soia-dev-archify-diagrams`](skills/soia-dev-archify-diagrams/SKILL.md) | Archify JSON diagrams, checks and PNG previews | 🟡 |
-| [`soia-dev-drawio-visio-diagrams`](skills/soia-dev-drawio-visio-diagrams/SKILL.md) | Safely inspect VSDX, convert and edit draw.io copies | 🟡 |
 | [`soia-dev-officecli-ops`](skills/soia-dev-officecli-ops/SKILL.md) | OfficeCLI copy-on-write operations with OpenXML and visual checks | 🟡 |
 
 The former dev-design capabilities are maintained here, not automatically installed. Select the six engineering/UI method entries by task; supporting workflows and tools remain on demand. Private governance is outside this migration.
@@ -98,7 +88,7 @@ The former dev-design capabilities are maintained here, not automatically instal
 
 ## Install
 
-Choose a host and one skill by default; an explicitly selected domain plugin includes all 20 skills.
+Choose a host and one skill by default; an explicitly selected domain plugin includes all 15 skills.
 
 Publishing and local installation are separate: the default is one skill for one project and one explicit host. Global, whole-domain or all-host scope requires an explicit choice and a dry-run first; publishing never syncs to local hosts automatically.
 
@@ -122,7 +112,7 @@ Restart the client, then summon **Soia · 研发工程师** under Experts → My
 
 ## Migrating from dev-design
 
-This repository is the maintained source. The four specialized tools keep their names and user configuration paths. `soia-dev-design-draft-prd` becomes `soia-dev-draft-feature-spec`; design-explorer's UI methods move to design-ui/audit-ui, while HTML prototypes, decks, animation and exports move to open-design-ops. No legacy aliases are shipped here.
+This repository is the maintained source. The specialized tools open-design-ops and officecli-ops keep their names and user configuration paths. `soia-dev-design-draft-prd` becomes `soia-dev-draft-feature-spec`; design-explorer's UI methods move to design-ui/audit-ui, while HTML prototypes, decks, animation and exports move to open-design-ops. No legacy aliases are shipped here.
 
 Inventory the old installation, install only the selected replacements in the same project/host scope, verify them, then explicitly remove obsolete entries or the old plugin. Avoid duplicate tool copies. Do not delete customer configuration, design projects or historical evidence. Publishing does not migrate local installations automatically; the old repository is historical.
 

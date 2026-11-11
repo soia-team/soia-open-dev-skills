@@ -6,13 +6,13 @@
 
 **让 AI 改代码，不再「应该没问题」就交差**
 
-20 个按需技能：工程、架构与 UI 方法统一维护，专用工具按需加载
+15 个按需技能：工程、架构与 UI 方法统一维护，专用工具按需加载
 
 [English](README.en.md) · 中文 · [全生态门户](https://github.com/soia-team/soia-open-skills)
 
 <p align="center">
   <img alt="plugin version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsoia-team%2Fsoia-open-dev-skills%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=F5A623&prefix=v">
-  <img alt="skills" src="https://img.shields.io/badge/技能-20-brightgreen">
+  <img alt="skills" src="https://img.shields.io/badge/技能-15-brightgreen">
   <img alt="hosts" src="https://img.shields.io/badge/宿主-Claude%20%C2%B7%20Codex%20%C2%B7%20WorkBuddy-8A2BE2">
   <img alt="license" src="https://img.shields.io/github/license/soia-team/soia-open-dev-skills?color=blue">
 </p>
@@ -34,7 +34,7 @@ flowchart LR
     D -.不通过.-> C
 ```
 
-## 20 个技能
+## 15 个技能
 
 ### 01 改动闭环　`需求或缺陷 → 有边界、有验证、有复核的改动`
 
@@ -44,37 +44,29 @@ flowchart LR
 | [`soia-dev-implement-task`](skills/soia-dev-implement-task/SKILL.md) | 需求实现、缺陷修复与 findings 共用一个实施流程 | ✅ |
 | [`soia-dev-review-code`](skills/soia-dev-review-code/SKILL.md) | 固定候选，一次只读审查；不自动修复或合并 | ✅ |
 
-### 02 测试与发版　`需求或变更 → 测试计划、发布清单与灰度门`
-
-| 技能 | 职责 | 开箱 |
-|---|---|:-:|
-| [`soia-dev-test-draft-doc`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-test-draft-doc.md) | 从需求、PRD 或变更说明生成测试计划、用例与验收对照 | ✅ |
-| [`soia-dev-release-plan-checklist`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-release-plan-checklist.md) | 生成发布清单、预检门、灰度验证与发布后核对 | ✅ |
-
-### 03 仓库运维　`仓库现状 → 一致的文档、合规的 PR、可用的基线`
+### 02 仓库运维　`仓库现状 → 一致的文档、合规的 PR、可用的基线`
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
 | [`soia-dev-github-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-github-ops.md) | GitHub `gh` CLI 运维、PR 合规审查与修复 | 🟡 |
 | [`soia-dev-doc-sync`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-doc-sync.md) | 审计并修复 docs、README、CHANGELOG、VERSION 与真源之间的事实漂移 | ✅ |
-| [`soia-dev-project-scaffold`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-project-scaffold.md) | 为新 Git 项目生成最小 AI 协作基线（AGENTS.md + docs 导航） | ✅ |
+| [`soia-dev-project-scaffold`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-project-scaffold.md) | 为 Git 项目补最小 AI 协作基线（AGENTS.md + docs 导航）；诊断、起草与精简 AI 项目指令 | ✅ |
 
-### 04 终端与 AI 协作　`长任务与多 AI → 可控的执行与派发`
+### 03 终端与 AI 协作　`长任务与多 AI → 可控的执行与派发`
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
 | [`soia-dev-terminal-ops`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-terminal-ops.md) | 长任务、tmux 会话、日志抓取、停滞诊断；杀进程走 TERM→复查→KILL 确认门 | ✅ |
 | [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | 外部 AI CLI 调度与模型路由，受控派活与用量回执 | 🟡 |
-| [`soia-dev-agent-md-advisor`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-md-advisor.md) | AI 项目指令与配置设计顾问：诊断、起草与改写建议 | ✅ |
 
-### 05 代码变更理解　`AI 代码变更 → 架构调用、数据流与证据视图`
+### 04 代码变更理解　`AI 代码变更 → 架构调用、数据流与证据视图`
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
 | [`soia-dev-show-task-html`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-show-task-html.md) | 用最小视图解释当前话题；简单关系直接画，复杂关系再做聚焦 HTML | ✅ |
 
 
-### 06 架构、功能规格与 UI
+### 05 架构、功能规格与 UI
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
@@ -83,13 +75,11 @@ flowchart LR
 | [`soia-dev-design-ui`](skills/soia-dev-design-ui/SKILL.md) | 信息结构、交互、视觉与实现交接，保持已批准样式 | ✅ |
 | [`soia-dev-audit-ui`](skills/soia-dev-audit-ui/SKILL.md) | 技术验收与 UX/视觉判断分开；默认只读 | ✅ |
 
-### 07 按需设计与文件工具
+### 06 按需设计与文件工具
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
 | [`soia-dev-open-design-ops`](skills/soia-dev-open-design-ops/SKILL.md) | Open Design 环境、HTML 原型/deck/动画、导出与续会话 | 🟡 |
-| [`soia-dev-archify-diagrams`](skills/soia-dev-archify-diagrams/SKILL.md) | Archify JSON 图表、检查与 PNG 预览 | 🟡 |
-| [`soia-dev-drawio-visio-diagrams`](skills/soia-dev-drawio-visio-diagrams/SKILL.md) | 安全盘点 VSDX、转换并编辑 draw.io 副本 | 🟡 |
 | [`soia-dev-officecli-ops`](skills/soia-dev-officecli-ops/SKILL.md) | OfficeCLI 读取、复制后修改及 OpenXML/视觉验证 | 🟡 |
 
 原 dev-design 能力迁入本仓维护，不表示默认安装全部工具。工程/UI 六个方法入口按任务选用，周边文档与专用工具按需加载；私有治理不在此次迁移范围。
@@ -98,7 +88,7 @@ flowchart LR
 
 ## 安装
 
-三个宿主任选；默认单技能，明确选择整域插件时包含本仓 20 个技能。
+三个宿主任选；默认单技能，明确选择整域插件时包含本仓 15 个技能。
 
 发布与本机安装分开：默认按项目、明确宿主、单个技能定向安装；全局、整域或全宿主范围只有客户明确选择并先看 dry-run 后执行，发布不会自动同步到本机。
 
@@ -122,7 +112,7 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 ## 从 dev-design 迁移
 
-正式维护源统一为本仓。四个专用工具保留技能名和用户配置路径；`soia-dev-design-draft-prd` 改为 `soia-dev-draft-feature-spec`，`soia-dev-design-explorer` 的 UI 方法分到 design-ui/audit-ui，HTML 原型、deck、动画与导出进入 open-design-ops。新仓不保留旧入口别名。
+正式维护源统一为本仓。专用工具 open-design-ops 与 officecli-ops 保留技能名和用户配置路径；`soia-dev-design-draft-prd` 改为 `soia-dev-draft-feature-spec`，`soia-dev-design-explorer` 的 UI 方法分到 design-ui/audit-ui，HTML 原型、deck、动画与导出进入 open-design-ops。新仓不保留旧入口别名。
 
 先核对原安装清单，在相同项目/宿主范围安装需要的新入口并验证，再按明确选择移除旧入口/旧插件。不要同时维护两份同名工具；不要删除用户配置、设计项目或历史证据。发布不自动执行本机迁移，旧仓只作为历史来源。
 

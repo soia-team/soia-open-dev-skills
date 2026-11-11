@@ -10,13 +10,10 @@
   ],
   "skills": [
     "./skills/soia-dev-agent-cli-dispatch",
-    "./skills/soia-dev-agent-md-advisor",
-    "./skills/soia-dev-archify-diagrams",
     "./skills/soia-dev-audit-ui",
     "./skills/soia-dev-design-ui",
     "./skills/soia-dev-doc-sync",
     "./skills/soia-dev-draft-feature-spec",
-    "./skills/soia-dev-drawio-visio-diagrams",
     "./skills/soia-dev-enforce-coding-protocol",
     "./skills/soia-dev-github-ops",
     "./skills/soia-dev-govern-architecture",
@@ -24,11 +21,9 @@
     "./skills/soia-dev-officecli-ops",
     "./skills/soia-dev-open-design-ops",
     "./skills/soia-dev-project-scaffold",
-    "./skills/soia-dev-release-plan-checklist",
     "./skills/soia-dev-review-code",
     "./skills/soia-dev-show-task-html",
-    "./skills/soia-dev-terminal-ops",
-    "./skills/soia-dev-test-draft-doc"
+    "./skills/soia-dev-terminal-ops"
   ],
   "expertType": "agent",
   "agentName": "soia-dev",
@@ -41,8 +36,8 @@
     "zh": "Soia · 研发工程师"
   },
   "displayDescription": {
-    "en": "Implements scoped changes and fixes with real verification, plus on-demand read-only review, clear views, testing and release checklists.",
-    "zh": "按明确范围实现需求与修复缺陷，验证真实结果；按需只读审查、展示关系，并提供测试和发版清单。"
+    "en": "Implements scoped changes and fixes with real verification, plus on-demand read-only review, clear views, architecture, feature specs and UI methods.",
+    "zh": "按明确范围实现需求与修复缺陷，验证真实结果；按需只读审查、展示关系，并提供架构与功能规格方法。"
   },
   "avatar": "assets/icon.png",
   "categoryId": "02-Engineering",
@@ -60,8 +55,8 @@
       "zh": "实现与修复"
     },
     {
-      "en": "Release Checklist",
-      "zh": "发版清单"
+      "en": "Feature Spec",
+      "zh": "功能规格"
     }
   ],
   "quickPrompts": [
@@ -74,8 +69,8 @@
       "zh": "对这个 diff 做一次只读审查，报告有证据的问题。"
     },
     {
-      "en": "Turn this requirement into a test plan and acceptance checklist.",
-      "zh": "把这个需求转成测试计划和验收清单。"
+      "en": "Turn this requirement into a feature spec with acceptance slices.",
+      "zh": "把这个需求写成功能规格和可验收切片。"
     }
   ]
 }

@@ -2,7 +2,7 @@
 
 本文件是 `soia-dev-implement-task` 的验收线参考，用户或项目要求正式验收线时使用：**开工前声明验收线，收口时逐条对照证据裁决**。
 
-规格侧的验收标准写法见 `soia-dev-draft-feature-spec` 的 `references/acceptance-authoring.md`；本文件管执行与裁决。
+规格侧的验收标准由任务书或需求方给出；本文件管执行与裁决。
 
 ## 内容导航
 

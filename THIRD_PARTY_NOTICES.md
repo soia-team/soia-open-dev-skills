@@ -20,12 +20,7 @@ The dispatcher can also invoke other user-installed AI CLIs. They are execution 
 
 ## Consolidated design tools
 
-The four design-tool skill directories and their tests were migrated from [soia-team/soia-open-dev-design-skills](https://github.com/soia-team/soia-open-dev-design-skills/tree/643b6fbc10419f592de9a9ffdf491670f7307edb), MIT copyright 2026 soia-team (same as this repository). Their bundled helper implementations are retained; no external renderer source is bundled. Two of them (the Archify and draw.io/Visio diagram skills) were retired in November 2026; open-design-ops and officecli-ops remain.
-
-| External tool/reference | Used by | Relationship |
-|---|---|---|
-| [Open Design](https://github.com/nexu-io/open-design) | open-design-ops | User-selected external design engine; historical version evidence stays marked |
-| [OfficeCLI](https://github.com/iOfficeAI/OfficeCLI) | officecli-ops | External Office tool; no upstream source copied |
+The four design-tool skill directories and their tests were migrated from [soia-team/soia-open-dev-design-skills](https://github.com/soia-team/soia-open-dev-design-skills/tree/643b6fbc10419f592de9a9ffdf491670f7307edb), MIT copyright 2026 soia-team (same as this repository). Their bundled helper implementations are retained; no external renderer source is bundled. All four (the Archify and draw.io/Visio diagram skills, the Open Design skill and the OfficeCLI skill) were retired in November 2026 and are no longer distributed here.
 
 [lencx Keel](https://github.com/lencx/skills/blob/b848e124111be50a795cc961558247e7751825e2/skills/keel/SKILL.md) and [Impeccable](https://github.com/pbakaus/impeccable/tree/2bc2879276c1f321a53c4ca99d3371e411329b52) inform architecture/UI methods. These are newly written Chinese workflows, not copied upstream instructions or a promise of full upstream feature parity.
 

@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.10.1-SNAPSHOT — 未发布
+
+第二批下线技能（15 → 9），只保留日常在用的工程与 UI 方法
+
+## 移除
+- 删除 `soia-dev-open-design-ops`、`soia-dev-doc-sync`、`soia-dev-draft-feature-spec`、`soia-dev-officecli-ops`、`soia-dev-terminal-ops`、`soia-dev-project-scaffold`（含此前并入的 AI 项目指令顾问能力）；旧入口不留别名
+
+## 维护
+- 保留的 9 个技能功能不变，只收掉对已下线技能的引用
+- README 中英、技能目录、三宿主插件说明、WorkBuddy 专家清单与人设同步到 9 个技能
+
 ## v2.10.0 — 2026-11-11
 
 下线没人用的技能、合并重叠技能（20 → 15）

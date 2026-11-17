@@ -3,6 +3,14 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.11.1 — 2026-11-17
+
+统一 README 中英 9 个技能的门户详情页链接并补充实测常驻 Token 徽章
+
+## 维护
+- docs(readme): unify portal skill page links and add measured always-on token badge (#158)
+- chore(release): open next train after v2.11.0 (#157)
+
 ## v2.11.0 — 2026-11-11
 
 第二批下线技能（15 → 9），只保留日常在用的工程与 UI 方法

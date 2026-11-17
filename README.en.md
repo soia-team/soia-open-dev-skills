@@ -14,6 +14,7 @@
   <img alt="plugin version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsoia-team%2Fsoia-open-dev-skills%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=F5A623&prefix=v">
   <img alt="skills" src="https://img.shields.io/badge/skills-9-brightgreen">
   <img alt="hosts" src="https://img.shields.io/badge/hosts-Claude%20%C2%B7%20Codex%20%C2%B7%20WorkBuddy-8A2BE2">
+  <img alt="always-on cost" src="https://img.shields.io/badge/always--on-~550%20tok-lightgrey">
   <img alt="license" src="https://img.shields.io/github/license/soia-team/soia-open-dev-skills?color=blue">
 </p>
 
@@ -40,9 +41,9 @@ flowchart LR
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| [`soia-dev-enforce-coding-protocol`](skills/soia-dev-enforce-coding-protocol/SKILL.md) | Short scope, authority and risk-based verification constraints; no extra workflow | ✅ |
-| [`soia-dev-implement-task`](skills/soia-dev-implement-task/SKILL.md) | One implementation flow for requirements, bugs and findings | ✅ |
-| [`soia-dev-review-code`](skills/soia-dev-review-code/SKILL.md) | One read-only review of a fixed candidate; no automatic fixes or merge | ✅ |
+| [`soia-dev-enforce-coding-protocol`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-enforce-coding-protocol.md) | Short scope, authority and risk-based verification constraints; no extra workflow | ✅ |
+| [`soia-dev-implement-task`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-implement-task.md) | One implementation flow for requirements, bugs and findings | ✅ |
+| [`soia-dev-review-code`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-review-code.md) | One read-only review of a fixed candidate; no automatic fixes or merge | ✅ |
 
 ### 02 Repository operations　`Repo as-is → compliant PRs`
 
@@ -67,9 +68,9 @@ flowchart LR
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| [`soia-dev-govern-architecture`](skills/soia-dev-govern-architecture/SKILL.md) | Design, review a fixed architecture, or check drift; no automatic code changes | ✅ |
-| [`soia-dev-design-ui`](skills/soia-dev-design-ui/SKILL.md) | Information hierarchy, interaction, visual design and handoff; preserve approved styles | ✅ |
-| [`soia-dev-audit-ui`](skills/soia-dev-audit-ui/SKILL.md) | Separate technical evidence from UX/visual judgments; read-only by default | ✅ |
+| [`soia-dev-govern-architecture`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-govern-architecture.md) | Design, review a fixed architecture, or check drift; no automatic code changes | ✅ |
+| [`soia-dev-design-ui`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-design-ui.md) | Information hierarchy, interaction, visual design and handoff; preserve approved styles | ✅ |
+| [`soia-dev-audit-ui`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-audit-ui.md) | Separate technical evidence from UX/visual judgments; read-only by default | ✅ |
 
 The former dev-design UI methods are maintained here. Select the six engineering/UI method entries by task. Private governance is outside this migration.
 
@@ -97,6 +98,7 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 Restart the client, then summon **Soia · 研发工程师** under Experts → My Experts.
 
+> **Always-on cost ~550 tok**. `claude plugin disable soia-dev@soia` drops it to zero; enable it again any time.
 > For one project skill: `npx skills add soia-team/soia-open-dev-skills -a <explicit-agent> -s <skill-name>`. Add `-g` only for an explicitly selected global install. Choose this or the domain plugin to avoid duplicate, drifting copies.
 
 ## Migrating from dev-design

@@ -14,6 +14,7 @@
   <img alt="plugin version" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsoia-team%2Fsoia-open-dev-skills%2Fmain%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=F5A623&prefix=v">
   <img alt="skills" src="https://img.shields.io/badge/技能-9-brightgreen">
   <img alt="hosts" src="https://img.shields.io/badge/宿主-Claude%20%C2%B7%20Codex%20%C2%B7%20WorkBuddy-8A2BE2">
+  <img alt="always-on cost" src="https://img.shields.io/badge/常驻-~550%20tok-lightgrey">
   <img alt="license" src="https://img.shields.io/github/license/soia-team/soia-open-dev-skills?color=blue">
 </p>
 
@@ -40,9 +41,9 @@ flowchart LR
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| [`soia-dev-enforce-coding-protocol`](skills/soia-dev-enforce-coding-protocol/SKILL.md) | 短协议：范围、权限与风险相称的验证，不另起流程 | ✅ |
-| [`soia-dev-implement-task`](skills/soia-dev-implement-task/SKILL.md) | 需求实现、缺陷修复与 findings 共用一个实施流程 | ✅ |
-| [`soia-dev-review-code`](skills/soia-dev-review-code/SKILL.md) | 固定候选，一次只读审查；不自动修复或合并 | ✅ |
+| [`soia-dev-enforce-coding-protocol`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-enforce-coding-protocol.md) | 短协议：范围、权限与风险相称的验证，不另起流程 | ✅ |
+| [`soia-dev-implement-task`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-implement-task.md) | 需求实现、缺陷修复与 findings 共用一个实施流程 | ✅ |
+| [`soia-dev-review-code`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-review-code.md) | 固定候选，一次只读审查；不自动修复或合并 | ✅ |
 
 ### 02 仓库运维　`仓库现状 → 合规的 PR`
 
@@ -67,9 +68,9 @@ flowchart LR
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| [`soia-dev-govern-architecture`](skills/soia-dev-govern-architecture/SKILL.md) | 设计方案、审给定架构、检查长期漂移；不自动改代码 | ✅ |
-| [`soia-dev-design-ui`](skills/soia-dev-design-ui/SKILL.md) | 信息结构、交互、视觉与实现交接，保持已批准样式 | ✅ |
-| [`soia-dev-audit-ui`](skills/soia-dev-audit-ui/SKILL.md) | 技术验收与 UX/视觉判断分开；默认只读 | ✅ |
+| [`soia-dev-govern-architecture`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-govern-architecture.md) | 设计方案、审给定架构、检查长期漂移；不自动改代码 | ✅ |
+| [`soia-dev-design-ui`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-design-ui.md) | 信息结构、交互、视觉与实现交接，保持已批准样式 | ✅ |
+| [`soia-dev-audit-ui`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-audit-ui.md) | 技术验收与 UX/视觉判断分开；默认只读 | ✅ |
 
 原 dev-design 的 UI 方法迁入本仓维护。工程/UI 六个方法入口按任务选用；私有治理不在此次迁移范围。
 
@@ -97,6 +98,7 @@ python3 <soia-open-skills>/skills/soia-meta-skill-release/scripts/install_workbu
 
 装完重启客户端，在【专家中心 → 我的专家】召唤 **Soia · 研发工程师**。
 
+> **常驻成本 ~550 tok**。不用时 `claude plugin disable soia-dev@soia` 降到零，随时开回来。
 > 项目单技能：`npx skills add soia-team/soia-open-dev-skills -a <明确宿主> -s <技能名>`；仅明确选择全局时加 `-g`。与域插件二选一，避免双份索引各自漂移。
 
 ## 从 dev-design 迁移

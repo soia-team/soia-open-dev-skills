@@ -3,6 +3,14 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.12.1 — 2026-11-18
+
+dispatch：技能说明补多账号槽位、登录检测与各账号额度查看
+
+## 维护
+- docs(dispatch): surface multi-account slots and per-account quota view in description and capability list (2.7.1) (#168)
+- chore(release): open next train after v2.12.0 (#167)
+
 ## v2.12.0 — 2026-11-18
 
 dispatch：账号槽位支持同一 CLI 多账号（agy 三账号实测），先检测登录再提示，按槽位查看 agy 套餐/额度/模型

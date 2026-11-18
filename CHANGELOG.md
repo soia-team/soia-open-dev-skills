@@ -3,6 +3,16 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.11.2 — 2026-11-18
+
+dispatch：agy 说明更新到 1.5.10，登记 Gemini 4 Argon / Hydrogen 显式派单默认
+
+## 新增
+- feat(dispatch): refresh Antigravity CLI to agy 1.5.10 and register Gemini 4 Argon/Hydrogen (2.6.2) (#161)
+
+## 维护
+- chore(release): open next train after v2.11.1 (#160)
+
 ## v2.11.1 — 2026-11-17
 
 统一 README 中英 9 个技能的门户详情页链接并补充实测常驻 Token 徽章

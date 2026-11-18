@@ -3,6 +3,17 @@
 本文件由 soia-meta-skill-release 在每次正式发版时自动更新，与 GitHub Release 同源；
 更早的版本演进见 git 提交历史与 GitHub Releases。
 
+## v2.12.0 — 2026-11-18
+
+dispatch：账号槽位支持同一 CLI 多账号（agy 三账号实测），先检测登录再提示，按槽位查看 agy 套餐/额度/模型
+
+## 新增
+- feat(dispatch): account slots for multi-account CLIs and per-slot agy quota view (2.7.0) (#164)
+
+## 维护
+- chore(release): bump train to 2.12.0-SNAPSHOT (#165)
+- chore(release): open next train after v2.11.2 (#163)
+
 ## v2.11.2 — 2026-11-18
 
 dispatch：agy 说明更新到 1.5.10，登记 Gemini 4 Argon / Hydrogen 显式派单默认

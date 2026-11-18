@@ -76,6 +76,7 @@
 | 字段 | 说明 |
 |---|---|
 | `executor` | 目标执行器 |
+| `slot` | 可选。本次探测所用的账号槽位名（`references/account-slots.md`）；缺省即默认登录。额度按账号分开：`route_model.py --slot` 必须与它一致，否则 `quota_binding_conflict` |
 | `cli_installed` | `true` / `false`（`which <command>` 或等效检测） |
 | `cli_version` | 实际探测到的版本字符串，或 `"unavailable"` |
 | `executor_config_default_model` | 目标 CLI **自身配置**里配好的**默认**模型（如 codex `~/.codex/config.toml` 的 `model`），或 `"unknown"`。它只是默认值，CLI 参数/项目配置/profile 都会覆盖它；不要写成本次实际执行的模型。仅采用默认值或排查配置覆盖时读取，见下方「按需解析配置默认值」 |

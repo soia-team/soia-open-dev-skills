@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import account_slots  # noqa: E402
 import catalog_lib  # noqa: E402
 import estimate_cost  # noqa: E402
 import resolve_storage  # noqa: E402
@@ -82,7 +83,7 @@ BREAKDOWN_FIELDS = {"provider", "model", "usage_kind", *TOKEN_FIELDS, "estimated
 LABEL_FIELDS = ("executor", "provider", "dispatch_role", "task_class", "requested_model", "actual_model",
                 "requested_reasoning_effort", "actual_reasoning_effort", "usage_source", "pricing_source")
 FIELD_ORDER = (
-    "schema", "record_id", "source", "executor", "provider", "dispatch_role", "task_class",
+    "schema", "record_id", "source", "executor", "slot", "provider", "dispatch_role", "task_class",
     "requested_model", "actual_model", "actual_model_source", "model_verified",
     "requested_reasoning_effort", "actual_reasoning_effort", "billing_class",
     *TOKEN_FIELDS, "usage_status", "usage_source", *COST_FIELDS, "pricing_source", "pricing_date",
@@ -210,6 +211,8 @@ def _outcome_fields(status: str, outcome: str | None, failure_category: str | No
 
 
 def _finish(record: dict[str, Any]) -> dict[str, Any]:
+    # Only the slot name is recorded; no slot means the default login.
+    record = {**record, "slot": record.get("slot") or account_slots.DEFAULT_SLOT}
     ordered = {field: record.get(field) for field in FIELD_ORDER if field in record}
     validate_record(ordered)
     return ordered
@@ -254,6 +257,11 @@ def validate_record(record: Any) -> None:
         value = record.get(field)
         if value is not None and _label_or_none(value) is None:
             raise RecordError(f"{field} must be a short safe label")
+    if record.get("slot") is not None:
+        try:
+            account_slots.validate_slot_name(record["slot"])
+        except account_slots.SlotError as exc:
+            raise RecordError("slot must be an account slot name") from exc
     for field in TOKEN_FIELDS:
         if field in record and record[field] is not None and _int_or_none(record[field]) is None:
             raise RecordError(f"{field} must be a non-negative integer or null")
@@ -314,6 +322,7 @@ def from_manifest_case(
         "record_id": _record_id("run_manifest", run_id, case.get("case_id"), started),
         "source": "run_manifest",
         "executor": executor,
+        "slot": case.get("slot"),
         "provider": _label_or_none(case.get("provider")),
         "dispatch_role": _label_or_none(case.get("dispatch_role")),
         "task_class": _label_or_none(task_class),
@@ -828,6 +837,40 @@ def run_selftest() -> int:
     except Exception as exc:  # pragma: no cover - reported as a failed check
         checks.append((f"selftest raised {type(exc).__name__}", False))
 
+    try:
+        slot_manifest = {"run_id": "selftest-slots", "cases": [
+            {"case_id": "s1", "executor": "agy", "slot": "acct2", "requested_model": "gemini-4-argon-high", "status": "failed",
+             "started_at": "2026-11-18T01:00:00Z", "completed_at": "2026-11-18T01:01:00Z"},
+            {"case_id": "s2", "executor": "agy", "requested_model": "gemini-4-argon-high", "status": "failed",
+             "started_at": "2026-11-18T02:00:00Z", "completed_at": "2026-11-18T02:01:00Z"},
+        ]}
+        slot_records = from_manifest(slot_manifest, billing_class="subscription")
+        check("slot: manifest slot name is recorded", slot_records[0]["slot"] == "acct2")
+        check("slot: missing slot is recorded as default", slot_records[1]["slot"] == "default")
+        check("slot: field sits right after executor", list(slot_records[0])[4] == "slot")
+        bad_slot = dict(slot_records[0], slot="Not A Slot")
+        try:
+            validate_record(bad_slot)
+            check("slot: malformed slot name is rejected", False)
+        except RecordError:
+            check("slot: malformed slot name is rejected", True)
+        legacy = {key: value for key, value in slot_records[1].items() if key != "slot"}
+        validate_record(legacy)
+        check("slot: legacy records without slot stay valid", True)
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "records.jsonl"
+            args = argparse.Namespace(append=True, records_file=str(out), slot="acct3")
+            with open(os.devnull, "w", encoding="utf-8") as sink:
+                old_stdout, sys.stdout = sys.stdout, sink
+                try:
+                    _emit(slot_records, args)
+                finally:
+                    sys.stdout = old_stdout
+            stored = [json.loads(line) for line in out.read_text(encoding="utf-8").splitlines()]
+            check("slot: --slot overrides the stored slot name", [row["slot"] for row in stored] == ["acct3", "acct3"])
+    except RecordError as exc:
+        check(f"slot checks raised RecordError: {exc}", False)
+
     print("=== usage_record.py selftest ===")
     for name, passed in checks:
         print(f"[{'PASS' if passed else 'FAIL'}] {name}")
@@ -846,6 +889,10 @@ def _read_json(path_text: str) -> Any:
 
 
 def _emit(records: list[dict[str, Any]], args: argparse.Namespace) -> int:
+    if getattr(args, "slot", None):
+        records = [{**record, "slot": args.slot} for record in records]
+        for record in records:
+            validate_record(record)
     if args.append:
         path = Path(args.records_file).expanduser() if args.records_file else default_records_path()
         result = append_records(path, records)
@@ -864,6 +911,7 @@ def build_parser() -> argparse.ArgumentParser:
     def common(p: argparse.ArgumentParser) -> None:
         p.add_argument("--billing-class", choices=sorted(BILLING_CLASSES))
         p.add_argument("--task-class", help="short task category label, e.g. implement/review/docs")
+        p.add_argument("--slot", help="account slot name the dispatch used (default: the case's slot, else default)")
         p.add_argument("--outcome", choices=sorted(OUTCOMES), help="acceptance-level outcome override")
         p.add_argument("--failure-category", choices=sorted(FAILURE_CATEGORIES))
         p.add_argument("--append", action="store_true", help="append to the usage records file instead of printing")

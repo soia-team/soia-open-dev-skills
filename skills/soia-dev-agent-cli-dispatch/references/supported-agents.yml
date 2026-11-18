@@ -6,7 +6,7 @@ updated_at: "2026-11-18"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "2.6.2"
+  version: "2.7.0"
   purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
   triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
 usage:
@@ -123,6 +123,8 @@ agents:
       everyday_small: gemini-4-hydrogen-medium
     checked_at: "2026-11-18"
     checked_cli_version: "1.5.10"
+    # 多账号：槽位用独立 HOME（已实测）；各槽位额度用 scripts/agy_quota.py 只读查看。见 references/account-slots.md。
+    account_slot_env: HOME
     auto_routing: []
     reference: references/antigravity-cli.md
   gemini:

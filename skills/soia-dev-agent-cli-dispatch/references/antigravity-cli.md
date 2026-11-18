@@ -74,8 +74,9 @@ agy models
 | `claude-sonnet-5-5-<level>` | Claude Sonnet 5.5 | low / medium / high |
 | `gpt-oss-120b-medium` | GPT-OSS 120B (Medium) | — |
 
-- **Gemini 4 Carbon**（low/medium/high）按 changelog 只在 `GEMINI_API_KEY`（1.5.8）、ADC `AGY_ADC_AUTH`
-  （1.5.5）和企业模型网关通道出现；消费者 OAuth 下 `agy models` 未列，不要对消费者账号派 Carbon。
+- **Gemini 4 Carbon**（low/medium/high）按 changelog 在 `GEMINI_API_KEY`（1.5.8）、ADC `AGY_ADC_AUTH`
+  （1.5.5）和企业模型网关通道出现；消费者 OAuth 账号是否列出因账号而异（2026-11-18：默认账号未列，
+  另两个槽位账号列出）。只对 `agy models` 里列出 Carbon 的账号/槽位派 Carbon。
 - 旧 Gemini 3.x Flash 多代、Gemini 3.1 Pro、Claude 4.6 已不在本账号列表中；历史文档里的这些名字不再作派发依据。
 
 `references/model-catalog.yml` 的 `antigravity` 段只登记 agy 派单默认与证据边界，价格全为 null；
@@ -88,7 +89,20 @@ agy models
   `route_model.py` 不自动选 agy。
 - 调用方首单：2026-11-18 以 `gemini-4-argon-high` + `--mode auto` + `--dangerously-skip-permissions` 派出；
   执行结果本技能未核验。
-- 订阅通道：回执标 `billing_class=subscription`，费用写 `unavailable`；额度用 `agy -p "/usage"` 预检（见下）。
+- 订阅通道：回执标 `billing_class=subscription`，费用写 `unavailable`；额度用 `agy -p "/usage"` 预检（见下），
+  多账号逐槽位看用 `scripts/agy_quota.py`。
+
+## 多账号（账号槽位）
+
+- 同机多个 agy 账号用独立 `HOME` 隔离（2026-11-18 实测）：`HOME=~/.agy-profiles/<槽位>` 下单独登录，之后该
+  `HOME` 下的 `agy` 就是那个账号。槽位登记、选择（指定或轮流，不按余量自动调度）、派单与用量记录见
+  `references/account-slots.md`。
+- 各槽位的登录状态、套餐、5 小时 / 7 天窗口剩余与重置时间、AI credits、可用模型：`python3 scripts/agy_quota.py`
+  （只跑上面的只读斜杠命令与 `agy models`；套餐名 CLI 不提供）；本单挑槽位并一行汇报：`--pick --model <id>`。
+- 登录检测只用 `agy models`：未登录时它以退出码 1 报 `Please sign in to view available models` 并立即退出；
+  而 `agy -p "/usage"` 在未登录时会打印授权链接并阻塞等待登录，不能拿来探测。授权链接不进日志或回执。
+- 不同账号的模型列表可以不同（当日槽位账号能看到 `gemini-4-carbon-*`、Claude 4.6，默认账号看到 Claude 5.5）；
+  派单前在**该槽位下**重跑 `agy models`，不要拿默认账号的列表推断别的槽位。
 
 ## 权限模式（headless 行为已变）
 
@@ -134,7 +148,10 @@ agy -p --input-format stream-json --output-format stream-json --model <id> --mod
 - `--input-format stream-json` 的输入消息字段本技能未实测，按官方文档写；多轮 stream-json 会话中某轮出错会告警并继续。
 - `agy models` / `agy agents` 也接受 `--output-format json|stream-json`（本次只读核对未拿到 JSON 输出，用文本即可）。
 - 只读斜杠命令在 print 模式不起模型轮次、不耗额度：`agy -p "/usage"`、`/quota`、`/credits`、`/model`、`/effort`、
-  `/skills`；配 `--output-format json` 得结构化结果。
+  `/skills`；配 `--output-format json` 得结构化结果（`agy -p "/help"` 列出 print 模式能答的命令）。
+  2026-11-18 实测 `/usage` 的 JSON：`command.data.groups[]` 每组有 `name`、`description`（多为
+  `Models within this group: ...`）和 `buckets[]{id, window: 5h|weekly, remaining_fraction, reset_time(UTC)}`；
+  `/credits` 给 `command.data.remaining_credits`。没有套餐/tier 字段。`agy models` 不接受 `--output-format`（1.5.10 报错），用文本。
 
 退出与超时：
 

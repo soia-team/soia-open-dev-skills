@@ -17,6 +17,28 @@ retention:
   # A new run is blocked at this limit; cleanup is never automatic.
   max_runs: 50
 
+# Optional account slots: one slot = environment overrides for one CLI, used
+# to isolate a second/third login of that CLI. Only the slot name is recorded
+# in manifests and usage records. Never put an account address, credential
+# value or credential-file content here; values are templates where `~` and
+# {home} mean your home directory and {slot} the slot name.
+# How each CLI isolates its login: references/account-slots.md.
+# `cli` is an executor id from references/supported-agents.yml.
+# slots:
+#   acct2:
+#     cli: agy
+#     env:
+#       HOME: "~/.agy-profiles/{slot}"
+#     note: "<non-identifying note, e.g. second consumer account>"
+#   acct3:
+#     cli: agy
+#     env:
+#       HOME: "~/.agy-profiles/{slot}"
+# Optional round-robin order per CLI for `account_slots.py --rotate`;
+# `default` is the main login. Omitted = default + declared slots by name.
+# slot_rotation:
+#   agy: [default, acct2, acct3]
+
 # Optional Jev integration settings. Credentials remain in a provider-owned
 # keychain or in the credential file named here; do not put key values in YAML.
 # jev:

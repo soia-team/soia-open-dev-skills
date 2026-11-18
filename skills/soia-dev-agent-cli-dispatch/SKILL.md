@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 派任务给外部 AI CLI 进程并核验模型、额度与产物；宿主内置 subagent 不用本技能。触发：派给 Codex/Pi 等外部 CLI、多 CLI 分工、外部自动选模
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.6.2
+version: 2.7.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-11-18 14:35:27
+updated_at: 2026-11-18 18:20:00
 created_by: claude opus 4.6
 updated_by: claude opus 5.5
 ---
@@ -35,7 +35,7 @@ updated_by: claude opus 5.5
 
 单技能 `npx skills add soia-team/soia-open-dev-skills -a <agent> -s soia-dev-agent-cli-dispatch`（`-g` 全局、`-a '*'` 全部 Agent 须客户明确选择）；整域 `claude plugin install soia-dev@soia` 或 `codex plugin add soia-dev@soia`（先接入市场 soia-team/soia-open-skills）。同一宿主同一范围不同时保留插件副本和 skills 目录副本。WorkBuddy 见[专家安装说明](https://github.com/soia-team/soia-open-skills/blob/main/docs/install/workbuddy.md)；完整步骤见[官方安装说明](https://github.com/soia-team/soia-open-skills#安装)。命令不构成安装授权，发现技能缺失也不自动安装。
 
-可选私有配置：模板 `assets/config.example.yml`，位置 `~/.config/soia-skills/soia-dev-agent-cli-dispatch/config.yml` 或 `SOIA_DEV_AGENT_CLI_DISPATCH_CONFIG_FILE`，只放 host 标识与 state/temp 根；优先级为 CLI 参数 → 进程环境 → config → 跨平台默认。API key、cookie、token、session 不进配置。
+可选私有配置：模板 `assets/config.example.yml`，位置 `~/.config/soia-skills/soia-dev-agent-cli-dispatch/config.yml` 或 `SOIA_DEV_AGENT_CLI_DISPATCH_CONFIG_FILE`，只放 host 标识、state/temp 根与可选账号槽位；优先级为 CLI 参数 → 进程环境 → config → 跨平台默认。API key、cookie、token、session、账号邮箱不进配置。
 
 ### 私密信息与中间数据
 
@@ -107,6 +107,7 @@ permissions:
 - **dsh 与 `availability: local_only` 条目**不走第 4 步的 `route_model.py`（其 `--executor` 不含 dsh），也不产出 `verified_auto`。云端还是本地只认派发前 `--dump-config` 解出的生效 provider/端点（只读非秘密字段；`--patch` 可能被 `settings.yaml` 覆盖，不作判据）：确认为本地 OpenAI 兼容端点才免额度门，仍须显式指定模型；云端是真实额度桶，必须有调用方提供、官方来源的 `state=available` 余额观测，否则 `hold`。两条分支与模型取证见 `references/dsh-cli.md` 开头。
 - 检查 workdir 存在、不是凭据/配置目录、有无未提交改动、是否与其他任务重叠。不可服务、认证阻断、额度不足或目录不安全即停，并给明确状态。
 - Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道分开，不复制认证状态、不静默 alias。agy 1.5.7 起 headless 默认 Auto 模式，派单显式写 `--mode`。
+- **账号槽位**（同一 CLI 多账号）：不指定即 `default`（主登录）；指定用 `--slot <名>`，轮流用 `scripts/account_slots.py --rotate`，不按剩余额度自动调度。额度按账号分开：预检在该槽位环境下做，报告带 `slot`，`route_model.py`/`run_matrix.py` 传同一 `--slot`。agy 多账号**先检测不先问**：`scripts/agy_quota.py --pick` 判每个槽位（未建 / 未登录 / 可用），未登录给客户确切的 `HOME=~/.agy-profiles/<槽位> agy` 命令并说明须本人在浏览器授权、助手不能代登，客户说好了再检测；已登录直接工作，只报一行各槽位状态与本单槽位/模型；唯一会问的是两个槽位疑似同一账号，答案记下不再问。登记、建槽位、各 CLI 隔离方式与额度查看见 `references/account-slots.md`。
 
 ### 4. 选模型与推理档（消费第 3 步的可用桶）
 
@@ -168,6 +169,7 @@ python3 scripts/route_model.py --executor <agent-id> --complexity <easy|medium|h
 | 认领字段与可抓取前沿 | `references/claim-protocol.md` |
 | 模型与价格运行时事实源 | `references/model-catalog.yml` |
 | 长任务判活、有界等待与退出归类 | `references/executor-watch.md`、`scripts/executor_watch.py` |
+| 账号槽位（多账号隔离、指定/轮流）与 agy 各槽位套餐/额度/模型 | `references/account-slots.md`、`scripts/account_slots.py`、`scripts/agy_quota.py` |
 | 用量记录、本地聚合与 Jev 推荐输入 | `references/usage-records.md`、`scripts/usage_record.py`、`scripts/usage_aggregate.py` |
 | codex 会话 ID、实际模型、用量与续接 | `references/codex-cli.md`「会话取证与续接」、`scripts/codex_session_info.py` |
 | dsh 会话模型、子代理与用量取证（会话格式 v3/v4，需系统 `zstd`） | `scripts/dsh_session_usage.py` |

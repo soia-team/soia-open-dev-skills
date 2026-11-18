@@ -50,10 +50,11 @@ def _mean(values: list[float]) -> float | None:
 def aggregate(
     records: Iterable[dict[str, Any]], *, now: dt.datetime | None = None, since_days: int | None = 30,
     min_samples: int = 3, recent_failures: int = 5, task_class: str | None = None,
+    by_slot: bool = False, slot: str | None = None,
 ) -> dict[str, Any]:
     now = now or dt.datetime.now(dt.timezone.utc)
     cutoff = now - dt.timedelta(days=since_days) if since_days is not None else None
-    groups: dict[tuple[str, str, bool], list[dict[str, Any]]] = collections.defaultdict(list)
+    groups: dict[tuple[str, str, bool, str], list[dict[str, Any]]] = collections.defaultdict(list)
     skipped_invalid = 0
     for record in records:
         try:
@@ -63,14 +64,17 @@ def aggregate(
             continue
         if task_class is not None and record.get("task_class") != task_class:
             continue
+        record_slot = record.get("slot") or "default"
+        if slot is not None and record_slot != slot:
+            continue
         if cutoff is not None and _parse_time(record["completed_at"]) < cutoff:
             continue
         verified = bool(record["model_verified"])
         model = record["actual_model"] if verified else record["requested_model"]
-        groups[(record["executor"], model, verified)].append(record)
+        groups[(record["executor"], model, verified, record_slot if by_slot else "")].append(record)
 
     rows = []
-    for (executor, model, verified), items in sorted(groups.items()):
+    for (executor, model, verified, group_slot), items in sorted(groups.items()):
         items.sort(key=lambda item: item["completed_at"])
         outcomes = collections.Counter(item["outcome"] for item in items)
         decided = outcomes["passed"] + outcomes["failed"]
@@ -79,7 +83,7 @@ def aggregate(
             field: _mean([item[field] for item in items if isinstance(item.get(field), int)])
             for field in TOKEN_FIELDS
         }
-        rows.append({
+        row = {
             "executor": executor,
             "model": model,
             "model_verified": verified,
@@ -99,12 +103,17 @@ def aggregate(
             "billing_classes": sorted({item["billing_class"] for item in items}),
             "recent_failure_categories": dict(sorted(collections.Counter(item["failure_category"] for item in failures).items())),
             "last_seen_date": items[-1]["completed_at"][:10],
-        })
+        }
+        if by_slot:
+            row = {"slot": group_slot, **row}
+        rows.append(row)
     return {
         "schema": SUMMARY_SCHEMA,
         "generated_on": now.strftime("%Y-%m-%d"),
         "window_days": since_days,
         "task_class": task_class,
+        "by_slot": by_slot,
+        "slot": slot,
         "min_samples": min_samples,
         "recent_failure_window": recent_failures,
         "skipped_invalid_records": skipped_invalid,
@@ -134,7 +143,7 @@ def jev_state(summary: dict[str, Any]) -> str:
         tokens = row["avg_tokens"]
         token_text = "/".join(_fmt(tokens[field]) for field in ("input_tokens", "cached_input_tokens", "cache_write_tokens", "output_tokens"))
         failures = ",".join(f"{key}:{value}" for key, value in row["recent_failure_categories"].items()) or "none"
-        candidate = f"{row['executor']}:{row['model']}" + ("" if row["model_verified"] else "(unverified)")
+        candidate = f"{row['executor']}:{row['model']}" + (f"@{row['slot']}" if row.get("slot") else "") + ("" if row["model_verified"] else "(unverified)")
         lines.append(" | ".join([
             candidate, str(row["samples"]), _fmt(row["low_sample"]), _fmt(row["success_rate"]), _fmt(row["blocked_rate"]),
             str(row["acceptance_samples"]), token_text, _fmt(row["avg_estimated_api_equivalent_usd"]),
@@ -248,6 +257,16 @@ def run_selftest() -> int:
             blocked = write_jev_state(poisoned, blocked_path)
             check("a path-shaped value blocks the jev state and nothing is written",
                   blocked["status"] == "blocked_by_scan" and not blocked_path.exists())
+        slotted = [dict(record, slot="acct2") if index % 2 else dict(record) for index, record in enumerate(records)]
+        split = aggregate(slotted, now=now, since_days=14, by_slot=True)
+        dsh_rows = [row for row in split["groups"] if row["executor"] == "dsh"]
+        check("by_slot splits a model's samples per account slot",
+              sorted((row["slot"], row["samples"]) for row in dsh_rows) == [("acct2", 2), ("default", 3)])
+        only = aggregate(slotted, now=now, since_days=14, slot="acct2")
+        check("slot filter keeps only that slot's records",
+              sum(row["samples"] for row in only["groups"]) == sum(1 for row in split["groups"] if row["slot"] == "acct2" for _ in range(row["samples"])))
+        check("default summary keeps the slot-free shape", "slot" not in summary["groups"][0])
+        check("jev candidate names the slot when split", "@acct2" in jev_state(split))
     except Exception as exc:  # pragma: no cover - reported as a failed check
         checks.append((f"selftest raised {type(exc).__name__}", False))
 
@@ -265,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-samples", type=int, default=3)
     parser.add_argument("--recent-failures", type=int, default=5)
     parser.add_argument("--task-class")
+    parser.add_argument("--by-slot", action="store_true", help="split groups by account slot (records without slot count as default)")
+    parser.add_argument("--slot", help="only aggregate records of this account slot")
     parser.add_argument("--jev-state", help="write a scanned compact text state for jev_check.py")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args(argv)
@@ -273,7 +294,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         path = Path(args.records).expanduser() if args.records else usage_record.default_records_path()
         summary = aggregate(_load(path), since_days=args.since_days or None, min_samples=args.min_samples,
-                            recent_failures=args.recent_failures, task_class=args.task_class)
+                            recent_failures=args.recent_failures, task_class=args.task_class,
+                            by_slot=args.by_slot, slot=args.slot)
     except (OSError, ValueError):
         print(json.dumps({"status": "input_error", "error": "could not read usage records"}))
         return 2

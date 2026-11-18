@@ -17,6 +17,7 @@
 | `record_id` | 是 | 来源键（manifest 的 `run_id`+`case_id`、dsh 会话 ID 等）加开始时间的 SHA-256 前 16 位；用于去重，不可逆 |
 | `source` | 是 | `run_manifest` / `dsh_session` / `codex_session` / `cli_output` |
 | `executor` | 是 | 执行器标识，如 `codex`、`claude`、`pi`、`dsh` |
+| `slot` | 否 | 账号槽位名（`references/account-slots.md`）；新记录无槽位时写 `default`，旧记录缺该字段按 `default` 处理。只记名字，不记槽位展开后的路径 |
 | `provider` | 否 | 与 manifest 相同；dsh 取主模型的 provider |
 | `dispatch_role` | 否 | 与调用契约同名字段相同 |
 | `task_class` | 否 | 调用方给出的任务类别短标签（如 `implement`、`review`、`docs`），供按任务类别比较 |
@@ -86,6 +87,8 @@ dsh 的主模型取 `message_source`/`request_header` 归属行中 token 最多�
 
 ```bash
 python3 scripts/usage_record.py from-manifest --manifest <manifest.json> --billing-class subscription --append
+# 非 manifest 来源用 --slot 写明这次用的账号槽位（manifest 来源自动取 case 的 slot）
+python3 scripts/usage_record.py from-output --executor claude ... --slot <slot> --append
 python3 scripts/dsh_session_usage.py --marker <marker> > <report.json>
 python3 scripts/usage_record.py from-dsh --report <report.json> --requested-model deepseek-flash --task-class implement --append
 python3 scripts/codex_session_info.py --stderr-file <stderr.log> | python3 scripts/usage_record.py from-codex --info - --requested-model gpt-6-luna --append
@@ -98,7 +101,7 @@ python3 scripts/usage_record.py --selftest
 
 ## 本地聚合 `soia.dispatch.usage-summary/v1`
 
-`scripts/usage_aggregate.py` 读取记录，按 `executor` + 模型分组。模型取 `actual_model`；未验证时取 `requested_model` 并在分组上标 `model_verified=false`，两类不合并。
+`scripts/usage_aggregate.py` 读取记录，按 `executor` + 模型分组；`--by-slot` 再按账号槽位拆开（分组多一个 `slot` 字段，Jev 候选写成 `executor:model@slot`），`--slot <名>` 只聚合一个槽位。默认不拆，摘要形状与以前相同。模型取 `actual_model`；未验证时取 `requested_model` 并在分组上标 `model_verified=false`，两类不合并。
 
 | 聚合字段 | 计算 |
 |---|---|

@@ -55,7 +55,7 @@ flowchart LR
 
 | 技能 | 职责 | 开箱 |
 |---|---|:-:|
-| [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | 外部 AI CLI 调度与模型路由，受控派活与用量回执 | 🟡 |
+| [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | 外部 AI CLI 调度与模型路由，同一 CLI 多账号与各账号额度查看，受控派活与用量回执 | 🟡 |
 
 ### 04 代码变更理解　`AI 代码变更 → 架构调用、数据流与证据视图`
 

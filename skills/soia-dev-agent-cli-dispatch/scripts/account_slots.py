@@ -391,8 +391,12 @@ def apply_env(base: Mapping[str, str] | None, overrides: Mapping[str, str]) -> d
 
 
 def scoped_quota_key(key: str, slot: str | None) -> str:
-    """Quota is per account: append `@<slot>` for a non-default slot unless already scoped."""
-    if not slot or slot == DEFAULT_SLOT or "@" in key:
+    """Quota is per account: append `@<slot>` for a non-default slot unless the key already ends with it.
+
+    A key that merely contains `@` (e.g. `bucket@region`) is still scoped, so one
+    account's exhausted bucket never blocks another account.
+    """
+    if not slot or slot == DEFAULT_SLOT or key.endswith(f"@{slot}"):
         return key
     return f"{key}@{slot}"
 
@@ -531,6 +535,10 @@ def run_selftest() -> int:
         check("rotation state stores only the last slot name", set(stored) == {"agy"} and set(stored["agy"]) == {"last", "updated_at"})
         check("rotation state file is 0600", (os.stat(state / ROTATION_FILE).st_mode & 0o777) == 0o600 or os.name == "nt")
     check("quota key is scoped per slot", scoped_quota_key("agy:gemini-4-argon-high", "acct2") == "agy:gemini-4-argon-high@acct2")
+    check("a key that already contains @ is still scoped per slot",
+          scoped_quota_key("bucket@region", "acct2") == "bucket@region@acct2"
+          and scoped_quota_key("bucket@region", "acct3") != scoped_quota_key("bucket@region", "acct2"))
+    check("scoping is idempotent", scoped_quota_key("agy:m@acct2", "acct2") == "agy:m@acct2")
     check("default slot keeps the quota key", scoped_quota_key("codex", "default") == "codex" and scoped_quota_key("codex", None) == "codex")
     merged = apply_env({"PATH": "/bin", "HOME": "x"}, acct2["env"])
     check("apply_env overrides only the slot variables", merged["PATH"] == "/bin" and merged["HOME"] == acct2["env"]["HOME"])

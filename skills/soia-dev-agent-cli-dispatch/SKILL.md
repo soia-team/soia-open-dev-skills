@@ -5,7 +5,7 @@ dependencies:
   optional: [soia-meta-sync-skills]
 version: 2.7.0
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-11-18 17:20:00
+updated_at: 2026-11-18 18:20:00
 created_by: claude opus 4.6
 updated_by: claude opus 5.5
 ---
@@ -107,7 +107,7 @@ permissions:
 - **dsh 与 `availability: local_only` 条目**不走第 4 步的 `route_model.py`（其 `--executor` 不含 dsh），也不产出 `verified_auto`。云端还是本地只认派发前 `--dump-config` 解出的生效 provider/端点（只读非秘密字段；`--patch` 可能被 `settings.yaml` 覆盖，不作判据）：确认为本地 OpenAI 兼容端点才免额度门，仍须显式指定模型；云端是真实额度桶，必须有调用方提供、官方来源的 `state=available` 余额观测，否则 `hold`。两条分支与模型取证见 `references/dsh-cli.md` 开头。
 - 检查 workdir 存在、不是凭据/配置目录、有无未提交改动、是否与其他任务重叠。不可服务、认证阻断、额度不足或目录不安全即停，并给明确状态。
 - Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道分开，不复制认证状态、不静默 alias。agy 1.5.7 起 headless 默认 Auto 模式，派单显式写 `--mode`。
-- **账号槽位**（同一 CLI 多账号）：不指定即 `default`（主登录）；指定用 `--slot <名>`，轮流用 `scripts/account_slots.py --rotate`，不按剩余额度自动调度。额度按账号分开：预检在该槽位环境下做，报告带 `slot`，`route_model.py`/`run_matrix.py` 传同一 `--slot`。登记、各 CLI 隔离方式与 agy 逐槽位额度查看见 `references/account-slots.md`。
+- **账号槽位**（同一 CLI 多账号）：不指定即 `default`（主登录）；指定用 `--slot <名>`，轮流用 `scripts/account_slots.py --rotate`，不按剩余额度自动调度。额度按账号分开：预检在该槽位环境下做，报告带 `slot`，`route_model.py`/`run_matrix.py` 传同一 `--slot`。agy 多账号**先检测不先问**：`scripts/agy_quota.py --pick` 判每个槽位（未建 / 未登录 / 可用），未登录给客户确切的 `HOME=~/.agy-profiles/<槽位> agy` 命令并说明须本人在浏览器授权、助手不能代登，客户说好了再检测；已登录直接工作，只报一行各槽位状态与本单槽位/模型；唯一会问的是两个槽位疑似同一账号，答案记下不再问。登记、建槽位、各 CLI 隔离方式与额度查看见 `references/account-slots.md`。
 
 ### 4. 选模型与推理档（消费第 3 步的可用桶）
 

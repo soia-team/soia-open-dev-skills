@@ -9,7 +9,24 @@
 - 槽位登记在私有配置里（`~/.config/soia-skills/soia-dev-agent-cli-dispatch/config.yml` 的 `slots:` 与 `slot_rotation:`，模板见 `assets/config.example.yml`），不进仓库。
 - 每个槽位只写：槽位名、`cli`（`references/supported-agents.yml` 里的执行器 id）、要覆盖的变量名与取值模板、可选备注。模板里 `~` 与 `{home}` 指用户主目录，`{slot}` 指槽位名。
 - 配置里不写账号邮箱、凭据值、凭据文件内容；变量名形如 `*KEY*`、`*TOKEN*`、`*SECRET*`、`*AUTH*`，或取值、备注里出现邮箱形状的内容，`scripts/account_slots.py` 直接拒绝。
-- 登录由客户本人在该槽位下完成（见下表），本技能不代登录、不复制认证文件、不建软链。
+- 登录由客户本人在该槽位下完成（见下表），本技能不代登录、不复制认证文件。建槽位（目录与非凭据缓存软链）用 `account_slots.py init`，见下文「多账号工作流」。
+
+## 多账号工作流（agy）：先检测，不先问
+
+客户说「用 cli 技能、agy 多账号」时，按下面做，**唯一会问客户的只有第 4 条**。
+
+1. **先检测。** 跑 `python3 scripts/agy_quota.py --pick --model <id> [--slot <名> | --rotate]`，逐槽位判状态：
+   槽位目录不存在 = `未建槽位`；隔离 `HOME` 下 `agy models` 报 sign in = `未登录`；能列出模型 = `可用`，此后才查 `/usage`、`/credits`。
+   （未登录时 `agy -p "/usage"` 会打印授权链接并一直等待，所以登录判断只用 `agy models`。）
+2. **未登录 / 未建槽位：给确切命令，不代登。**
+   - 未建槽位：先 `python3 scripts/account_slots.py init --cli agy --slot <名>`（建 `~/.agy-profiles/<名>`，`0700`，把已存在的 `.gitconfig`、`.npmrc`、`.npm-global`、`.cache`、`.local`、`Library/pnpm`、`Library/Caches/ms-playwright` 软链回主目录；登录与密钥目录如 `.gemini`、`.ssh`、钥匙串一律不链；已存在的不覆盖；`--dry-run` 只预览）。槽位没登记时它给出要加进私有配置的片段。
+   - 然后告诉客户：在终端运行 `HOME=~/.agy-profiles/<名> agy`（默认账号就是 `agy`），在弹出的浏览器里完成 Google 授权；助手不能代登。客户说好了，再检测一次，**以检测结果为准**。
+3. **已登录：不打扰，直接工作。** 只汇报一行：各槽位可用与否和剩余额度、本单用哪个槽位与模型，例如
+   `agy 槽位：default 可用（Gemini 7d97%/5h92%，…）；acct2 可用（Gemini 7d99%/5h99%）；acct3 未登录 → 本单用 acct2 / gemini-4-carbon-high；跳过 default（账号不提供 gemini-4-carbon-high）`。
+   - `--rotate`：未登录、未建、登录过期、不提供该模型、该模型额度组已耗尽、或已确认与别的槽位同号的槽位**自动跳过**，在这一行里写明原因；轮到的槽位记进轮转状态（`--peek` 不推进）。
+   - `--slot <名>` 或不写（= `default`）：指定的槽位不能跑就阻断（退出码 3），**不静默换号**，并列出能跑的槽位。
+   - 跳过/阻断只看「能不能跑」，不按剩余百分比排序挑号。
+4. **唯一会问：疑似同一个 Google 账号。** 不读凭据就看不到邮箱，只能看迹象：两个可用槽位的模型清单相同，且每个额度窗口的剩余比例与重置时间都相同、并且至少有一个窗口已经用过（全是 100% 的新号不算证据）。这时问客户一次；答案用 `python3 scripts/account_slots.py confirm --cli agy --slots <a> <b> --same|--distinct` 记下（`<state>/slots/identity.json`，只存槽位名），之后不再问。确认是同一账号的，轮转时只用前一个。
 
 ## 选槽位：只有「指定」和「轮流」
 
@@ -52,7 +69,7 @@ manifest、用量记录与回执只写槽位名，不写槽位展开后的路径
 ### agy：独立 `HOME`
 
 - 2026-11-18 实测：`HOME=~/.agy-profiles/<槽位>` 下 agy 需要单独登录（客户本人在该 `HOME` 下首次运行 `agy` 完成浏览器授权），之后 `agy models`、`agy -p "/usage"` 返回的是该账号的数据（当日默认账号与另两个槽位账号的模型列表、额度分组都不同）。
-- 换 `HOME` 会影响 agent 在任务里跑的所有命令。git / npm / pnpm / playwright 等的配置与缓存可以按需软链回主目录（例如 `.gitconfig`、`.npmrc`、`.cache`、`.local`）；没链回的目录（如 `~/.ssh`）在槽位下不可见。链哪些由客户决定，本技能不代建。
+- 换 `HOME` 会影响 agent 在任务里跑的所有命令。git / npm / pnpm / playwright 等的配置与缓存用 `account_slots.py init` 软链回主目录（默认清单见上文，`--link <相对路径>` 可改）；没链回的目录（如 `~/.ssh`）在槽位下不可见，需要的话由客户自己决定是否链。
 - agy 二进制在 `~/.local/bin` 时，槽位 `HOME` 下要能找到它（软链 `.local`，或派单时用绝对命令路径）。
 
 ## 查看各槽位额度（agy）
@@ -60,9 +77,10 @@ manifest、用量记录与回执只写槽位名，不写槽位展开后的路径
 ```bash
 python3 scripts/agy_quota.py                 # 默认登录 + 所有 agy 槽位，人读视图
 python3 scripts/agy_quota.py --slot acct2 --json
+python3 scripts/agy_quota.py --pick --model gemini-4-argon-high --rotate   # 一行汇报 + 本单槽位
 ```
 
-逐个槽位只跑官方只读命令，不起模型轮次、不耗额度：`agy -p "/usage" --output-format json`、`agy -p "/credits" --output-format json`、`agy models`；各槽位并行，单槽位约 40 秒。不读凭据文件、日志或会话库，调用时设 `AGY_CLI_HIDE_ACCOUNT_INFO=1`，输出只含解析后的字段。
+逐个槽位只跑官方只读命令，不起模型轮次、不耗额度：先 `agy models`（兼作登录检测），可用的槽位再跑 `agy -p "/usage" --output-format json`、`agy -p "/credits" --output-format json`；各槽位并行，单槽位约 40 秒。不读凭据文件、日志或会话库，调用时设 `AGY_CLI_HIDE_ACCOUNT_INFO=1`，输出只含解析后的字段。
 
 | 字段 | 来源 | 说明 |
 |---|---|---|

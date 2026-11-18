@@ -3,9 +3,9 @@
 # @created_at 2026-11-18 16:10:00
 # @modified_by claude opus 5.5
 # @modified_at 2026-11-18 16:10:00
-# @version 0.1.0
+# @version 0.2.0
 # @description Resolve per-CLI account slots (env overrides that isolate a login) by name or rotation.
-# @changelog 0.1.0: first version; slots live in the private config, never in the repository.
+# @changelog 0.2.0: `init` creates a slot's isolated home and links non-credential caches; `confirm` records whether two slots are the same account. 0.1.0: first version; slots live in the private config, never in the repository.
 """Account slots: one slot = a set of environment overrides for one CLI.
 
 A slot isolates a CLI's login state (for example agy with its own ``HOME``)
@@ -23,6 +23,8 @@ Usage:
     python3 account_slots.py resolve --cli agy --slot acct2 [--format json|shell]
     python3 account_slots.py resolve --cli agy --rotate [--peek]
     python3 account_slots.py exec --cli agy --slot acct2 -- agy models
+    python3 account_slots.py init --cli agy --slot acct4 [--dry-run]
+    python3 account_slots.py confirm --cli agy --slots acct2 acct3 --distinct|--same
     python3 account_slots.py --selftest
 """
 
@@ -54,6 +56,21 @@ TEMPLATE_FIELD_RE = re.compile(r"\{([^{}]*)\}")
 ALLOWED_TEMPLATE_FIELDS = {"slot", "home"}
 EMAIL_RE = re.compile(r"[^\s@]+@[^\s@]+\.[A-Za-z]{2,}")
 ROTATION_FILE = Path("slots") / "rotation.json"
+IDENTITY_FILE = Path("slots") / "identity.json"
+
+# Default isolated-home template per CLI for `init` when the slot is not declared yet.
+DEFAULT_SLOT_ENV = {"agy": {"HOME": "~/.agy-profiles/{slot}"}}
+# Non-credential config and caches that `init` links back to the real home when
+# they exist there (git/npm/pnpm/playwright and the ~/.local bin dir).
+DEFAULT_LINKS = {
+    "agy": [".gitconfig", ".npmrc", ".npm-global", ".cache", ".local",
+            "Library/pnpm", "Library/Caches/ms-playwright"],
+}
+# Never linked: they hold logins or keys, which a slot exists to keep apart.
+NEVER_LINK = re.compile(
+    r"^(?:\.gemini|\.codex|\.claude|\.ssh|\.gnupg|\.netrc|\.git-credentials|\.aws|\.docker|\.kube|"
+    r"\.config/gcloud|\.config/gh|Library/Keychains|Library/Application Support)(?:/|$)"
+)
 
 # How each CLI isolates its login. `verified` is the evidence strength of the
 # isolation itself, not of any account; see references/account-slots.md.
@@ -174,12 +191,7 @@ def render_env(slot_name: str, slot: dict[str, Any] | None, home: Path | None = 
     return env, display
 
 
-def _rotation_path(state_dir: Path) -> Path:
-    return state_dir / ROTATION_FILE
-
-
-def _read_rotation(state_dir: Path) -> dict[str, Any]:
-    path = _rotation_path(state_dir)
+def _read_state(path: Path) -> dict[str, Any]:
     if not path.is_file():
         return {}
     try:
@@ -189,14 +201,128 @@ def _read_rotation(state_dir: Path) -> dict[str, Any]:
     return data if isinstance(data, dict) else {}
 
 
-def _write_rotation(state_dir: Path, data: dict[str, Any]) -> None:
-    path = _rotation_path(state_dir)
+def _write_state(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".rotation-", suffix=".json")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".slots-", suffix=".json")
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
         json.dump(data, handle, ensure_ascii=False, indent=2)
     os.chmod(tmp, 0o600)
     os.replace(tmp, path)
+
+
+def read_rotation(state_dir: Path) -> dict[str, Any]:
+    return _read_state(state_dir / ROTATION_FILE)
+
+
+def record_rotation(state_dir: Path, cli: str, slot: str) -> None:
+    state = read_rotation(state_dir)
+    state[cli] = {"last": slot, "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
+    _write_state(state_dir / ROTATION_FILE, state)
+
+
+def rotation_start(order: list[str], state_dir: Path, cli: str) -> list[str]:
+    """Return `order` rotated so it starts at the slot after the last one used."""
+    entry = read_rotation(state_dir).get(cli)
+    last = entry.get("last") if isinstance(entry, dict) else None
+    first = next_rotation(order, last)
+    index = order.index(first)
+    return order[index:] + order[:index]
+
+
+def _pair_key(a: str, b: str) -> str:
+    return "|".join(sorted((a, b)))
+
+
+def identity_decision(state_dir: Path | None, cli: str, a: str, b: str) -> str | None:
+    """`same` / `distinct` if the user already confirmed this slot pair, else None."""
+    if state_dir is None:
+        return None
+    entry = _read_state(state_dir / IDENTITY_FILE).get(cli)
+    value = entry.get(_pair_key(a, b)) if isinstance(entry, dict) else None
+    return value if value in ("same", "distinct") else None
+
+
+def record_identity(state_dir: Path, cli: str, a: str, b: str, decision: str) -> None:
+    if decision not in ("same", "distinct"):
+        raise SlotError("identity decision must be 'same' or 'distinct'")
+    validate_slot_name(a)
+    validate_slot_name(b)
+    if a == b:
+        raise SlotError("confirm needs two different slots")
+    path = state_dir / IDENTITY_FILE
+    state = _read_state(path)
+    entry = state.get(cli) if isinstance(state.get(cli), dict) else {}
+    entry[_pair_key(a, b)] = decision
+    state[cli] = entry
+    _write_state(path, state)
+
+
+def isolation_dir(resolved: dict[str, Any]) -> Path | None:
+    """The slot's isolated login directory (value of the CLI's isolation variable), if any."""
+    var = resolved.get("isolation_env")
+    value = (resolved.get("env") or {}).get(var) if var else None
+    return Path(value) if value else None
+
+
+def init_slot(
+    config: Mapping[str, Any] | None, cli: str, slot: str, *, links: list[str] | None = None,
+    dry_run: bool = False, home: Path | None = None, executors: set[str] | None = None,
+) -> dict[str, Any]:
+    """Create a slot's isolated home and link non-credential caches back to the real home.
+
+    Uses the declared slot if there is one, else the CLI's default template. It
+    never logs in, never copies a login, never links a credential store and
+    never overwrites an existing entry. The private config is not edited:
+    `config_snippet` is returned for the user to add when the slot is new.
+    """
+    validate_slot_name(slot)
+    if slot == DEFAULT_SLOT:
+        raise SlotError("the default slot is the main login; there is nothing to create")
+    real_home = (home or Path.home()).expanduser()
+    slots = load_slots(config, executors)
+    declared = slots.get(slot)
+    if declared is not None and declared["cli"] != cli:
+        raise SlotError(f"slot {slot!r} belongs to cli {declared['cli']!r}, not {cli!r}")
+    if declared is None:
+        template = DEFAULT_SLOT_ENV.get(cli)
+        if template is None:
+            raise SlotError(f"no default slot template for cli {cli!r}; declare the slot in the private config first")
+        declared = {"cli": cli, "env": dict(template), "note": None}
+    env, display = render_env(slot, declared, real_home)
+    var = (ISOLATION.get(cli) or {}).get("env")
+    if not var or var not in env:
+        raise SlotError(f"slot {slot!r} does not override {var or 'an isolation variable'}; nothing to create")
+    target = Path(env[var])
+    actions: list[dict[str, str]] = []
+    if not target.exists():
+        actions.append({"action": "mkdir", "path": display[var]})
+        if not dry_run:
+            target.mkdir(parents=True, mode=0o700)
+    names = DEFAULT_LINKS.get(cli, []) if links is None else links
+    for name in names:
+        rel = name.strip().strip("/")
+        if not rel or rel.startswith("..") or "/../" in f"/{rel}/" or NEVER_LINK.match(rel):
+            actions.append({"action": "refused", "path": rel, "reason": "credential store or unsafe path"})
+            continue
+        source = real_home / rel
+        dest = target / rel
+        if not source.exists():
+            actions.append({"action": "skip", "path": rel, "reason": "not present in the main home"})
+            continue
+        if dest.exists() or dest.is_symlink():
+            actions.append({"action": "skip", "path": rel, "reason": "already present in the slot"})
+            continue
+        actions.append({"action": "link", "path": rel})
+        if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.symlink_to(source)
+    snippet = None
+    if slot not in slots:
+        lines = ["slots:", f"  {slot}:", f"    cli: {cli}", "    env:"]
+        lines += [f'      {key}: "{value}"' for key, value in declared["env"].items()]
+        snippet = "\n".join(lines)
+    return {"cli": cli, "slot": slot, "dry_run": dry_run, "isolation_env": var,
+            "slot_home": display[var], "actions": actions, "config_snippet": snippet}
 
 
 def next_rotation(order: list[str], last: str | None) -> str:
@@ -229,13 +355,10 @@ def resolve_slot(
         order = rotation_order(config, cli, slots)
         if state_dir is None:
             raise SlotError("rotation needs a state directory")
-        state = _read_rotation(state_dir)
-        entry = state.get(cli) if isinstance(state.get(cli), dict) else {}
-        chosen = next_rotation(order, entry.get("last"))
+        chosen = rotation_start(order, state_dir, cli)[0]
         basis = "rotation"
         if not peek:
-            state[cli] = {"last": chosen, "updated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")}
-            _write_rotation(state_dir, state)
+            record_rotation(state_dir, cli, chosen)
     declared = None
     if chosen != DEFAULT_SLOT:
         declared = slots.get(chosen)
@@ -328,6 +451,22 @@ def cmd_exec(args: argparse.Namespace) -> int:
     return subprocess.call(command, env=env)
 
 
+def cmd_init(args: argparse.Namespace) -> int:
+    config, _ = _load_config(args.config)
+    result = init_slot(config, args.cli, args.slot, links=args.link, dry_run=args.dry_run)
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_confirm(args: argparse.Namespace) -> int:
+    _, state_dir = _load_config(args.config)
+    a, b = args.slots
+    record_identity(state_dir, args.cli, a, b, "same" if args.same else "distinct")
+    print(json.dumps({"status": "ok", "cli": args.cli, "slots": sorted((a, b)),
+                      "decision": "same" if args.same else "distinct"}, ensure_ascii=False))
+    return 0
+
+
 def run_selftest() -> int:
     checks: list[tuple[str, bool]] = []
 
@@ -396,6 +535,34 @@ def run_selftest() -> int:
     merged = apply_env({"PATH": "/bin", "HOME": "x"}, acct2["env"])
     check("apply_env overrides only the slot variables", merged["PATH"] == "/bin" and merged["HOME"] == acct2["env"]["HOME"])
     check("repository executors include agy", "agy" in known_executors())
+    with tempfile.TemporaryDirectory() as tmp:
+        fake_home = Path(tmp) / "home"
+        (fake_home / ".cache").mkdir(parents=True)
+        (fake_home / ".gitconfig").write_text("[user]\n", encoding="utf-8")
+        (fake_home / ".gemini").mkdir()
+        preview = init_slot({}, "agy", "acct4", dry_run=True, home=fake_home, executors=executors)
+        check("init dry-run writes nothing", not (fake_home / ".agy-profiles").exists()
+              and {a["action"] for a in preview["actions"]} >= {"mkdir", "link"})
+        done = init_slot({}, "agy", "acct4", links=[".gitconfig", ".cache", ".gemini", ".ssh", "../x"],
+                         home=fake_home, executors=executors)
+        slot_home = fake_home / ".agy-profiles" / "acct4"
+        check("init creates the slot home 0700", slot_home.is_dir() and (os.name == "nt" or (slot_home.stat().st_mode & 0o777) == 0o700))
+        check("init links non-credential caches", (slot_home / ".cache").is_symlink() and (slot_home / ".gitconfig").is_symlink())
+        refused = {a["path"] for a in done["actions"] if a["action"] == "refused"}
+        check("init never links a login store or escapes the home", {".gemini", ".ssh", "../x"} <= refused
+              and not (slot_home / ".gemini").exists())
+        check("init returns a config snippet for an undeclared slot",
+              done["config_snippet"] is not None and "acct4" in done["config_snippet"] and "@" not in done["config_snippet"])
+        again = init_slot({}, "agy", "acct4", links=[".cache"], home=fake_home, executors=executors)
+        check("init is idempotent and never overwrites", again["actions"] == [{"action": "skip", "path": ".cache", "reason": "already present in the slot"}])
+        check("init refuses the default slot", raises(lambda: init_slot({}, "agy", "default", home=fake_home, executors=executors)))
+        state = Path(tmp) / "state"
+        check("no identity decision before confirm", identity_decision(state, "agy", "acct2", "acct3") is None)
+        record_identity(state, "agy", "acct3", "acct2", "distinct")
+        check("identity decision is remembered per unordered pair", identity_decision(state, "agy", "acct2", "acct3") == "distinct")
+        stored = (state / IDENTITY_FILE).read_text(encoding="utf-8")
+        check("identity state keeps only slot names", "acct2|acct3" in stored and "@" not in stored)
+        check("confirm refuses the same slot twice", raises(lambda: record_identity(state, "agy", "acct2", "acct2", "same")))
 
     for label, ok in checks:
         print(f"[{'PASS' if ok else 'FAIL'}] {label}")
@@ -427,6 +594,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec = sub.add_parser("exec", help="run a command with the slot's env overrides")
     selection(p_exec)
     p_exec.add_argument("command", nargs=argparse.REMAINDER)
+
+    p_init = sub.add_parser("init", help="create a slot's isolated home and link non-credential caches")
+    p_init.add_argument("--cli", required=True)
+    p_init.add_argument("--slot", required=True)
+    p_init.add_argument("--link", action="append", help="relative path under the home to link (repeatable); default per cli")
+    p_init.add_argument("--dry-run", action="store_true")
+
+    p_confirm = sub.add_parser("confirm", help="remember whether two slots are the same account")
+    p_confirm.add_argument("--cli", required=True)
+    p_confirm.add_argument("--slots", nargs=2, required=True, metavar="SLOT")
+    group = p_confirm.add_mutually_exclusive_group(required=True)
+    group.add_argument("--distinct", action="store_true")
+    group.add_argument("--same", action="store_true")
     return parser
 
 
@@ -435,7 +615,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.selftest:
         return run_selftest()
-    handlers = {"list": cmd_list, "resolve": cmd_resolve, "exec": cmd_exec}
+    handlers = {"list": cmd_list, "resolve": cmd_resolve, "exec": cmd_exec, "init": cmd_init, "confirm": cmd_confirm}
     if args.command_name not in handlers:
         parser.print_help()
         return 2

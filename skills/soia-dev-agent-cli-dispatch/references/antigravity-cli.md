@@ -97,8 +97,10 @@ agy models
 - 同机多个 agy 账号用独立 `HOME` 隔离（2026-11-18 实测）：`HOME=~/.agy-profiles/<槽位>` 下单独登录，之后该
   `HOME` 下的 `agy` 就是那个账号。槽位登记、选择（指定或轮流，不按余量自动调度）、派单与用量记录见
   `references/account-slots.md`。
-- 各槽位的套餐、5 小时 / 7 天窗口剩余与重置时间、AI credits、可用模型：`python3 scripts/agy_quota.py`
-  （只跑上面的只读斜杠命令与 `agy models`；套餐名 CLI 不提供）。
+- 各槽位的登录状态、套餐、5 小时 / 7 天窗口剩余与重置时间、AI credits、可用模型：`python3 scripts/agy_quota.py`
+  （只跑上面的只读斜杠命令与 `agy models`；套餐名 CLI 不提供）；本单挑槽位并一行汇报：`--pick --model <id>`。
+- 登录检测只用 `agy models`：未登录时它以退出码 1 报 `Please sign in to view available models` 并立即退出；
+  而 `agy -p "/usage"` 在未登录时会打印授权链接并阻塞等待登录，不能拿来探测。授权链接不进日志或回执。
 - 不同账号的模型列表可以不同（当日槽位账号能看到 `gemini-4-carbon-*`、Claude 4.6，默认账号看到 Claude 5.5）；
   派单前在**该槽位下**重跑 `agy models`，不要拿默认账号的列表推断别的槽位。
 

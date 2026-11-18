@@ -2,11 +2,11 @@
 # This is not a credential file. Keep mutable support facts here; prose should link here instead of copying the matrix.
 schema_version: 1
 config_template: assets/config.example.yml
-updated_at: "2026-09-25"
+updated_at: "2026-11-18"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "2.5.2"
+  version: "2.6.2"
   purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
   triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
 usage:
@@ -25,7 +25,7 @@ supported_workflows:
     label: "简单编码与轻分析"
     complexity: easy
     dispatch_mode: automatic_or_explicit
-    recommended_executors: [pi, codex, claude]
+    recommended_executors: [pi, codex, claude, agy]
     verified_auto_route: "pi/deepseek-flash@low"
     status: smoke_tested_for_pi
     suitable_for: [小范围 bug 修复, 简单脚本, 配置修改, 测试与 lint, 摘要, 分类, 提取, 翻译]
@@ -34,7 +34,7 @@ supported_workflows:
     label: "中等编码、验证与小范围重构"
     complexity: medium
     dispatch_mode: explicit_or_partial_auto
-    recommended_executors: [codex, claude, kimi, pi]
+    recommended_executors: [codex, claude, agy, kimi, pi]
     verified_auto_route: null
     status: partial_or_pending_benchmark
     suitable_for: [多文件实现, build/verify, 小范围重构, 常规 diff review]
@@ -113,9 +113,16 @@ agents:
     matrix_supported: true
     verification_status: availability_discovered
     prompt_transport: argument
-    structured_output: json
+    # -p 支持 --output-format text|json|stream-json；多轮用 --input-format stream-json；长会话/权限回传用 `agy acp`。
+    structured_output: stream_json
     model_integrity: requested_label_in_log
     usage_evidence: tokens_without_cost
+    # Owner 2026-11-18：外部执行改走 agy；只作显式派发默认，不进自动路由（无任务质量评测）。
+    explicit_defaults:
+      code: gemini-4-argon-high
+      everyday_small: gemini-4-hydrogen-medium
+    checked_at: "2026-11-18"
+    checked_cli_version: "1.5.10"
     auto_routing: []
     reference: references/antigravity-cli.md
   gemini:

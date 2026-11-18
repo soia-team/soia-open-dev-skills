@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by unknown
 # @created_at unknown
-# @modified_by dsh + deepseek-flash (actual model unverified)
-# @modified_at 2026-09-12 19:40:00
-# @version 0.7.0
+# @modified_by claude opus 5.5
+# @modified_at 2026-11-18 16:50:00
+# @version 0.8.0
 # @description Run resumable external AI dispatch matrices with usage, integrity evidence, and user-owned state storage.
-# @changelog Block quota by the real quota scope (declared bucket, else executor:model) instead of by provider, so an exhausted bucket no longer defers the same provider's other buckets.
+# @changelog 0.8.0: optional account slot per case (`slot` / --slot) applies the slot's env overrides and scopes quota per slot. 0.7.0: Block quota by the real quota scope (declared bucket, else executor:model) instead of by provider, so an exhausted bucket no longer defers the same provider's other buckets.
 """Resumable, strictly-serial executor for a model/executor dispatch matrix.
 
 Phase 1 scope: this script is built and self-tested against mock commands
@@ -31,6 +31,13 @@ against (copy it from the precheck's `quota_observations[].bucket` /
 Quota blocking is per scope -- never per provider -- so an exhausted bucket
 does not defer the same provider's other buckets.
 
+`slot` is optional and names an account slot declared in the private config
+(scripts/account_slots.py, references/account-slots.md); `--slot` sets it for
+cases that do not carry one, and omitting both uses the default login. The
+case runs with that slot's env overrides, the manifest records only the slot
+name, and a non-default slot scopes the quota key as `<key>@<slot>` because
+each account has its own quota.
+
 Manifest is written atomically to
     <state>/soia-skills/soia-dev-agent-cli-dispatch/runs/<run-id>/manifest.json
 by default, or to an explicit --manifest-dir, after every single case (spec
@@ -44,6 +51,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -54,6 +62,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import account_slots  # noqa: E402
 import catalog_lib  # noqa: E402
 import estimate_cost  # noqa: E402
 import resolve_storage  # noqa: E402
@@ -546,11 +555,12 @@ def atomic_write_json(path: Path, data: dict) -> None:
             os.remove(tmp_name)
 
 
-def build_resume_command(cases_path: Path, run_id: str, manifest_dir: Path) -> str:
+def build_resume_command(cases_path: Path, run_id: str, manifest_dir: Path, default_slot: str | None = None) -> str:
     # Keep private case/state paths out of the persisted manifest. The caller
     # can reconstruct them from its original invocation or configured roots.
+    slot_arg = f"--slot {default_slot} " if default_slot else ""
     return (
-        f"python3 {Path(__file__).name} --cases <cases.json> --run-id {run_id} "
+        f"python3 {Path(__file__).name} --cases <cases.json> --run-id {run_id} {slot_arg}"
         "--resume  # reuse the same --manifest-dir or configured state root"
     )
 
@@ -569,14 +579,15 @@ def quota_scope_key(case: dict) -> str:
     scope: one exhausted bucket under a provider must not defer that provider's
     other buckets (bucket facts: references/codex-cli.md 额度分桶).
     """
+    slot = case.get("slot")
     explicit = case.get("quota_scope_key")
     if isinstance(explicit, str) and explicit.strip():
-        return explicit.strip()
+        return account_slots.scoped_quota_key(explicit.strip(), slot)
     executor = case.get("executor") or case.get("provider") or "unknown"
     model = case.get("model")
     if isinstance(model, str) and model.strip():
-        return f"{executor}:{model.strip()}"
-    return str(executor)
+        return account_slots.scoped_quota_key(f"{executor}:{model.strip()}", slot)
+    return account_slots.scoped_quota_key(str(executor), slot)
 
 
 # ---------------------------------------------------------------------------
@@ -588,6 +599,7 @@ def run_one_case(
     case: dict,
     catalog_data: dict | None,
     timeout_seconds: int,
+    env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute a single case's cmd_template and classify the result.
 
@@ -605,6 +617,7 @@ def run_one_case(
         "case_id": case_id,
         "provider": provider,
         "executor": executor,
+        "slot": case.get("slot") or account_slots.DEFAULT_SLOT,
         "requested_model": model,
         "reasoning": reasoning,
         "requested_reasoning_effort": reasoning,
@@ -639,7 +652,7 @@ def run_one_case(
     exit_code = None
     try:
         proc = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout_seconds
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout_seconds, env=env
         )
         stdout, stderr, exit_code = proc.stdout or "", proc.stderr or "", proc.returncode
     except subprocess.TimeoutExpired as exc:
@@ -801,7 +814,22 @@ def run_matrix(
     skill_source_path: str,
     timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS,
     catalog_data: dict | None = None,
+    config: dict | None = None,
+    default_slot: str | None = None,
 ) -> dict[str, Any]:
+    # Resolve every case's account slot before anything runs: an undeclared or
+    # mismatched slot is a contract error, never a silent fall back to default.
+    cases = [dict(case) for case in cases]
+    slot_envs: dict[str, dict[str, str] | None] = {}
+    for case in cases:
+        slot = case.get("slot") or default_slot
+        if slot:
+            resolved = account_slots.resolve_slot(config, case.get("executor") or "", slot)
+            case["slot"] = resolved["slot"]
+            slot_envs[case["case_id"]] = account_slots.apply_env(None, resolved["env"]) if resolved["env"] else None
+        else:
+            slot_envs[case["case_id"]] = None
+
     manifest_dir.mkdir(parents=True, exist_ok=True)
     try:
         manifest_dir.chmod(0o700)
@@ -844,7 +872,7 @@ def run_matrix(
         "status": "running",
         "stop_reason": None,
         "cases": [],
-        "resume_command": build_resume_command(cases_path, run_id, manifest_dir),
+        "resume_command": build_resume_command(cases_path, run_id, manifest_dir, default_slot),
         "manifest_storage": "configured_run_directory",
         "manifest_path": "<configured-run-directory>/manifest.json",
     }
@@ -883,6 +911,7 @@ def run_matrix(
                 "case_id": case_id,
                 "provider": provider,
                 "executor": case.get("executor"),
+                "slot": case.get("slot") or account_slots.DEFAULT_SLOT,
                 "requested_model": case.get("model"),
                 "reasoning": case.get("reasoning"),
                 "requested_reasoning_effort": case.get("reasoning"),
@@ -922,7 +951,7 @@ def run_matrix(
             continue
 
         manifest["current_provider"] = provider
-        record = run_one_case(case, catalog_data, timeout_seconds)
+        record = run_one_case(case, catalog_data, timeout_seconds, env=slot_envs.get(case_id))
         record["quota_scope_key"] = scope_key
         record["previous_attempt"] = stale_running_evidence
         final_records.append(record)
@@ -1720,6 +1749,69 @@ def run_selftest() -> int:
         not _claude_model_matches("claude-haiku-4-5", "claude-haiku-4-5-20251101", selftest_catalog_data),
     )
 
+    # --- account slots: env overrides per case, per-slot quota scope, manifest keeps the name only ---
+    with tempfile.TemporaryDirectory(prefix="run_matrix_slots_") as tmp:
+        tmp_path = Path(tmp)
+        slot_config = {
+            "schema_version": 1,
+            "slots": {
+                "acct2": {"cli": "agy", "env": {"HOME": str(tmp_path / "profiles" / "{slot}")}},
+                "acct3": {"cli": "agy", "env": {"HOME": str(tmp_path / "profiles" / "{slot}")}},
+                "work": {"cli": "codex", "env": {"CODEX_HOME": str(tmp_path / "codex-work")}},
+            },
+        }
+        echo_home = "printf 'home=%s\\n' \"$HOME\""
+        quota_cmd2 = "printf 'error: usage_limit reached for this account\\n'; exit 1"
+        slot_cases = [
+            {"case_id": "s1-acct2-quota", "provider": "google", "executor": "agy", "model": "gemini-4-argon-high",
+             "slot": "acct2", "cmd_template": quota_cmd2},
+            {"case_id": "s2-acct2-same-bucket", "provider": "google", "executor": "agy", "model": "gemini-4-argon-high",
+             "slot": "acct2", "cmd_template": echo_home},
+            {"case_id": "s3-acct3-same-model", "provider": "google", "executor": "agy", "model": "gemini-4-argon-high",
+             "slot": "acct3", "cmd_template": echo_home},
+            {"case_id": "s4-default-slot", "provider": "google", "executor": "agy", "model": "gemini-4-argon-high",
+             "cmd_template": echo_home},
+        ]
+        slot_cases_path = tmp_path / "cases.json"
+        slot_cases_path.write_text(json.dumps(slot_cases), encoding="utf-8")
+        slot_manifest = run_matrix(
+            cases=slot_cases, run_id="selftest-slots", manifest_dir=tmp_path / "manifest",
+            cases_path=slot_cases_path, resume=False, host_ai="selftest-host",
+            skill_source_path=str(Path(__file__).resolve().parents[1]), timeout_seconds=30,
+            catalog_data=None, config=slot_config,
+        )
+        sb = {c["case_id"]: c for c in slot_manifest["cases"]}
+        check("slot: case records the slot name", sb["s1-acct2-quota"].get("slot") == "acct2" and sb["s4-default-slot"].get("slot") == "default")
+        check("slot: quota scope is per slot", sb["s1-acct2-quota"].get("quota_scope_key") == "agy:gemini-4-argon-high@acct2")
+        check("slot: exhausted acct2 defers only acct2", sb["s2-acct2-same-bucket"]["status"] == "pending_quota"
+              and sb["s3-acct3-same-model"]["status"] != "pending_quota", sb["s3-acct3-same-model"]["status"])
+        manifest_text = (tmp_path / "manifest" / "manifest.json").read_text(encoding="utf-8")
+        check("slot: manifest keeps no slot env values", str(tmp_path / "profiles") not in manifest_text)
+        check("slot: default slot has no quota suffix", sb["s4-default-slot"].get("quota_scope_key") == "agy:gemini-4-argon-high")
+        expected_home = str(tmp_path / "profiles" / "acct3")
+        env_probe = run_one_case({"case_id": "probe", "executor": "agy", "model": "m", "slot": "acct3",
+                                  "cmd_template": f"test \"$HOME\" = {shlex.quote(expected_home)}"},
+                                 None, 30, env=account_slots.apply_env(None, {"HOME": expected_home}))
+        check("slot: env override reaches the executor process", env_probe["status"] == "passed")
+        mismatch_blocked = False
+        try:
+            run_matrix(
+                cases=[{"case_id": "bad", "executor": "agy", "model": "m", "slot": "work", "cmd_template": "true"}],
+                run_id="selftest-slot-mismatch", manifest_dir=tmp_path / "manifest2", cases_path=slot_cases_path,
+                resume=False, host_ai="selftest-host", skill_source_path="x", timeout_seconds=30, config=slot_config,
+            )
+        except account_slots.SlotError:
+            mismatch_blocked = not (tmp_path / "manifest2" / "manifest.json").exists()
+        check("slot: slot of another cli is refused before any case runs", mismatch_blocked)
+        default_cli_slot = run_matrix(
+            cases=[{"case_id": "d1", "executor": "agy", "model": "m", "cmd_template": echo_home}],
+            run_id="selftest-slot-default", manifest_dir=tmp_path / "manifest3", cases_path=slot_cases_path,
+            resume=False, host_ai="selftest-host", skill_source_path="x", timeout_seconds=30,
+            config=slot_config, default_slot="acct2",
+        )
+        check("slot: --slot applies to cases without their own slot",
+              default_cli_slot["cases"][0].get("slot") == "acct2" and "--slot acct2" in default_cli_slot["resume_command"])
+
     print("=== run_matrix.py selftest ===")
     all_passed = True
     for name, passed, detail in checks:
@@ -1752,6 +1844,10 @@ def main() -> int:
         help="Identifier for the orchestrating AI/session. CLI value overrides config and $SOIA_HOST_AI.",
     )
     parser.add_argument("--timeout-seconds", type=int, default=DEFAULT_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--slot",
+        help="Account slot for cases without their own `slot` (declared in the private config); omit for the default login.",
+    )
     parser.add_argument("--catalog", help="Override path to model-catalog.yml for api_equivalent_cost estimates.")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
@@ -1804,17 +1900,23 @@ def main() -> int:
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    manifest = run_matrix(
-        cases=cases,
-        run_id=args.run_id,
-        manifest_dir=manifest_dir,
-        cases_path=cases_path,
-        resume=args.resume,
-        host_ai=host_ai,
-        skill_source_path=str(skill_root),
-        timeout_seconds=args.timeout_seconds,
-        catalog_data=catalog_data,
-    )
+    try:
+        manifest = run_matrix(
+            cases=cases,
+            run_id=args.run_id,
+            manifest_dir=manifest_dir,
+            cases_path=cases_path,
+            resume=args.resume,
+            host_ai=host_ai,
+            skill_source_path=str(skill_root),
+            timeout_seconds=args.timeout_seconds,
+            catalog_data=catalog_data,
+            config=config,
+            default_slot=args.slot,
+        )
+    except account_slots.SlotError as exc:
+        print(f"error: account slot: {exc}", file=sys.stderr)
+        return 2
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
     return 0 if manifest["status"] == "done" else 1
 

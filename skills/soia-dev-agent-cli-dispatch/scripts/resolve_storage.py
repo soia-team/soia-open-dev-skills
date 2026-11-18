@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by claude opus 4.6
 # @created_at 2026-08-04 12:04:00
-# @modified_by gpt-5.6-sol
-# @modified_at 2026-08-04 14:05:00
-# @version 0.2.0
+# @modified_by claude opus 5.5
+# @modified_at 2026-11-18 17:10:00
+# @version 0.2.1
 # @description Resolve optional config and portable state/temp paths for dispatch runs.
-# @changelog Validate run ids and enforce a non-destructive retained-run capacity gate.
+# @changelog 0.2.1: reject non-mapping `slots`/`slot_rotation` (account slots). 0.2.0: Validate run ids and enforce a non-destructive retained-run capacity gate.
 """Resolve config and user-owned storage paths for dispatch runs."""
 
 from __future__ import annotations
@@ -65,6 +65,9 @@ def load_config(path: Path) -> dict:
         raise ValueError("config storage must be a mapping")
     if data.get("retention") is not None and not isinstance(data["retention"], dict):
         raise ValueError("config retention must be a mapping")
+    for key in ("slots", "slot_rotation"):
+        if data.get(key) is not None and not isinstance(data[key], dict):
+            raise ValueError(f"config {key} must be a mapping (see references/account-slots.md)")
     max_runs = retained_run_limit(data)
     if max_runs < 1:
         raise ValueError("retention.max_runs must be a positive integer")

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # @created_by openai/gpt-5
 # @created_at 2026-07-10 17:58:15
-# @modified_by anthropic/claude-sonnet-5-5
-# @modified_at 2026-09-30 13:55:43
-# @version 0.4.2
+# @modified_by anthropic/claude-opus-5-5
+# @modified_at 2026-11-18 17:00:00
+# @version 0.5.0
 # @description Select a verified executor model and reasoning effort from model-catalog.yml.
-# @changelog 0.4.2: selftest guards that gpt-6.1-sol (registered available, empty routing_profile) is never auto-selected and does not displace gpt-6-sol. 0.4.1: selftest covers claude-sonnet-5-5 auto-routing (preferred over claude-sonnet-5 only when its own bucket is observed available). 0.4.0: Quota evidence is re-validated inside route_model (a copied kind string is not a credential): auth/source/probed_at/model/bucket checks run on every library call, unknown catalog models and unparseable probe times are rejected per row, an observation with bucket=unknown never authorizes and catalog quota_scope_keys are no longer injected as observed scopes, and selected_observation is chosen to match the bound model+scope instead of the first same-model row.
+# @changelog 0.5.0: account slots -- a precheck report may name the `slot` (account) it probed; --slot must match it (missing = default login) and the receipt carries selected_slot. 0.4.2: selftest guards that gpt-6.1-sol (registered available, empty routing_profile) is never auto-selected and does not displace gpt-6-sol. 0.4.1: selftest covers claude-sonnet-5-5 auto-routing (preferred over claude-sonnet-5 only when its own bucket is observed available). 0.4.0: Quota evidence is re-validated inside route_model (a copied kind string is not a credential): auth/source/probed_at/model/bucket checks run on every library call, unknown catalog models and unparseable probe times are rejected per row, an observation with bucket=unknown never authorizes and catalog quota_scope_keys are no longer injected as observed scopes, and selected_observation is chosen to match the bound model+scope instead of the first same-model row.
 """Mechanically route an executor family to a verified model/effort pair.
 
 The live-quota precheck is mandatory evidence, not a post-hoc check: a route
@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import account_slots  # noqa: E402
 import catalog_lib  # noqa: E402
 
 
@@ -313,6 +314,14 @@ def normalize_quota_report(payload: Any, data: dict, source_label: str = "<inlin
             f"recommendation_blocked: precheck recommendation={recommendation!r}; the report itself says not to dispatch, "
             "and customer approval cannot turn that into a selection"
         )
+    raw_slot = payload.get("slot")
+    if raw_slot is None:
+        slot = account_slots.DEFAULT_SLOT
+    else:
+        try:
+            slot = account_slots.validate_slot_name(_text(raw_slot))
+        except account_slots.SlotError as exc:
+            raise RouteError(f"quota_evidence_malformed: report slot is invalid: {exc}") from exc
     bucket_index = _bucket_index(data)
     observations = [
         _normalize_observation(data, bucket_index, executor, item, index)
@@ -326,6 +335,7 @@ def normalize_quota_report(payload: Any, data: dict, source_label: str = "<inlin
         "kind": EVIDENCE_KIND,
         "source": source_label,
         "executor": executor,
+        "slot": slot,
         "auth_status": auth_status,
         "selected_model": selected_model,
         "quota_scope_key": quota_scope_key,
@@ -448,6 +458,7 @@ def _require_quota_evidence(data: dict, quota_evidence: dict[str, Any] | None, e
         )
     payload = {
         "executor": quota_evidence.get("executor"),
+        "slot": quota_evidence.get("slot"),
         "auth_status": quota_evidence.get("auth_status"),
         "selected_model": quota_evidence.get("selected_model"),
         "quota_scope_key": quota_evidence.get("quota_scope_key"),
@@ -508,7 +519,7 @@ def _scope_keys_for(executor: str, model: dict[str, Any], authorizing: list[dict
     return sorted(keys)
 
 
-def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None, quota_evidence: dict[str, Any] | None = None, independence_policy: str = "different_family") -> dict[str, Any]:
+def route_model(data: dict, executor: str, complexity: str, requested_model: str | None = None, requested_reasoning: str | None = None, role: str | None = None, executor_model: str | None = None, quota_evidence: dict[str, Any] | None = None, independence_policy: str = "different_family", slot: str | None = None) -> dict[str, Any]:
     """Select a model/effort pair authorized by a validated live-quota precheck.
 
     `quota_evidence` must come from `load_quota_observations()` /
@@ -548,6 +559,13 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
 
     evidence = _require_quota_evidence(data, quota_evidence, executor)
     available = evidence["available"]
+    # Quota is per account: a report probed under one slot never authorizes another.
+    requested_slot = slot or account_slots.DEFAULT_SLOT
+    if evidence["slot"] != requested_slot:
+        raise RouteError(
+            f"quota_binding_conflict: precheck report was probed under slot {evidence['slot']!r}, but this route asks "
+            f"for slot {requested_slot!r}; probe the requested slot's own quota first"
+        )
 
     # A report that names the model it is bound to is a binding, not a hint.
     declared_id: str | None = None
@@ -677,6 +695,7 @@ def route_model(data: dict, executor: str, complexity: str, requested_model: str
     return {
         **receipt_extra,
         "executor": executor,
+        "selected_slot": evidence["slot"],
         "selected_model": model.get("model_id"),
         "selected_reasoning_effort": effort,
         "task_complexity": complexity,
@@ -1501,6 +1520,25 @@ def run_selftest() -> int:
         and (receipt.get("quota_filter") or {}).get("selected_observation", {}).get("source") == "selftest fixture probe",
     ))
 
+    # Account slots: a report is bound to the slot (account) it was probed under.
+    slot_report = evidence("codex", [observation("gpt-5.6-terra", "codex")], extra={"slot": "work"})
+    slot_ok, slot_ok_error = route("codex", "medium", quota_evidence=slot_report, slot="work")
+    checks.append(("slot: matching report slot routes and carries selected_slot",
+                   slot_ok is not None and slot_ok.get("selected_slot") == "work"))
+    _, slot_missing_error = route("codex", "medium", quota_evidence=slot_report)
+    checks.append(("slot: a slot report does not authorize the default login",
+                   slot_missing_error is not None and slot_missing_error.startswith("quota_binding_conflict")))
+    _, slot_default_error = route("codex", "medium", quota_evidence=codex_terra, slot="work")
+    checks.append(("slot: a default-login report does not authorize another slot",
+                   slot_default_error is not None and slot_default_error.startswith("quota_binding_conflict")))
+    default_route, _ = route("codex", "medium", quota_evidence=codex_terra)
+    checks.append(("slot: no slot on either side stays the default login",
+                   default_route is not None and default_route.get("selected_slot") == "default"))
+    bad_slot_error = normalize_error({"executor": "codex", "auth_status": "ok", "slot": "Bad Slot",
+                                      "quota_observations": [observation("gpt-5.6-terra", "codex")]})
+    checks.append(("slot: malformed report slot is rejected",
+                   bad_slot_error is not None and bad_slot_error.startswith("quota_evidence_malformed")))
+
     print("=== route_model.py selftest ===")
     for name, passed in checks:
         print(f"[{'PASS' if passed else 'FAIL'}] {name}")
@@ -1529,6 +1567,7 @@ def main() -> int:
     # Removed in 2.0.0; kept only so an older command line fails with guidance
     # instead of silently routing on an unproven bucket.
     parser.add_argument("--available-model", dest="available_model", action="append", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--slot", help="account slot the dispatch will use; must match the report's `slot` (omit = default login)")
     parser.add_argument("--catalog")
     parser.add_argument("--selftest", action="store_true")
     args = parser.parse_args()
@@ -1557,6 +1596,7 @@ def main() -> int:
         result = route_model(
             data, args.executor, args.complexity, args.model, args.reasoning,
             role=args.role, executor_model=args.executor_model, quota_evidence=evidence, independence_policy=args.independence_policy,
+            slot=args.slot,
         )
     except (OSError, catalog_lib.CatalogError, RouteError) as exc:
         print(json.dumps({"selection_status": "blocked", "error": str(exc)}, ensure_ascii=False), file=sys.stderr)

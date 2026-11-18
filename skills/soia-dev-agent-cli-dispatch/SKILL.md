@@ -3,9 +3,9 @@ name: soia-dev-agent-cli-dispatch
 description: 派任务给外部 AI CLI 进程并核验模型、额度与产物；宿主内置 subagent 不用本技能。触发：派给 Codex/Pi 等外部 CLI、多 CLI 分工、外部自动选模
 dependencies:
   optional: [soia-meta-sync-skills]
-version: 2.6.1
+version: 2.6.2
 created_at: 2026-07-10 11:28:32
-updated_at: 2026-09-30 13:14:57
+updated_at: 2026-11-18 14:35:27
 created_by: claude opus 4.6
 updated_by: claude opus 5.5
 ---
@@ -106,7 +106,7 @@ permissions:
 - **实时额度逐桶探测并绑定模型**，产出 `quota_observations[]`（每项 `bucket`/`model`/`state`/`source`/`probed_at`/`reset_at`）；第 4 步选定后把 `selected_model`、`quota_scope_key`、`recommendation` 回填同一份报告。`auth_status=ok` 只证明凭据有效。可派的必要条件：认证可用，且选定模型那条 observation 为 `available`；选定桶 `exhausted`、`unknown`（含缺失）或 `auth_status != ok` 任一成立即不得 `proceed`。客户批准只覆盖费用与等待偏好，不能把 `unknown`/`exhausted` 改写成可用。字段、取值与探测来源顺序见 `references/dispatch-contract.md`「额度预检」，分桶执行的 CLI 见其 reference（如 `references/codex-cli.md` 额度分桶一节）。
 - **dsh 与 `availability: local_only` 条目**不走第 4 步的 `route_model.py`（其 `--executor` 不含 dsh），也不产出 `verified_auto`。云端还是本地只认派发前 `--dump-config` 解出的生效 provider/端点（只读非秘密字段；`--patch` 可能被 `settings.yaml` 覆盖，不作判据）：确认为本地 OpenAI 兼容端点才免额度门，仍须显式指定模型；云端是真实额度桶，必须有调用方提供、官方来源的 `state=available` 余额观测，否则 `hold`。两条分支与模型取证见 `references/dsh-cli.md` 开头。
 - 检查 workdir 存在、不是凭据/配置目录、有无未提交改动、是否与其他任务重叠。不可服务、认证阻断、额度不足或目录不安全即停，并给明确状态。
-- Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道分开，不复制认证状态、不静默 alias。
+- Antigravity 消费者通道与 Gemini 企业/API Key/Vertex 通道分开，不复制认证状态、不静默 alias。agy 1.5.7 起 headless 默认 Auto 模式，派单显式写 `--mode`。
 
 ### 4. 选模型与推理档（消费第 3 步的可用桶）
 

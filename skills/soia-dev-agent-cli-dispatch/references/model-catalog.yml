@@ -37,11 +37,14 @@
 # 2026-09-30: gpt-6.1-sol (GPT-6.1 Sol) added. Codex CLI 0.158.0 + ChatGPT account
 # rejected it (HTTP 400); Codex CLI 0.159.2 served it (high smoke). Prices stay null;
 # routing_profile stays empty (Owner does not use it for now).
-# Antigravity/agy is intentionally absent: its account-scoped Gemini/third-party
-# roster and plan/credit billing are not equivalent to these API model ids or
-# per-token prices. Discover agy display names at runtime with `agy models`.
+# 2026-11-18: an `antigravity` provider block (executor_cli: agy) records the
+# Owner's explicit-dispatch defaults for Gemini 4 Argon and Gemini 4 Hydrogen
+# from `agy models` on agy 1.5.10. agy is a subscription channel: every price is
+# null, routing_profile stays empty (no auto-routing), and the Gemini API rows
+# under `google` must never be reused as agy ids or charges. Other models in
+# the agy roster are still discovered at runtime with `agy models`.
 schema_version: 1
-updated_at: "2026-09-30"
+updated_at: "2026-11-18"
 currency: USD
 pricing_unit: per_1m_tokens
 notes: "API per-token pricing only. Under subscription billing (Claude Code Pro/Max, ChatGPT plans, Gemini subscription tiers) actual_charge to the subscription cannot be derived from this catalog -- estimate_cost.py always reports an api_equivalent_estimate, never a real subscription deduction."
@@ -88,6 +91,9 @@ sources:
   - id: deepseek-pricing-2026-09-23
     path: https://api-docs.deepseek.com/quick_start/pricing/
     date: "2026-09-23"
+  - id: agy-models-2026-11-18
+    path: references/antigravity-cli.md
+    date: "2026-11-18"
 providers:
   openai:
     executor_cli: codex
@@ -1078,6 +1084,61 @@ providers:
         routing_profile: null
         discovered_at: null
         discovery_evidence: null
+  antigravity:
+    executor_cli: agy
+    models:
+      - model_id: gemini-4-argon
+        display_name: "Gemini 4 Argon"
+        aliases: [gemini-4-argon-low, gemini-4-argon-medium, gemini-4-argon-high]
+        model_family: gemini-4
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [low, medium, high]
+        reasoning_levels_confidence: official_docs
+        default_reasoning_level: high
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: null
+          pricing_source: unknown
+          billing_mode_notes: "Antigravity subscription/quota channel (billing_class=subscription). No per-token price applies; estimate_cost.py output for this row is not a charge, and receipts record cost as unavailable. Check quota with the zero-turn `agy -p \"/usage\"` precheck."
+          effective_date: "2026-11-18"
+          source_id: agy-models-2026-11-18
+        routing_profile: []
+        routing_basis: owner_policy
+        routing_basis_note: "Code-task default is `gemini-4-argon-high`. Owner 2026-11-18 moved external execution to agy with Google models; this is an explicit-dispatch default only, with no task-quality benchmark in this skill, so routing_profile stays empty and route_model.py never auto-selects agy."
+        discovered_at: "2026-11-18"
+        discovery_evidence: "2026-11-18 agy 1.5.10 `agy models` (consumer Google OAuth, read-only, no prompt) listed `gemini-4-argon-low`, `gemini-4-argon-medium`, `gemini-4-argon-high`. Pass the suffixed id from that list to `--model`; the levels come from the vendor's runtime roster, not from a prompt smoke run in this skill. Account-, plan- and auth-channel-scoped; see references/antigravity-cli.md."
+      - model_id: gemini-4-hydrogen
+        display_name: "Gemini 4 Hydrogen"
+        aliases: [gemini-4-hydrogen-low, gemini-4-hydrogen-medium, gemini-4-hydrogen-high, gemini-4-hydrogen-xhigh]
+        model_family: gemini-4
+        availability: available
+        context_window: null
+        supported_reasoning_levels: [low, medium, high, xhigh]
+        reasoning_levels_confidence: official_docs
+        default_reasoning_level: medium
+        pricing:
+          input_per_1m: null
+          cached_input_per_1m: null
+          cache_write_per_1m: null
+          output_per_1m: null
+          long_context: null
+          batch: null
+          reasoning_billing_rule: null
+          pricing_source: unknown
+          billing_mode_notes: "Antigravity subscription/quota channel (billing_class=subscription). No per-token price applies; estimate_cost.py output for this row is not a charge, and receipts record cost as unavailable. Check quota with the zero-turn `agy -p \"/usage\"` precheck."
+          effective_date: "2026-11-18"
+          source_id: agy-models-2026-11-18
+        routing_profile: []
+        routing_basis: owner_policy
+        routing_basis_note: "Default for everyday small tasks; pick low/medium/high by difficulty and keep xhigh for hard tasks. Owner 2026-11-18 moved external execution to agy with Google models; this is an explicit-dispatch default only, with no task-quality benchmark in this skill, so routing_profile stays empty and route_model.py never auto-selects agy."
+        discovered_at: "2026-11-18"
+        discovery_evidence: "2026-11-18 agy 1.5.10 `agy models` (consumer Google OAuth, read-only, no prompt) listed `gemini-4-hydrogen-low`, `gemini-4-hydrogen-medium`, `gemini-4-hydrogen-high`, `gemini-4-hydrogen-xhigh`. Pass the suffixed id from that list to `--model`; the levels come from the vendor's runtime roster, not from a prompt smoke run in this skill. Account-, plan- and auth-channel-scoped; see references/antigravity-cli.md."
   deepseek:
     executor_cli: pi
     models:

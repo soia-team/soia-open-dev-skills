@@ -25,12 +25,15 @@
 │       详见 references/deepcode-cli.md；当前仅命令模板验证，不自动路由
 │
 ├── 文档/内容写作
-│   ├── 消费者 Google 账号：agy -p "..."（需先确认额度；显式派发）
+│   ├── 消费者 Google 账号：agy --model gemini-4-hydrogen-<level> --mode <mode> -p "..."（需先确认额度；显式派发）
 │   ├── Gemini 企业/API Key/Vertex：gemini -p "..."
 │   └── qwen "..." / qwen -m qwen-max "..."
 │       详见 references/antigravity-cli.md / references/gemini-cli.md / references/opencode-qwen-cli.md
 │
 ├── 中等复杂度编码 / 快速迭代
+│   ├── Antigravity（Owner 2026-11-18 默认，显式派发）：
+│   │   cd <wt> && agy --model gemini-4-argon-high --mode auto --output-format stream-json -p "..."
+│   │   日常小单换 gemini-4-hydrogen-<level>；详见 references/antigravity-cli.md「派单选择」
 │   └── cd <wt> && kimi -m kimi-k2.6 -y --skills-dir <your-skills-dir> -p "..."
 │       详见 references/kimi-cli.md
 │
@@ -62,7 +65,7 @@
 │       详见 references/claude-code-cli.md
 │
 ├── 大上下文分析 / 结构化输出
-│   ├── 消费者 Google 账号：agy --model "<agy models 显示名>" -p "..."
+│   ├── 消费者 Google 账号：agy --model <agy models 第一列 id> --output-format stream-json -p "..."
 │   ├── Gemini 非消费者通道：gemini -p "..." --output-format json
 │   ├── Gemini 非消费者通道：gemini -p "..." --output-format stream-json
 │   └── claude --permission-mode auto --print --output-format json
@@ -89,15 +92,15 @@
 | 经济型编码 / 轻分析 | pi | `pi -p`（非交互必须加 `-p`） | `references/pi-cli.md` |
 | DeepSeek 生态显式派发 | deepcode | `deepcode -p` | `references/deepcode-cli.md`（无结构化模型/usage 证据，不自动路由） |
 | 中等复杂度编码 / 快速迭代 | kimi | `--thinking` | `references/kimi-cli.md` |
-| Antigravity 消费者账号 | agy | 显式派发；当前不自动选模 | `references/antigravity-cli.md` |
-| 文档/内容 | agy（消费者）/ gemini（非消费者）/ qwen | agy 显式运行时显示名 / `gemini -p --yolo` / `qwen-max` | `references/antigravity-cli.md` / `references/gemini-cli.md` / `references/opencode-qwen-cli.md` |
+| Antigravity 消费者账号 | agy | 显式派发：代码单 `gemini-4-argon-high`，日常小单 `gemini-4-hydrogen-<level>`（Owner policy 2026-11-18）；一次性单 `-p --output-format stream-json`，要中途审批或多轮用 `agy acp`；不自动选模 | `references/antigravity-cli.md` |
+| 文档/内容 | agy（消费者）/ gemini（非消费者）/ qwen | agy `agy models` 的 id / `gemini -p --yolo` / `qwen-max` | `references/antigravity-cli.md` / `references/gemini-cli.md` / `references/opencode-qwen-cli.md` |
 | 复杂代码（常见默认） | codex | high reasoning | `references/codex-cli.md` |
 | 代码审核 | codex | high reasoning | `references/codex-cli.md` |
 | 新增/高风险 | codex | high reasoning | `references/codex-cli.md` |
 | 调度 / 审查 / 规划 / 复杂推理 | Claude Code | 高阶推理档（thinking=high） | `references/claude-code-cli.md` |
 | 代码编写 / 中等任务 | Claude Code | 中阶档 | `references/claude-code-cli.md` |
 | 轻量 Edit / Read / Grep | Claude Code | 轻量档 | `references/claude-code-cli.md` |
-| 大上下文分析 | agy（消费者）/ gemini（非消费者）/ claude | agy 显式派发 / Gemini JSON 或 stream-json | `references/antigravity-cli.md` / `references/gemini-cli.md` / `references/claude-code-cli.md` |
+| 大上下文分析 | agy（消费者）/ gemini（非消费者）/ claude | agy 显式派发 + stream-json / Gemini JSON 或 stream-json | `references/antigravity-cli.md` / `references/gemini-cli.md` / `references/claude-code-cli.md` |
 | 高隔离沙箱 | agy（消费者）/ gemini（非消费者） | `agy --sandbox --mode plan -p` / `gemini --sandbox -y -p` | `references/antigravity-cli.md` / `references/gemini-cli.md` |
 | headless agent | opencode | `run` / `serve` | `references/opencode-qwen-cli.md` |
 | Qwen 栈 | qwen | `qwen` / `qwen -i` | `references/opencode-qwen-cli.md` |
@@ -106,14 +109,14 @@
 
 ## 推荐组合（部分实证路由）
 
-Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10 smoke 聚合记录，但原始 manifest 未随交接提供，且未覆盖 catalog 中全部型号，因此标记 `partial_coverage`；Pi 的 easy 路由来自 2026-08-04 单模型 JSONL 实测，2026-09-11 起指向 `deepseek-flash`（同日旧 `deepseek-v4-flash` id 下线）。表内推荐只对已覆盖组合有效。Gemini 本轮为 `blocked_auth`；Antigravity 已有额度预检和所选模型下发至后端的 CLI 日志证据，但没有服务端实际模型回显或任务质量评测，仍保持显式派发；Kimi/OpenCode/Qwen 仍是 `pending_benchmark`。不得把部分实证包装成全量完成，Codex/Claude 证据边界见 `reports/benchmark-2026-07-10.md`，Pi 边界见 `references/pi-cli.md`。
+Codex 6 个型号的 35-case 与 Claude 3 个型号的 15-case 来自 2026-07-10 smoke 聚合记录，但原始 manifest 未随交接提供，且未覆盖 catalog 中全部型号，因此标记 `partial_coverage`；Pi 的 easy 路由来自 2026-08-04 单模型 JSONL 实测，2026-09-11 起指向 `deepseek-flash`（同日旧 `deepseek-v4-flash` id 下线）。表内推荐只对已覆盖组合有效。Gemini 本轮为 `blocked_auth`；Antigravity 已有额度预检和所选模型下发至后端的 CLI 日志证据，但没有服务端实际模型回显或任务质量评测，仍保持显式派发（2026-11-18 Owner 定默认：代码 `gemini-4-argon-high`、日常小单 `gemini-4-hydrogen-<level>`，agy 1.5.10 `agy models` 核对）；Kimi/OpenCode/Qwen 仍是 `pending_benchmark`。不得把部分实证包装成全量完成，Codex/Claude 证据边界见 `reports/benchmark-2026-07-10.md`，Pi 边界见 `references/pi-cli.md`。
 
 | 执行器家族 | easy 候选 | medium 候选 | hard 候选 | 状态 |
 |---|---|---|---|---|
 | codex | `gpt-6-luna` @ xhigh（Owner policy；不可用时旧候选 `gpt-5.6-luna` @ low） | `gpt-6-sol` @ high 优先；Sol 不可用时 `gpt-6-luna` @ xhigh；GPT-6 桶都不可用时回退 `gpt-5.6-terra` @ medium | `gpt-6-sol` @ high（Owner policy；不可用时旧候选 `gpt-5.6-sol` @ high） | 旧候选 `partial_coverage`；GPT-6 候选依据 Owner policy，只有模型身份冒烟证据。`gpt-6.1-sol` 自 Codex CLI 0.159.2 起可用（0.158.0 + ChatGPT 账号被拒），Owner 暂不使用，`routing_profile` 为空、不进自动路由，见 `references/codex-cli.md` |
 | claude | `claude-haiku-4-5`（比 opus 便宜约 18 倍；未按 effort 拆分数据） | `claude-sonnet-5` @ medium | *(暂无 hard 档实证推荐，见下方反模式警示)* | `partial_coverage` — 3 个型号有聚合记录，缺全 catalog 覆盖与原始 manifest |
 | pi | `deepseek-flash` @ low | — | — | `smoke_tested` — Pi 0.85.1 结构化回显（2026-09-10，thinking=high）+ provider 元数据声明 low/high/max；easy 自动路由只走已验证的 low。旧 `deepseek-v4-flash` id 已于 2026-09-11 下线（请求路由到 `deepseek-flash`），不再参与自动路由 |
-| agy | — | — | — | `availability_discovered`（账号级显示名、零消耗额度预检及选中模型下发到后端的 CLI 日志有记录；JSON 无服务端实际模型回显，任务质量未测，禁止自动路由） |
+| agy | 显式：`gemini-4-hydrogen-<level>` | 显式：`gemini-4-argon-high` | 显式：`gemini-4-argon-high` | `availability_discovered`（2026-11-18 agy 1.5.10：Gemini 4 Argon low/medium/high、Hydrogen low/medium/high/xhigh 已列出，Carbon 消费者 OAuth 未列；Owner policy 显式默认，非实测路由。账号级显示名、零消耗额度预检及选中模型下发到后端的 CLI 日志有记录；JSON 无服务端实际模型回显，任务质量未测，禁止自动路由） |
 | gemini | gemini-2.5-flash-lite | gemini-2.5-flash | gemini-2.5-pro / gemini-3.1-pro-preview | `blocked_auth`（2026-07-10 实测：消费者 OAuth 浏览器回调成功后被服务端以弃用策略拒绝；Standard/Enterprise、API Key、Vertex AI 仍是受支持的独立通道，本轮未测） |
 | kimi | kimi-k2.6（默认档） | kimi-k2.6 --thinking | kimi-k2.6 --thinking（更长上下文/更多轮次） | `pending_benchmark`（未测） |
 | opencode / qwen | 默认模型 | qwen-max 或等效中阶模型 | 项目已配置的最强可用模型 | `pending_benchmark`（未测）；⚠️ 实测本机 opencode 默认模型可能是弱模型（曾见 qwen3-27b），派发前先确认其实际模型配置，客户明确否决弱模型时不得使用 |

@@ -6,9 +6,9 @@ updated_at: "2026-11-18"
 skill:
   name: soia-dev-agent-cli-dispatch
   display_name: "Dev Agent CLI Dispatch"
-  version: "2.7.0"
-  purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，并回传模型、用量与成本证据。"
-  triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发]
+  version: "2.7.1"
+  purpose: "将编码、审查、分析、研究、文档和内容任务派发给外部 AI CLI，支持同一 CLI 多账号槽位与各账号额度查看，并回传模型、用量与成本证据。"
+  triggers: [派活给外部 AI, 调用 DeepCode/Pi/agy, 多 CLI 派发, 多账号/切换账号, 看 agy 账号额度]
 usage:
   prerequisites: [目标工作目录, 已安装的目标 CLI, provider 自己的登录态, 本次实时额度预检报告]
   auto_route:

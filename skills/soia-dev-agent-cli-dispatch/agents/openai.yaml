@@ -1,4 +1,4 @@
 interface:
   display_name: "Dev Agent CLI Dispatch"
-  short_description: "Host-agnostic external AI model/CLI dispatch for coding, review, analysis, research, documentation, and content tasks, with explicit or automatic model/reasoning selection, Token/cost receipts, model-integrity checks, quota precheck, and resumable runs."
+  short_description: "Host-agnostic external AI model/CLI dispatch for coding, review, analysis, research, documentation, and content tasks, with explicit or automatic model/reasoning selection, Token/cost receipts, model-integrity checks, quota precheck, multi-account slots per CLI with login detection and per-account plan/remaining-quota view (agy), and resumable runs."
   default_prompt: "Use soia-dev-agent-cli-dispatch to send this task to an external AI agent/CLI (any executor listed in references/supported-agents.yml), keeping Antigravity consumer auth separate from Gemini enterprise/API-key/Vertex lanes, honoring explicit model/reasoning choices or verified auto-routing, then report requested vs actual model, detailed Token usage, API-equivalent cost, validation evidence, and recovery state."

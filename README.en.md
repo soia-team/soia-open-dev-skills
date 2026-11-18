@@ -55,7 +55,7 @@ flowchart LR
 
 | Skill | Responsibility | Ready |
 |---|---|:-:|
-| [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | External AI CLI dispatch and model routing, with controlled hand-off and usage receipts | 🟡 |
+| [`soia-dev-agent-cli-dispatch`](https://github.com/soia-team/soia-open-skills/blob/main/docs/skills/soia-dev-agent-cli-dispatch.md) | External AI CLI dispatch and model routing, multi-account slots with per-account quota view, controlled hand-off and usage receipts | 🟡 |
 
 ### 04 Understanding code changes　`AI-generated code → architecture, data flow and evidence views`
 
